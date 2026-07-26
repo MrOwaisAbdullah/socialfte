@@ -1,0 +1,43 @@
+<!--
+  Transactional email template (Resend). Table-based layout = the only reliable
+  cross-client approach. Replace {{...}} tokens. Pair with a shared logo partial.
+  Inline all styles (email clients strip <style> blocks).
+-->
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#1e293b;background:#ffffff">
+
+  <!-- Brand header (replace with your shared logo partial) -->
+  <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px">
+    <tr>
+      <td style="vertical-align:middle">
+        <span style="font-size:17px;font-weight:700;letter-spacing:-0.02em;color:#0C0A09">{{brandName}}</span>
+      </td>
+    </tr>
+  </table>
+
+  <h1 style="font-size:20px;font-weight:700;margin:0 0 12px;color:#0f172a">{{heading}}</h1>
+
+  <p style="font-size:15px;line-height:1.7;margin:0 0 24px;color:#334155">{{body}}</p>
+
+  <!-- Primary CTA (bulletproof button) -->
+  <table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px">
+    <tr>
+      <td style="border-radius:8px;background:#0EA5E9">
+        <a href="{{ctaUrl}}"
+           style="display:inline-block;padding:12px 22px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px">
+          {{ctaLabel}}
+        </a>
+      </td>
+    </tr>
+  </table>
+
+  <p style="font-size:13px;color:#94a3b8;margin:0;line-height:1.6">
+    If the button doesn't work, copy this link:<br>
+    <a href="{{ctaUrl}}" style="color:#0EA5E9;word-break:break-all">{{ctaUrl}}</a>
+  </p>
+
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:28px 0">
+
+  <p style="font-size:12px;color:#94a3b8;margin:0;line-height:1.5">
+    You can reply directly to this email and we'll get back to you.
+  </p>
+</div>

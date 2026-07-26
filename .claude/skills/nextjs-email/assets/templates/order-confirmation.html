@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Confirmation #{{params.order_id}}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f4f4f4;">
+  <table cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4;">
+    <tr>
+      <td align="center" style="padding: 40px 0;">
+        <!-- Main Container -->
+        <table cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #BE3B43; padding: 30px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px;">Order Confirmed!</h1>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #333333;">
+                Thank you for your order, <strong>{{params.customer_name}}</strong>!
+              </p>
+              <p style="margin: 0 0 30px; font-size: 16px; line-height: 1.6; color: #333333;">
+                We're pleased to confirm that we've received your order. Here are the details:
+              </p>
+
+              <!-- Order Details Box -->
+              <table cellpadding="0" cellspacing="0" width="100%" style="background-color: #f9f9f9; border-radius: 4px; margin-bottom: 30px;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="margin: 0 0 10px; font-size: 14px; color: #666666;">Order Number</p>
+                    <p style="margin: 0 0 20px; font-size: 18px; font-weight: bold; color: #333333;">#{{params.order_id}}</p>
+
+                    <p style="margin: 0 0 10px; font-size: 14px; color: #666666;">Order Date</p>
+                    <p style="margin: 0 0 20px; font-size: 16px; color: #333333;">{{params.order_date}}</p>
+
+                    <p style="margin: 0 0 10px; font-size: 14px; color: #666666;">Total</p>
+                    <p style="margin: 0; font-size: 24px; font-weight: bold; color: #BE3B43;">{{params.total}}</p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Shipping Address -->
+              <p style="margin: 0 0 10px; font-size: 14px; font-weight: bold; color: #333333;">Shipping Address:</p>
+              <p style="margin: 0 0 30px; font-size: 14px; color: #666666;">
+                {{params.shipping_address}}<br>
+                {{params.city}}, {{params.state}} {{params.zip_code}}
+              </p>
+
+              <!-- Track Order Button -->
+              <table cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center" style="padding: 20px 0;">
+                    <a href="{{params.tracking_url}}" style="display: inline-block; padding: 14px 32px; background-color: #BE3B43; color: #ffffff; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 16px;">Track Your Order</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f9f9f9; padding: 20px; text-align: center; border-top: 1px solid #eeeeee;">
+              <p style="margin: 0; font-size: 12px; color: #999999;">
+                Questions? Contact our <a href="mailto:{{params.support_email}}" style="color: #BE3B43; text-decoration: underline;">support team</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
