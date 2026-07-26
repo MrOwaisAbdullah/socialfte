@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="288" height="212" viewBox="0 0 288 212" role="img" aria-label="Yousuf Living">
+  <title>Yousuf Living</title>
+  <rect width="288" height="212" fill="#FFFFFF"/>
+  <g transform="translate(95 44)" fill="none" stroke="#16352A" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 52 L22 38 C22 30 30 26 40 26 L70 26 C80 26 88 30 88 38 L88 52"/>
+    <path d="M40 31 L40 49"/>
+    <path d="M55 31 L55 49"/>
+    <path d="M70 31 L70 49"/>
+    <path d="M14 52 L96 52 C99 52 100 54 100 57 L100 62 L10 62 L10 57 C10 54 11 52 14 52 Z"/>
+    <path d="M16 62 L16 70"/>
+    <path d="M94 62 L94 70"/>
+  </g>
+  <text x="144" y="146" text-anchor="middle" font-family="Archivo, 'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="21" letter-spacing="-0.3" fill="#16352A">YOUSUF</text>
+  <text x="144" y="163" text-anchor="middle" font-family="Archivo, 'Helvetica Neue', Arial, sans-serif" font-weight="600" font-size="11" letter-spacing="9" fill="#C9A24B">LIVING</text>
+</svg>
