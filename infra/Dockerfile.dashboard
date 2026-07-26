@@ -1,0 +1,58 @@
+# SocialFTE dashboard — Week 2, Story 7 (FR-017).
+# Multi-stage, standalone-output pattern (vps-dokploy-nextjs skill,
+# dockerfile-patterns.md) — battle-tested against this exact Dokploy/Traefik
+# deployment shape. Build from the repo root: docker build -f infra/Dockerfile.dashboard .
+
+# ── deps ─────────────────────────────────────────────────────────────────
+FROM node:20-slim AS deps
+WORKDIR /app
+# Puppeteer must not download its own Chromium — the runner stage installs a
+# real one via apt (research.md Decision 5/9).
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
+COPY apps/dashboard/package.json apps/dashboard/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+# ── builder ──────────────────────────────────────────────────────────────
+FROM node:20-slim AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY apps/dashboard/ .
+
+# DOCKER_BUILD=1 -> next.config.ts emits output: 'standalone' (pitfall P1:
+# without this, or without the runner's three COPY lines below, the
+# container starts and immediately crashes with "Cannot find module").
+ENV NODE_ENV=production DOCKER_BUILD=1
+RUN npm run build
+
+# ── runner ───────────────────────────────────────────────────────────────
+FROM node:20-slim AS runner
+WORKDIR /app
+
+# Chromium via apt — the only correct way to get a headless browser in a
+# Linux container without a ~170MB Puppeteer-bundled download.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends chromium \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system --gid 1001 nodejs \
+ && useradd --system --uid 1001 --gid nodejs nextjs
+
+ENV NODE_ENV=production
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# HOSTNAME=0.0.0.0: node server.js defaults to 127.0.0.1, which Traefik
+# cannot reach across the Docker network (pitfall P11).
+ENV PORT=3000 HOSTNAME=0.0.0.0
+
+# The three standalone artifacts (pitfall P1 — all three are required).
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# puppeteer is excluded from standalone tracing (next.config.ts
+# serverExternalPackages) — copy it explicitly, same reasoning as the
+# skill's ONNX-native-module pitfall (P5).
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/puppeteer ./node_modules/puppeteer
+
+USER nextjs
+EXPOSE 3000
+CMD ["node", "server.js"]

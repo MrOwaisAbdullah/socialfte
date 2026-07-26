@@ -1,0 +1,36 @@
+# SocialFTE dashboard — Week 2, Story 8 (FR-018).
+# Adds ONLY the yl-dashboard service to the existing Dokploy project
+# (docs/socialfte-spec-v2.md §8). Does not reference, modify, or restart the
+# Octively service already running on this host.
+#
+# All secrets come from Dokploy's own environment configuration (or a
+# .env file the operator supplies at deploy time) — see
+# specs/002-week2-dashboard-render/contracts/env-vars.md for the complete
+# list. No secret value is written into this file (FR-019).
+
+services:
+  yl-dashboard:
+    build:
+      context: ../
+      dockerfile: infra/Dockerfile.dashboard
+    image: yl-dashboard:latest
+    restart: unless-stopped
+    # No published host port — Dokploy/Traefik routes to this service by
+    # domain (social.yousufliving.com) over the internal Docker network,
+    # matching the existing project's convention (vps-dokploy-nextjs skill:
+    # never expose the app port directly on the host).
+    expose:
+      - "3000"
+    env_file:
+      - .env
+    # docs/socialfte-spec-v2.md §8 only states an explicit limit for
+    # yl-worker (1G hard); no figure is given for the dashboard. 1g matches
+    # that same discipline (never let one service starve Octively on the
+    # shared host) — revisit once real Puppeteer render load is observed.
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

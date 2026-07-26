@@ -1,0 +1,22 @@
+# Keep the Docker build context lean (infra/Dockerfile.dashboard builds from
+# the repo root — vps-dokploy-nextjs skill, dockerfile-patterns.md). Excluding
+# .env* also keeps secrets out of the build context even by accident.
+node_modules
+**/node_modules
+.next
+**/.next
+.env
+.env.*
+.env.local
+.git
+.github
+.claude
+docs
+history
+specs
+carousel-routine
+packages/remotion
+media
+tools
+venv
+*.tsbuildinfo

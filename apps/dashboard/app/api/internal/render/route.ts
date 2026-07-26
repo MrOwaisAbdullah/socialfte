@@ -1,0 +1,84 @@
+import { randomUUID } from 'crypto';
+import puppeteer from 'puppeteer';
+import { NextRequest, NextResponse } from 'next/server';
+import { TEMPLATE_REGISTRY, validateTemplateProps } from '@/components/templates/registry';
+import { resolveAspect, type Aspect } from '@/components/templates/aspect';
+import { uploadBuffer, getPublicUrl } from '@/lib/r2';
+
+// Puppeteer needs the Node.js runtime — the Edge runtime cannot launch a
+// browser (research.md Decision 4).
+export const runtime = 'nodejs';
+
+export async function POST(request: NextRequest) {
+  // 1. Auth — checked before any other work (FR-013).
+  const secret = request.headers.get('x-render-secret');
+  if (!secret || secret !== process.env.RENDER_INTERNAL_SECRET) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  const body = await request.json();
+  const { templateId, props, aspect, brand } = body as {
+    templateId?: string;
+    props?: Record<string, unknown>;
+    aspect?: Aspect;
+    brand?: unknown;
+  };
+
+  // 2. Validate templateId + props (FR-014) — reject before rendering.
+  if (!templateId || !TEMPLATE_REGISTRY[templateId]) {
+    return NextResponse.json({ error: `unknown templateId: ${templateId}` }, { status: 400 });
+  }
+  const missing = validateTemplateProps(templateId, props ?? {});
+  if (missing.length > 0) {
+    return NextResponse.json({ error: `missing required props: ${missing.join(', ')}` }, { status: 400 });
+  }
+  if (!brand) {
+    return NextResponse.json({ error: 'missing brand' }, { status: 400 });
+  }
+
+  const { width, height } = resolveAspect(aspect);
+  const previewUrl = new URL('/render-preview', request.url);
+  previewUrl.searchParams.set('templateId', templateId);
+  previewUrl.searchParams.set('props', JSON.stringify(props));
+  previewUrl.searchParams.set('aspect', aspect ?? 'square');
+  previewUrl.searchParams.set('brand', JSON.stringify(brand));
+
+  // 3. Render — adapted from carousel-routine reference scripts (research.md
+  // Decision 9). Launch args: --no-sandbox/--disable-setuid-sandbox for
+  // container/root; --disable-web-security for cross-origin asset images;
+  // --font-render-hinting=none for consistent glyph rendering;
+  // --disable-gpu for headless stability. Font-ready wait prevents the
+  // system-font fallback bug. Explicit clip prevents viewport-only captures.
+  // In Docker, PUPPETEER_EXECUTABLE_PATH is set via docker-compose env to
+  // /usr/bin/chromium (apt-installed). Locally, Puppeteer uses its own
+  // bundled Chromium — no env var needed in .env.local.
+  const browser = await puppeteer.launch({
+    headless: 'shell',
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-web-security',
+      '--font-render-hinting=none',
+      '--disable-gpu',
+    ],
+    protocolTimeout: 180_000,
+  });
+  try {
+    const page = await browser.newPage();
+    page.setDefaultNavigationTimeout(60_000);
+    await page.setViewport({ width, height, deviceScaleFactor: 1 });
+    await page.goto(previewUrl.toString(), { waitUntil: 'networkidle0' });
+    await page.evaluate(() => document.fonts.ready);
+    const screenshot = await page.screenshot({
+      type: 'png',
+      clip: { x: 0, y: 0, width, height },
+    });
+
+    // 4. Store + return.
+    const key = `renders/${randomUUID()}.png`;
+    await uploadBuffer(key, Buffer.from(screenshot), 'image/png');
+    return NextResponse.json({ url: getPublicUrl(key) });
+  } finally {
+    await browser.close();
+  }
+}

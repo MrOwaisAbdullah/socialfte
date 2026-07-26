@@ -1,148 +1,358 @@
-# claude-youtube-editor
+# SocialFTE
 
-**Record the talking head. [Claude Code](https://claude.com/claude-code) does the rest.**
+Social media automation for Pakistani furniture brands. Drafts posts, renders visuals, waits for human approval, then publishes.
 
-An open-source pipeline that takes a raw recording all the way to a published YouTube video — the
-cut, the visuals, the voice, the sound effects, the thumbnail, and the upload. No video editor. No
-screen recording. Every screen moment you see is built as code ([Remotion](https://remotion.dev) TSX)
-and composited over your cut.
+**Founding client:** Yousuf Living (Karachi)  
+**Version:** 0.1.0  
+**License:** MIT  
+**Author:** Owais Abdullah
 
-> 📺 **Watch it edit a real video, end to end:** [<!-- VIDEO_URL -->](#)
-> That video was made with this repo. The animations, the screencasts, the sound effects, and the
-> thumbnail you clicked — all of it.
+---
 
-## The six steps
+## What it does
 
-| # | Step | Skill | What happens |
-|---|---|---|---|
-| 1 | **The cut** | `/clean-cut` | AssemblyAI transcribes with tone + talking style, you author `cuts.json` from the transcript, out comes a clean master + word-level `edited-transcript.json` |
-| 2 | **The visuals** | `/make-tsx` · `/fake-screencast` | Remotion shots built over the master, every reveal synced to the word times. Generated UI clones that simulate a screen recording — nothing captured |
-| 3 | **The voice** | `/clean-audio` | diagnose the noise, isolate the voice, keep the levels |
-| 4 | **The sound** | `/suggest-sfx` | function-first SFX landing on the exact word, from a library that grows with every video |
-| 5 | **The packaging** | `/packaging` | one title × 3 thumbnail bets for YouTube's A/B test, rendered as real images |
-| 6 | **The upload** | `tools/yt_upload.py` | checks itself for ghost speech + A/V drift, then uploads as a private draft |
+SocialFTE runs the social media accounts for a furniture brand. It:
 
-Plus **`/brand-setup`** — makes all of it look like *your* channel, not the one it came from.
-And **`/vidtsx-2d-generator`** — the low-level rules that keep a Remotion shot from crashing.
+1. **Drafts** captions in the brand's voice (no AI-sounding copy, no em dashes, real prices upfront)
+2. **Renders** product visuals using six template layouts (hero, price-card, set-breakdown, quote, before-after, carousel)
+3. **Screenshots** the rendered template via Puppeteer and uploads to Cloudflare R2
+4. **Waits** for human approval before doing anything
+5. **Publishes** to Facebook, Instagram, YouTube Shorts, and TikTok
+6. **Logs** every action to an audit trail
 
-## What you record vs what it builds
+It never posts without explicit human approval. No exceptions.
 
-**You record:** yourself, talking. That's the whole shot list.
+## Supported platforms
 
-**It builds:** every full-screen statement, diagram, UI walkthrough, browser and terminal mockup,
-title card, and transition — as code, over your cut, synced to what you actually said.
+| Platform | Status |
+|---|---|
+| Facebook | Active |
+| Instagram | Active |
+| YouTube Shorts | Active |
+| TikTok | Draft-only (pending audit) |
 
-## Quickstart
+## Notification channels
 
-**Requirements:** [Claude Code](https://claude.com/claude-code) · Python 3.10+ · Node 18+ ·
-`ffmpeg` + `ffprobe` on PATH.
+| Channel | Status |
+|---|---|
+| Discord | Active |
+| WhatsApp | Available |
+| Telegram | Available (off by default, VPN required in Pakistan) |
 
-```bash
-git clone https://github.com/hassancs91/claude-youtube-editor
-cd claude-youtube-editor
+---
 
-python -m venv venv
-venv/Scripts/python -m pip install -r requirements.txt   # Windows (./venv/bin/pip on macOS/Linux)
-
-cd remotion && npm install && npm run gen && cd ..       # build the Remotion registry
-
-cp .env.example .env                                     # add your keys
-
-claude                                                   # open in Claude Code, then:
-```
-
-> **set up my brand** · **clean cut videos/video-1** · **add TSX beats to video-1** ·
-> **suggest sfx for video-1** · **package this video**
-
-## See it before you shoot anything
-
-The repo ships **37 real shots** from a published video — the worked example of the kit. They render
-standalone, no footage needed:
-
-```bash
-cd remotion && npm run studio
-```
-
-That's the fastest way to see what this produces, and reading a few is the fastest way to learn
-`remotion/src/lib/` (the browser frame, the screencast engine, the VS Code shell, the motion kit).
-
-## Make it yours
-
-The repo ships with a house brand — a calm, premium indigo look. It's real and you can keep it, but
-**if you change nothing, your videos will look like someone else's channel.**
+## Architecture
 
 ```
-/brand-setup
+┌─────────────────────────────────────────────────────┐
+│                    SocialFTE                         │
+├──────────────────┬──────────────────────────────────┤
+│  Dashboard       │  Worker (Python)                 │
+│  Next.js 16      │  OpenAI Agents SDK               │
+│  Templates       │  LiteLLM model router            │
+│  Render pipeline │  Platform publishers             │
+│  Session auth    │  Media tools (ffmpeg, whisper)   │
+├──────────────────┴──────────────────────────────────┤
+│  Neon Postgres + pgvector  │  Cloudflare R2         │
+│  Upstash Redis             │  OpenRouter (LLM)      │
+└─────────────────────────────────────────────────────┘
 ```
 
-It interviews you, rewrites `brand.md` + `remotion/src/brand.ts` + `remotion/src/fonts.ts` together,
-checks your fonts exist and your palette is actually readable, and renders a proof card so you see
-your brand before you build a video in it.
+### Repo structure
 
-## What it costs (the honest part)
+```
+apps/
+  dashboard/          # Next.js 16 app — templates, render pipeline, dashboard UI
+  worker/             # Python — agent framework, publishers, DB models
+packages/
+  remotion/           # Remotion video compositions (brand proof, shots)
+infra/
+  Dockerfile.dashboard
+  docker-compose.yml
+  .github/workflows/deploy.yml
+tools/                # Python media tools (cut, mix, format, render)
+media/library/        # SFX, music, logos
+specs/                # Design specs, research, contracts
+```
 
-**This project is free and open source. The models are not.** You'll need:
+### Database schema (6 tables)
 
-| Service | For | Notes |
+| Table | Purpose |
+|---|---|
+| `templates` | The six named post layouts |
+| `assets` | Reusable media, tagged by vision agent |
+| `posts` | Every draft, render, approval, and publish event |
+| `metrics` | Post-performance data |
+| `audit_log` | Every action the system takes |
+| `credentials` | Platform OAuth tokens (encrypted) |
+
+Uses pgvector for caption anti-repeat (cosine similarity on 1536-dim embeddings).
+
+---
+
+## The six templates
+
+| Template | What it shows |
+|---|---|
+| `hero` | Full room render with price overlay and WhatsApp CTA |
+| `price-card` | "Ye kitne ka hoga?" price reveal |
+| `set-breakdown` | 5-piece bedroom set, individual + bundle pricing |
+| `quote` | Fabric/detail close-up with quality messaging |
+| `before-after` | Workshop process or room transformation |
+| `carousel-slide` | Multi-image carousel post |
+
+Each template renders at three aspects: `square` (1080x1080), `feed` (1080x1350), `reel` (1080x1920).
+
+---
+
+## Content workflow
+
+```
+draft → render → review → approved → publish
+  │        │        │         │          │
+  │        │        │         │          └─ Posts to platform, logs external_id
+  │        │        │         └─ Human said yes, queued for next publish run
+  │        │        └─ Human-approval card sent, waiting on decision
+  │        └─ Puppeteer screenshot + R2 upload, URL attached to draft
+  └─ Caption composed, template picked, brand tokens applied
+```
+
+**Anti-repeat rules** (checked before reaching review):
+- No template repeat within 4 posts
+- No asset repeat within 10 posts
+- No caption >0.85 cosine similarity within 30 posts
+
+**Token refresh:** never publishes with <7 days until credential expiry.
+
+---
+
+## Tech stack
+
+| Layer | Tech | Cost |
 |---|---|---|
-| **Claude Code** | driving the whole thing | paid plan or API credits |
-| **AssemblyAI** | transcription (step 1) | free tier is enough to try it |
-| **ElevenLabs** | voice isolation + SFX + music (steps 3–4) | paid. `/clean-audio` also has a **local RNNoise** method that needs no key |
-| **Gemini** | thumbnails (step 5) | paid, and only if you render thumbnails |
-| **YouTube** | upload (step 6) | free, OAuth — see `tools/yt_upload_SETUP.md` |
+| Dashboard | Next.js 16, React 19, Tailwind 3, TypeScript | Free |
+| DB | Neon Postgres + pgvector, Drizzle ORM | Free tier |
+| Storage | Cloudflare R2 (S3-compatible) | Free tier, 10 GB, zero egress |
+| Cache | Upstash Redis | Free tier |
+| Render | Puppeteer (screenshots) | Free |
+| Video | Remotion on GitHub Actions | Free (≤3 employees) |
+| Worker | Python 3.12, OpenAI Agents SDK | Free |
+| LLM | OpenRouter (DeepSeek V4 Flash + Gemini 2.5 Flash) | ~$1-2/mo at 200 posts |
+| Media | ffmpeg, faster-whisper, RNNoise | Free |
+| Infra | Dokploy on Hetzner VPS, Cloudflare | Already paid |
+| **Total** | | **Under $5/client/month** |
 
-Nothing here is a subscription to me. These are your own keys, in your own `.env`.
+### LLM routing
 
-## Roadmap
+| Job | Model | Cost per 1M tokens |
+|---|---|---|
+| Caption writing, hashtags | DeepSeek V4 Flash | $0.09 |
+| Weekly digest, planning | DeepSeek V4 Flash | $0.09 |
+| Hero post, brand-voice audit | DeepSeek V4 Pro | $0.435 |
+| Vision (asset tagging, quality gate) | Gemini 2.5 Flash | ~$0.075 |
+| Embeddings (anti-repeat) | OpenAI text-embedding-3-small | $0.02 |
+| Dev / testing | DeepSeek V4 Flash (free) | $0 |
 
-Open source, and I'm keeping it updated:
+Why OpenRouter: one key instead of four, automatic fallback, prompt caching (60-80% cost cut on repeated context).
 
-- [ ] **Transitions** — a proper transition library between beats
-- [ ] **Effects** — zoom/punch-in, highlight, spotlight passes
-- [ ] **Filters** — grade/look presets that respect the brand contract
-- [ ] A cuts.json time-remapper (so `edited-transcript.json` doesn't need a second transcription pass)
+---
 
-⭐ **Star the repo** if you want to see where it goes — that's genuinely how I decide what to build next.
-Issues and PRs welcome. Tell me which step you want to go deep on.
+## Getting started
 
-## What's NOT in here
+### Prerequisites
 
-Being straight with you about the scope:
+- Node.js 22+
+- Python 3.12+
+- Neon Postgres database
+- Cloudflare R2 bucket
+- OpenRouter API key
 
-- **No script writer.** This edits video; it doesn't write it.
-- **No footage.** The example's shots ship, its raw recording doesn't (`videos/` starts empty).
-- **No face kit.** Thumbnails need reference photos of *your* face in `media/library/faces/` — you
-  supply those. See that folder's README.
-- **No CTR data.** `/packaging`'s rules ship, calibrated on a real channel's numbers; the numbers
-  themselves don't. Once you have ~10 videos, `references/channel-calibration.md` walks you through
-  building your own — and then your data beats the defaults.
+### 1. Clone and install
 
-## Repo layout
+```bash
+git clone https://github.com/yourusername/SocialFTE.git
+cd SocialFTE
 
+# Dashboard
+cd apps/dashboard
+npm install
+
+# Worker
+cd ../worker
+python -m venv venv
+pip install -r ../../requirements.txt
 ```
-.claude/skills/   the 8 skills (this is where the editor actually lives)
-tools/            Python: transcribe, cutlib, render_cuts, verify_cut, clean_voice, bake,
-                  gen_sfx/mix_sfx, gen_music/mix_music, gen_thumbnail, yt_stats, yt_upload,
-                  capture_web + the cut-editor UI (editor/) + rnnoise models
-remotion/         the Remotion project — shared kits in src/lib/, src/shots/<project>/ one folder
-                  per video; registry generated by `npm run gen`
-media/library/    reusable assets: SFX + music clips (catalogued, loudness-normalized), logos, faces
-media/projects/   media for one specific video — via staticFile()
-videos/           your videos. Empty until you make one.
-brand.md          the style contract — make it yours
+
+### 2. Set up environment
+
+Copy `.env.example` to `.env.local` in `apps/dashboard/` and fill in:
+
+```bash
+# Database
+DATABASE_URL=postgresql://...
+
+# R2 Storage
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET=yl-social
+R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+R2_PUBLIC_URL=https://media.yousufliving.com
+
+# Rendering
+RENDER_INTERNAL_SECRET=<random>
+SESSION_SECRET=<openssl rand -hex 32>
 ```
 
-## Who made this
+### 3. Apply database schema
 
-I'm Hasan. I build things with AI and show how on
-[YouTube](https://youtube.com/@learnwithhasan) — this repo is how those videos get made.
+```bash
+cd apps/dashboard
+$env:DATABASE_URL = "postgresql://..."  # PowerShell
+npx drizzle-kit push
+```
 
-If you want to learn to build things like this yourself, that's what my course
-[Build With AI](https://learnwithhasan.com/courses/build-with-ai-10/) is for. It's not required for
-any of this — the repo is complete on its own, and always will be.
+This creates the 6 tables, pgvector extension, and 4 indexes.
+
+### 4. Run
+
+```bash
+# Dashboard
+cd apps/dashboard
+npm run dev
+
+# Worker (separate terminal)
+cd apps/worker
+python -m venv venv
+venv\Scripts\activate
+uvicorn main:app --reload
+```
+
+Dashboard runs at `http://localhost:3000`.
+
+---
+
+## Deployment
+
+GitHub Actions builds the Docker image and pushes to GHCR. Dokploy pulls and runs it on the VPS.
+
+```bash
+# Push to master triggers CI/CD
+git push origin master
+```
+
+### GitHub secrets required
+
+| Secret | Source |
+|---|---|
+| `DOKPLOY_URL` | Your Dokploy panel URL |
+| `DOKPLOY_API_KEY` | Dokploy → API keys |
+| `DOKPLOY_APP_ID` | Application detail page in Dokploy |
+
+### Docker
+
+```bash
+# Build (in CI, not locally)
+docker build -f infra/Dockerfile.dashboard -t socialfte-dashboard .
+
+# The container installs Chromium via apt for Puppeteer
+# Standalone output, HOSTNAME=0.0.0.0, port 3000
+```
+
+---
+
+## Relevant skills
+
+These opencode skills were used during development and are relevant for future work:
+
+| Skill | Use case |
+|---|---|
+| `vps-dokploy-nextjs` | VPS deployment, Dockerfile patterns, GitHub Actions, Cloudflare SSL |
+| `frontend-designer` | Template component design, brand token application |
+| `betterauth-nextjs` | Session auth patterns (used for reference, implemented custom) |
+| `rag-pipeline-builder` | pgvector embedding patterns for anti-repeat |
+| `building-nextjs-apps` | Next.js 16 App Router patterns, route groups |
+
+---
+
+## Environment variables
+
+See `specs/002-week2-dashboard-render/contracts/env-vars.md` for the full list.
+
+**Dashboard (Week 2):**
+
+```bash
+NODE_ENV=production
+APP_URL=https://social.yousufliving.com
+SESSION_SECRET=
+DATABASE_URL=
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET=
+R2_ENDPOINT=
+R2_PUBLIC_URL=
+RENDER_INTERNAL_SECRET=
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
+PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+```
+
+**Worker (Week 3+):**
+
+```bash
+OPENROUTER_API_KEY=
+REDIS_URL=
+META_ACCESS_TOKEN=
+YOUTUBE_*=
+TIKTOK_*=
+DISCORD_BOT_TOKEN=
+```
+
+---
+
+## Brand: Yousuf Living
+
+Karachi-based furniture brand. Upholstered bedroom sets, made to order, sold direct from workshop.
+
+**Voice:** Direct. Warm. Confident.  
+**Tagline:** Workshop Price. Showroom Quality.  
+**Pricing:** From Rs 190,000 for a complete 5-piece bedroom set.
+
+### Visual identity
+
+| Token | Value |
+|---|---|
+| Primary | Forest Green `#1B4332` |
+| Accent | Warm Gold `#C9A227` |
+| Light | Cream `#F5F0E8` |
+| Dark | Deep Charcoal `#1A1A1A` |
+| Heading font | Instrument Serif |
+| Body font | Archivo |
+
+---
+
+## Week 2 progress
+
+All 42 tasks complete. Verified:
+
+- [x] Schema applied to Neon (6 tables, pgvector, 4 indexes)
+- [x] Dashboard build succeeds
+- [x] Render round-trip (Puppeteer → R2 → public URL)
+- [x] Python models import clean
+- [x] Dockerfile written and reviewed
+- [x] GitHub Actions workflow created
+- [x] Single commit: `week2: schema, dashboard, templates, render route`
+
+Pending (environment-limited):
+- [ ] Docker build (no Docker locally, CI handles it)
+- [ ] Container smoke test (happens on VPS via Dokploy)
+
+---
+
+## Contributing
+
+This is a single-operator project. Not accepting external contributions at this time.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Bundled SFX/music clips were generated by the repo author (ElevenLabs)
-and are redistributed here; per-clip provenance is in `media/library/*/catalog.json`. Product logos
-(Claude, VS Code) are the property of their respective owners.
+MIT License. Copyright (c) 2026 Owais Abdullah.
