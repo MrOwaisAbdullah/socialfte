@@ -1,0 +1,197 @@
+"""Tests for Meta publisher — Week 3, Step 4.
+
+Verifies the image container → publish two-step flow for Instagram.
+"""
+import pytest
+from unittest.mock import AsyncMock, patch, MagicMock
+import httpx
+
+
+@pytest.fixture(autouse=True)
+def mock_deps():
+    """Mock all dependencies for meta publisher tests."""
+    with patch("publishers.meta.SessionLocal") as mock_session, \
+         patch("publishers.meta._get_page_token") as mock_get_token:
+        
+        # Setup mock session
+        mock_session_instance = AsyncMock()
+        mock_session.return_value.__aenter__ = AsyncMock(return_value=mock_session_instance)
+        mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
+        
+        # Setup mock token
+        mock_get_token.return_value = "test_page_token"
+        
+        yield {
+            "session": mock_session_instance,
+            "get_token": mock_get_token,
+        }
+
+
+@pytest.mark.asyncio
+async def test_post_ig_image_two_step_flow(mock_deps):
+    """Instagram image posting should use the two-step container → publish flow."""
+    from publishers.meta import post_ig_image
+    
+    # Mock the container creation response
+    mock_container_response = MagicMock()
+    mock_container_response.status_code = 200
+    mock_container_response.json.return_value = {"id": "container_123"}
+    mock_container_response.raise_for_status = MagicMock()
+    
+    # Mock the status check response
+    mock_status_response = MagicMock()
+    mock_status_response.status_code = 200
+    mock_status_response.json.return_value = {"status_code": "FINISHED"}
+    mock_status_response.raise_for_status = MagicMock()
+    
+    # Mock the publish response
+    mock_publish_response = MagicMock()
+    mock_publish_response.status_code = 200
+    mock_publish_response.json.return_value = {"id": "ig_media_456"}
+    mock_publish_response.raise_for_status = MagicMock()
+    
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, \
+         patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        
+        # Setup post mock to return different responses based on call
+        mock_post.side_effect = [
+            mock_container_response,  # Step 1: Create container
+            mock_publish_response,    # Step 3: Publish container
+        ]
+        
+        # Setup get mock for status check
+        mock_get.return_value = mock_status_response
+        
+        # Run the function
+        result = await post_ig_image(
+            ig_user_id="ig_user_123",
+            image_url="https://media.yousufliving.com/image.jpg",
+            caption="Test caption for Instagram",
+        )
+        
+        # Verify the result
+        assert result == "ig_media_456"
+        
+        # Verify the two-step flow was called correctly
+        assert mock_post.call_count == 2
+        
+        # First call: Create container
+        first_call = mock_post.call_args_list[0]
+        assert "ig_user_123/media" in first_call[0][0]
+        assert first_call[1]["data"]["image_url"] == "https://media.yousufliving.com/image.jpg"
+        assert first_call[1]["data"]["caption"] == "Test caption for Instagram"
+        
+        # Second call: Publish container
+        second_call = mock_post.call_args_list[1]
+        assert "ig_user_123/media_publish" in second_call[0][0]
+        assert second_call[1]["data"]["creation_id"] == "container_123"
+
+
+@pytest.mark.asyncio
+async def test_post_ig_image_writes_audit_on_success(mock_deps):
+    """Successful Instagram image post should write an audit log."""
+    from publishers.meta import post_ig_image
+    
+    # Mock successful responses
+    mock_container_response = MagicMock()
+    mock_container_response.status_code = 200
+    mock_container_response.json.return_value = {"id": "container_123"}
+    mock_container_response.raise_for_status = MagicMock()
+    
+    mock_status_response = MagicMock()
+    mock_status_response.status_code = 200
+    mock_status_response.json.return_value = {"status_code": "FINISHED"}
+    mock_status_response.raise_for_status = MagicMock()
+    
+    mock_publish_response = MagicMock()
+    mock_publish_response.status_code = 200
+    mock_publish_response.json.return_value = {"id": "ig_media_456"}
+    mock_publish_response.raise_for_status = MagicMock()
+    
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, \
+         patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        
+        mock_post.side_effect = [mock_container_response, mock_publish_response]
+        mock_get.return_value = mock_status_response
+        
+        await post_ig_image(
+            ig_user_id="ig_user_123",
+            image_url="https://media.yousufliving.com/image.jpg",
+            caption="Test caption",
+        )
+        
+        # Verify audit log was written
+        mock_deps["session"].add.assert_called_once()
+        audit_call = mock_deps["session"].add.call_args[0][0]
+        assert audit_call.actor == "meta_publisher"
+        assert audit_call.action == "post_ig_image_success"
+        assert audit_call.subject_id == "ig_media_456"
+        assert audit_call.payload["platform"] == "instagram"
+
+
+@pytest.mark.asyncio
+async def test_post_ig_image_writes_audit_on_failure(mock_deps):
+    """Failed Instagram image post should write an audit log."""
+    from publishers.meta import post_ig_image
+    
+    # Mock failed container creation
+    mock_container_response = MagicMock()
+    mock_container_response.status_code = 200
+    mock_container_response.json.return_value = {"id": "container_123"}
+    mock_container_response.raise_for_status = MagicMock()
+    
+    mock_status_response = MagicMock()
+    mock_status_response.status_code = 200
+    mock_status_response.json.return_value = {"status_code": "ERROR"}
+    mock_status_response.raise_for_status = MagicMock()
+    
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, \
+         patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        
+        mock_post.return_value = mock_container_response
+        mock_get.return_value = mock_status_response
+        
+        with pytest.raises(ValueError, match="Container processing failed"):
+            await post_ig_image(
+                ig_user_id="ig_user_123",
+                image_url="https://media.yousufliving.com/image.jpg",
+                caption="Test caption",
+            )
+        
+        # Verify audit log was written
+        mock_deps["session"].add.assert_called_once()
+        audit_call = mock_deps["session"].add.call_args[0][0]
+        assert audit_call.actor == "meta_publisher"
+        assert audit_call.action == "post_ig_image_failed"
+        assert audit_call.payload["platform"] == "instagram"
+        assert "Container processing failed" in audit_call.payload["error"]
+
+
+@pytest.mark.asyncio
+async def test_post_image_facebook_simple_flow(mock_deps):
+    """Facebook image posting should use a simpler flow (container → publish)."""
+    from publishers.meta import post_image
+    
+    # Mock container creation
+    mock_container_response = MagicMock()
+    mock_container_response.status_code = 200
+    mock_container_response.json.return_value = {"id": "container_789"}
+    mock_container_response.raise_for_status = MagicMock()
+    
+    # Mock publish
+    mock_publish_response = MagicMock()
+    mock_publish_response.status_code = 200
+    mock_publish_response.json.return_value = {"id": "fb_post_101"}
+    mock_publish_response.raise_for_status = MagicMock()
+    
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [mock_container_response, mock_publish_response]
+        
+        result = await post_image(
+            page_id="page_123",
+            image_url="https://media.yousufliving.com/image.jpg",
+            caption="Test Facebook post",
+        )
+        
+        assert result == "fb_post_101"
+        assert mock_post.call_count == 2

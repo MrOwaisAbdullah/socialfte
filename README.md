@@ -263,7 +263,7 @@ docker build -f infra/Dockerfile.dashboard -t socialfte-dashboard .
 
 ## Relevant skills
 
-These opencode skills were used during development and are relevant for future work:
+These skills were used during development and are relevant for future work:
 
 | Skill | Use case |
 |---|---|

@@ -1,0 +1,41 @@
+# SocialFTE worker — Week 3, Step 1.
+# Python 3.11-slim + ffmpeg + faster-whisper.
+# Build from the repo root: docker build -f infra/Dockerfile.worker .
+
+FROM python:3.11-slim AS base
+
+# Prevent Python from buffering stdout/stderr (Docker-friendly)
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /app
+
+# Install system dependencies: ffmpeg for video processing, 
+# libsndfile for audio processing (faster-whisper dependency)
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libsndfile1 \
+    libsndfile1-dev \
+    curl \
+ && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first (Docker layer caching)
+COPY apps/worker/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy worker code directly into /app — every module uses bare absolute
+# imports (`from config import settings`, `from db.session import ...`), so
+# /app itself must be the import root, not a `worker/` package subdirectory.
+COPY apps/worker/ .
+
+# Create non-root user
+RUN groupadd --system --gid 1001 worker \
+ && useradd --system --uid 1001 --gid worker worker \
+ && chown -R worker:worker /app
+
+USER worker
+
+# Worker is internal-only: no public port, docker network only
+# Memory limit set in docker-compose.yml (1g hard)
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

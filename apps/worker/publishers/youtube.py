@@ -1,40 +1,34 @@
-#!/usr/bin/env python3
-"""
-yt_upload.py — upload a short or long-form video to YouTube from a declarative plan.
+"""YouTube publisher — Week 3, Step 5.
 
-One tool for both formats: YouTube auto-classifies a Short by its shape (vertical, ≤3 min)
-+ metadata — there is no separate Shorts endpoint. The tool uploads the file, sets
-title/description/tags/category, sets the custom thumbnail, and sets privacy/schedule.
+Adapted from the original yt_upload.py for the SocialFTE worker.
+Changes per docs/repo-harvest.md §4:
+  - Add #Shorts to description
+  - Read privacy from YOUTUBE_PRIVACY_ON_UPLOAD env var
+  - Return video_id so caller can write posts.external_id
+  - Keep A/V drift verification, drop ghost-speech check
+  - Keep the resumable upload with retry logic
 
-DRAFT MODE (default): uploads land as PRIVATE drafts; publish or schedule
-them in YouTube Studio with one click. This also sidesteps the API's unaudited-project
-restriction, which force-locks every upload from an unaudited project to private anyway.
-(To later schedule public directly from the API, the Google Cloud project must pass YouTube's
-one-time compliance audit; then set "privacy":"private" + a "publishAt" RFC3339 time.)
-
-Setup (one-time, needs your browser — see docs/youtube-oauth.md):
+Setup (one-time, needs your browser):
   1. Google Cloud project + enable "YouTube Data API v3".
   2. OAuth "Desktop app" credential → download as .youtube/client_secret.json.
   3. `python apps/worker/publishers/youtube.py auth`  (opens a browser once; saves .youtube/token.json)
 
-Usage:
-  python apps/worker/publishers/youtube.py auth
-  python apps/worker/publishers/youtube.py upload shorts/ch-3-honeypot/publish.json
-  python apps/worker/publishers/youtube.py upload <plan> --dry-run     # validate plan + preview, no API call
-  python apps/worker/publishers/youtube.py whoami                        # confirm which channel is authorized
-
-Requires (real upload only; --dry-run needs none of these):
-  pip install google-api-python-client google-auth-oauthlib google-auth-httplib2
-
-Quota: standard = 10,000 units/day; an upload costs ~100 units (cut from 1,600 on 2025-12-04)
-→ ~100 uploads/day. Some new projects start at 0 "Queries per day" and must request quota via
-the YouTube API Services Audit & Quota Extension form (or use an older project that has 10,000).
+Quota: standard = 10,000 units/day; an upload costs ~100 units.
 """
 import argparse
 import json
+import logging
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
+
+from config import settings
+from db.models import AuditLog
+from db.session import SessionLocal
+
+logger = logging.getLogger("worker.youtube")
 
 # Windows consoles default to cp1252 — force UTF-8 so box/✓ glyphs print
 if hasattr(sys.stdout, "reconfigure"):
@@ -44,13 +38,11 @@ REPO = Path(__file__).resolve().parent.parent.parent.parent  # repo root — hol
 ROOT = REPO.parent                               # monorepo root — plan paths (video, description_file) are relative to this
 YT_DIR = REPO / ".youtube"
 CLIENT_SECRET = YT_DIR / "client_secret.json"
-TOKEN = YT_DIR / "token.json"
+TOKEN = Path(settings.YOUTUBE_TOKEN_PATH) if settings.YOUTUBE_TOKEN_PATH else YT_DIR / "token.json"
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
           "https://www.googleapis.com/auth/youtube"]  # .../youtube covers thumbnails.set + edits
 
 TITLE_MAX, DESC_MAX, TAGS_CHARS_MAX = 100, 5000, 460
-# common categories: 27 Education · 28 Science & Technology · 22 People & Blogs
-DEFAULT_CATEGORY = 28
 
 
 def rp(p: str) -> Path:
@@ -95,8 +87,14 @@ def validate(plan: dict) -> list[str]:
 
 
 def build_body(plan: dict) -> dict:
+    """Build the YouTube video body with #Shorts added to description."""
+    # Add #Shorts to description if not already present
+    description = plan.get("description", "")
+    if "#Shorts" not in description:
+        description = f"{description}\n\n#Shorts" if description else "#Shorts"
+    
     status = {
-        "privacyStatus": plan.get("privacy", "private"),
+        "privacyStatus": plan.get("privacy", settings.YOUTUBE_PRIVACY_ON_UPLOAD),
         "selfDeclaredMadeForKids": bool(plan.get("madeForKids", False)),
     }
     if plan.get("publishAt"):
@@ -104,9 +102,9 @@ def build_body(plan: dict) -> dict:
     return {
         "snippet": {
             "title": plan["title"],
-            "description": plan.get("description", ""),
+            "description": description,
             "tags": plan.get("tags", []),
-            "categoryId": str(plan.get("categoryId", DEFAULT_CATEGORY)),
+            "categoryId": str(plan.get("categoryId", settings.YOUTUBE_DEFAULT_CATEGORY)),
         },
         "status": status,
     }
@@ -141,7 +139,7 @@ def get_creds():
         if not CLIENT_SECRET.exists():
             sys.exit(f"missing {CLIENT_SECRET} — see docs/youtube-oauth.md (step 2)")
         creds = InstalledAppFlow.from_client_secrets_file(str(CLIENT_SECRET), SCOPES).run_local_server(port=0)
-    YT_DIR.mkdir(exist_ok=True)
+    TOKEN.parent.mkdir(exist_ok=True)
     TOKEN.write_text(creds.to_json())
     return creds
 
@@ -151,7 +149,31 @@ def service():
     return build("youtube", "v3", credentials=get_creds())
 
 
-def do_upload(plan: dict) -> None:
+async def _write_audit(actor: str, action: str, subject_id: str, payload: dict):
+    """Write an audit_log row."""
+    async with SessionLocal() as session:
+        audit = AuditLog(
+            actor=actor,
+            action=action,
+            subject_id=subject_id,
+            payload=payload,
+        )
+        session.add(audit)
+        await session.commit()
+
+
+def do_upload(plan: dict) -> str:
+    """Upload a video to YouTube and return the video_id.
+    
+    Args:
+        plan: Dict with video, title, description, tags, thumbnail, etc.
+    
+    Returns:
+        The YouTube video ID (external_id)
+    
+    Raises:
+        Exception: If upload fails
+    """
     from googleapiclient.errors import HttpError
     from googleapiclient.http import MediaFileUpload
 
@@ -190,6 +212,55 @@ def do_upload(plan: dict) -> None:
         except HttpError as e:
             print(f"! thumbnail upload failed ({e.resp.status}) — set it in the YouTube mobile app.")
     print(f"\nNext: open Studio, review, then Publish or Schedule.\n  https://studio.youtube.com/video/{vid}/edit")
+    
+    return vid
+
+
+async def upload_video(plan: dict) -> str:
+    """Upload a video to YouTube and return the video_id.
+    
+    This is the async wrapper for the worker's use.
+    
+    Args:
+        plan: Dict with video, title, description, tags, thumbnail, etc.
+    
+    Returns:
+        The YouTube video ID (external_id)
+    
+    Raises:
+        Exception: If upload fails
+    """
+    video_id = None
+    try:
+        video_id = do_upload(plan)
+        
+        # Write audit log
+        await _write_audit(
+            actor="youtube_publisher",
+            action="upload_video_success",
+            subject_id=video_id,
+            payload={
+                "title": plan.get("title"),
+                "privacy": plan.get("privacy", settings.YOUTUBE_PRIVACY_ON_UPLOAD),
+                "platform": "youtube_shorts",
+            },
+        )
+        
+        return video_id
+    
+    except Exception as e:
+        # Write audit log on failure
+        await _write_audit(
+            actor="youtube_publisher",
+            action="upload_video_failed",
+            subject_id=plan.get("title", "unknown"),
+            payload={
+                "title": plan.get("title"),
+                "error": str(e),
+                "platform": "youtube_shorts",
+            },
+        )
+        raise
 
 
 def main() -> None:

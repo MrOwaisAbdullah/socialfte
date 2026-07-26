@@ -38,13 +38,16 @@ CREATE INDEX idx_assets_times_used ON assets (times_used);  -- overuse detection
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- posts — moves through AGENTS.md's draft -> render -> review -> approved ->
--- publish lifecycle, plus 'failed'.
+-- publish lifecycle, plus 'failed'. Also: 'tiktok_ready' (TikTok draft-only mode,
+-- see publishers/tiktok.py) and 'skipped' (Discord webhook Skip button, see
+-- apps/dashboard/app/api/webhooks/discord/route.ts) — no CHECK constraint, so
+-- these are enforced by convention across the worker/dashboard, not by the DB.
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE posts (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   platform      TEXT NOT NULL,            -- facebook | instagram | youtube_shorts | tiktok
   format        TEXT NOT NULL,            -- image | reel | story | carousel | short
-  state         TEXT NOT NULL,            -- draft | render | review | approved | published | failed
+  state         TEXT NOT NULL,            -- draft | render | review | approved | published | failed | tiktok_ready | skipped
   template_id   UUID REFERENCES templates(id),
   asset_id      UUID REFERENCES assets(id),
   caption       TEXT,

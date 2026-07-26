@@ -1,5 +1,5 @@
-# SocialFTE dashboard — Week 2, Story 8 (FR-018).
-# Adds ONLY the yl-dashboard service to the existing Dokploy project
+# SocialFTE — Week 2 dashboard + Week 3 worker.
+# Adds yl-dashboard and yl-worker to the existing Dokploy project
 # (docs/socialfte-spec-v2.md §8). Does not reference, modify, or restart the
 # Octively service already running on this host.
 #
@@ -34,3 +34,30 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+  yl-worker:
+    build:
+      context: ../
+      dockerfile: infra/Dockerfile.worker
+    image: yl-worker:latest
+    restart: unless-stopped
+    # Worker is internal-only: no public port, docker network only.
+    # Communicates with yl-dashboard via Docker network (RENDER_INTERNAL_URL).
+    # No expose or ports — accessed only by other containers.
+    env_file:
+      - .env
+    # docs/socialfte-spec-v2.md §8: "Set the worker's memory limit explicitly
+    # — a runaway job must not be able to starve Octively."
+    # 1g hard limit: prevents OOM from ffmpeg/faster-whisper spikes.
+    # Remotion renders happen on GitHub Actions, not here.
+    mem_limit: 1g
+    memswap_limit: 1g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      yl-dashboard:
+        condition: service_healthy
