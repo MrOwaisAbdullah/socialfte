@@ -35,6 +35,11 @@ ffmpeg-python>=0.2.0
 # Faster whisper (for audio transcription — Week 4)
 # faster-whisper>=0.10.0  # Uncomment when needed
 
+# LLM agents — OpenRouter via LiteLLM (Week 4). The [litellm] extra is required for
+# the litellm/<provider>/<model> string-prefix form used in apps/worker/agents/base.py
+# (research.md Decision 1 — no separate LiteLLM Proxy server, no litellm.yaml).
+openai-agents[litellm]>=0.1.0
+
 # Testing
 pytest>=7.4.3
 pytest-asyncio>=0.23.2

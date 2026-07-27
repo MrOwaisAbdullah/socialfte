@@ -6,14 +6,16 @@ Internal-only: no public port, docker network only.
 """
 import logging
 from contextlib import asynccontextmanager
+from uuid import UUID
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from pydantic import BaseModel
 
 from config import settings
 from db.session import engine, SessionLocal
-from db.models import Base
+from db.models import Base, Asset, AuditLog
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper()),
@@ -36,6 +38,9 @@ async def lifespan(app: FastAPI):
     from jobs.refresh_tokens import refresh_tokens
     from jobs.publish_due import publish_due
     from jobs.notify_review import notify_review
+    from jobs.compose_batch import compose_batch
+    from jobs.collect_metrics import collect_metrics
+    from jobs.weekly_digest import weekly_digest
 
     scheduler.add_job(
         refresh_tokens,
@@ -56,6 +61,27 @@ async def lifespan(app: FastAPI):
         CronTrigger.from_crontab(settings.NOTIFY_REVIEW_CRON),
         id="notify_review",
         name="Send approval cards to Discord",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        compose_batch,
+        CronTrigger.from_crontab(settings.COMPOSE_BATCH_CRON),
+        id="compose_batch",
+        name="Compose daily draft batch",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        collect_metrics,
+        CronTrigger.from_crontab(settings.COLLECT_METRICS_CRON),
+        id="collect_metrics",
+        name="Collect post performance metrics",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        weekly_digest,
+        CronTrigger.from_crontab(settings.WEEKLY_DIGEST_CRON),
+        id="weekly_digest",
+        name="Generate weekly performance digest",
         replace_existing=True,
     )
 
@@ -92,6 +118,74 @@ async def list_jobs():
         {"id": job.id, "name": job.name, "next_run": str(job.next_run_time)}
         for job in scheduler.get_jobs()
     ]
+
+
+class VisionTagRequest(BaseModel):
+    asset_id: UUID
+    image_url: str
+
+
+@app.post("/vision/tag")
+async def vision_tag(request: Request, payload: VisionTagRequest):
+    """Tag and quality-gate an asset on upload.
+
+    Requires x-internal-secret header matching RENDER_INTERNAL_SECRET
+    (same auth scheme as the dashboard's own internal endpoints).
+    """
+    from brain.vision import _analyze_asset, QUALITY_SCORE_REJECT_THRESHOLD
+
+    secret = request.headers.get("x-internal-secret")
+    if settings.RENDER_INTERNAL_SECRET and secret != settings.RENDER_INTERNAL_SECRET:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    try:
+        analysis = await _analyze_asset(payload.image_url)
+    except Exception as exc:
+        logger.error("Vision analysis failed for %s: %s", payload.asset_id, exc)
+        raise HTTPException(status_code=502, detail=f"vision analysis failed: {exc}")
+
+    reject_reason = None
+    if analysis.quality_score < QUALITY_SCORE_REJECT_THRESHOLD:
+        reasons = []
+        if not analysis.lighting_ok:
+            reasons.append("poor lighting")
+        if not analysis.composition_ok:
+            reasons.append("poor composition")
+        reject_reason = ", ".join(reasons) or f"quality_score {analysis.quality_score} below threshold"
+
+    async with SessionLocal() as session:
+        asset = await session.get(Asset, payload.asset_id)
+        if not asset:
+            raise HTTPException(status_code=404, detail="asset not found")
+        asset.piece = analysis.piece
+        asset.tier = analysis.tier
+        asset.variant = analysis.variant
+        asset.quality_score = analysis.quality_score
+        asset.lighting_ok = analysis.lighting_ok
+        asset.composition_ok = analysis.composition_ok
+        asset.reject_reason = reject_reason
+        session.add(AuditLog(
+            actor="vision_agent",
+            action="asset_tagged",
+            subject_id=str(payload.asset_id),
+            payload={"piece": analysis.piece, "tier": analysis.tier, "variant": analysis.variant, "quality_score": analysis.quality_score},
+        ))
+        session.add(AuditLog(
+            actor="vision_agent",
+            action="asset_quality_checked",
+            subject_id=str(payload.asset_id),
+            payload={"quality_score": analysis.quality_score, "lighting_ok": analysis.lighting_ok, "composition_ok": analysis.composition_ok, "reject_reason": reject_reason},
+        ))
+        await session.commit()
+
+    return {
+        "piece": analysis.piece,
+        "tier": analysis.tier,
+        "variant": analysis.variant,
+        "quality_score": analysis.quality_score,
+        "lighting_ok": analysis.lighting_ok,
+        "composition_ok": analysis.composition_ok,
+        "reject_reason": reject_reason,
+    }
 
 
 if __name__ == "__main__":

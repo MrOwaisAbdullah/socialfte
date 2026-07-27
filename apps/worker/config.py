@@ -122,6 +122,38 @@ class Settings(BaseSettings):
     NOTIFY_REVIEW_BATCH_LIMIT: int = Field(default=10)
 
     # ─────────────────────────────────────────────
+    # LLM GATEWAY — OpenRouter (Week 4, §7)
+    # ─────────────────────────────────────────────
+    OPENROUTER_API_KEY: str = Field(default="")
+    OPENROUTER_SITE_URL: str = Field(default="https://social.yousufliving.com")
+    OPENROUTER_APP_NAME: str = Field(default="SocialFTE")
+
+    MODEL_CAPTION: str = Field(default="deepseek/deepseek-v4-flash")
+    MODEL_JUDGEMENT: str = Field(default="deepseek/deepseek-v4-pro")
+    MODEL_VISION: str = Field(default="google/gemini-2.5-flash")
+    MODEL_EMBED: str = Field(default="openai/text-embedding-3-small")
+    MODEL_FREE: str = Field(default="deepseek/deepseek-v4-flash:free")
+
+    LLM_MAX_RETRIES: int = Field(default=3)
+    LLM_TIMEOUT_SECONDS: int = Field(default=120)
+
+    # ─────────────────────────────────────────────
+    # ANTI-REPEAT (Week 4)
+    # ─────────────────────────────────────────────
+    ANTI_REPEAT_TEMPLATE_WINDOW: int = Field(default=4)
+    ANTI_REPEAT_ASSET_WINDOW: int = Field(default=10)
+    ANTI_REPEAT_CAPTION_WINDOW: int = Field(default=30)
+    ANTI_REPEAT_CAPTION_MAX_SIMILARITY: float = Field(default=0.85)
+    ANTI_REPEAT_MAX_RETRIES: int = Field(default=5)
+
+    # Cron schedules (Week 4, from §9)
+    COMPOSE_BATCH_CRON: str = Field(default="0 4 * * *")  # daily at 04:00
+    COLLECT_METRICS_CRON: str = Field(default="0 */6 * * *")  # every 6 hours
+    WEEKLY_DIGEST_CRON: str = Field(default="0 5 * * 0")  # Sundays at 05:00
+
+    MEMORY_MD_PATH: str = Field(default="MEMORY.md")
+
+    # ─────────────────────────────────────────────
     # OPTIONAL
     # ─────────────────────────────────────────────
     SENTRY_DSN: str = Field(default="")

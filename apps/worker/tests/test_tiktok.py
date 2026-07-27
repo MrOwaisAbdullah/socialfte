@@ -11,21 +11,16 @@ from datetime import datetime, timezone
 def mock_deps():
     """Mock all dependencies for TikTok publisher tests."""
     with patch("publishers.tiktok.SessionLocal") as mock_session, \
-         patch("publishers.tiktok.notify.discord") as mock_discord:
+         patch("notify.discord.send", new_callable=AsyncMock) as mock_send:
 
-        # Setup mock session
+        mock_send.return_value = "message_123"
         mock_session_instance = AsyncMock()
         mock_session.return_value.__aenter__ = AsyncMock(return_value=mock_session_instance)
         mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        # notify.discord.send is a coroutine function in production — a plain
-        # MagicMock (patch()'s default for a non-callable module attribute)
-        # isn't awaitable, so give it an AsyncMock explicitly.
-        mock_discord.send = AsyncMock(return_value="message_123")
-
         yield {
             "session": mock_session_instance,
-            "discord": mock_discord,
+            "discord_send": mock_send,
         }
 
 
@@ -72,8 +67,8 @@ async def test_tiktok_draft_only_sends_notification(mock_deps):
         )
         
         # Verify Discord notification was sent
-        mock_deps["discord"].send.assert_called_once()
-        call_args = mock_deps["discord"].send.call_args[0][0]
+        mock_deps["discord_send"].assert_called_once()
+        call_args = mock_deps["discord_send"].call_args[0][0]
         assert "TikTok Ready" in call_args
         assert "https://media.yousufliving.com/video.mp4" in call_args
         assert "Test TikTok caption" in call_args

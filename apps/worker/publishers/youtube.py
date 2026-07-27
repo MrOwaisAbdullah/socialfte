@@ -39,8 +39,11 @@ ROOT = REPO.parent                               # monorepo root — plan paths 
 YT_DIR = REPO / ".youtube"
 CLIENT_SECRET = YT_DIR / "client_secret.json"
 TOKEN = Path(settings.YOUTUBE_TOKEN_PATH) if settings.YOUTUBE_TOKEN_PATH else YT_DIR / "token.json"
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
-          "https://www.googleapis.com/auth/youtube"]  # .../youtube covers thumbnails.set + edits
+SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube",  # covers thumbnails.set + edits
+    "https://www.googleapis.com/auth/yt-analytics.readonly",
+]
 
 TITLE_MAX, DESC_MAX, TAGS_CHARS_MAX = 100, 5000, 460
 

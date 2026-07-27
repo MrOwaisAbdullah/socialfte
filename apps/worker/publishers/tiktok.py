@@ -13,7 +13,6 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-import notify.discord
 from config import settings
 from db.models import AuditLog, Post
 from db.session import SessionLocal
@@ -100,7 +99,8 @@ async def _publish_draft_only(
             f"4. Post!"
         )
         
-        await notify.discord.send(message)
+        from notify.discord import send
+        await send(message)
         
         # Write audit log
         await _write_audit(
