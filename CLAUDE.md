@@ -10,16 +10,20 @@ renders visuals, waits for human approval, then publishes. Monorepo: dashboard
 
 `
 apps/
-  dashboard/          # Next.js 16 app - templates, render pipeline, dashboard UI
-  worker/             # Python - R2 storage client, DB models, YouTube publisher
+  dashboard/          # Next.js 16 app - templates, render pipeline, Calendar, dashboard UI
+  worker/             # Python - agent framework, publishers, DB models, BOOTSTRAP wizard
 packages/
-  remotion/           # Remotion video compositions (brand proof, shots)
+  remotion/           # Remotion video compositions (brand proof + post-video templates)
 infra/
   Dockerfile.dashboard
+  Dockerfile.worker
   docker-compose.yml
 tools/                # Python media tools (cut, mix, format, render)
 media/library/        # SFX, music, logos (committed - no mp3 blanket ignore)
-specs/                # Design specs, research, contracts (committed, not deployed)
+clients/              # throwaway per-client configs proving the multi-tenant isolation boundary
+specs/                # Per-week spec/plan/tasks (committed, not deployed)
+docs/                 # How-it-works, local dev + deployment, client provisioning, etc.
+AGENT_LOG.md          # running log of AI agent sessions - see Conventions below
 .claude/skills/       # opencode skills (NOT part of this project - gitignored)
 .specify/             # Speckit templates (gitignored)
 `
@@ -61,6 +65,15 @@ pip install -r ../../requirements.txt
 - No AI-sounding copy. No "elevate your space", no forced enthusiasm.
 - Human approval before publish. No exceptions.
 - Audit log every action. No action is too small to log.
+- **Agent work log**: every AI coding session that changes this repo (implementing a
+  feature, fixing a bug, writing docs, anything beyond a read-only question) MUST append an
+  entry to `AGENT_LOG.md` at the repo root before finishing, using the format already
+  established there (newest entry on top; **Asked** / **Did** / **Found and fixed** /
+  **Left for a human** / **Test status**). This is the product's own audit-log discipline
+  applied to the agent's own work — a future session (or human) reading this repo cold
+  should be able to reconstruct what happened and why without replaying the whole
+  conversation. Update the entry incrementally as the session progresses on anything
+  substantial, not only in one shot at the very end.
 - Anti-repeat: no template repeat within 4 posts, no asset repeat within 10,
   no caption >0.85 cosine similarity within 30.
 - Token refresh: never publish with less than 7 days until credential expiry.

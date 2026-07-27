@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { neon } from '@neondatabase/serverless';
+import { sql } from 'drizzle-orm';
+import { db } from '@/lib/db/client';
 import { uploadBuffer, getPublicUrl } from '@/lib/r2';
 
 export const runtime = 'nodejs';
@@ -29,14 +30,13 @@ export async function POST(request: NextRequest) {
   await uploadBuffer(key, buffer, file.type || `image/${ext}`);
 
   const imageUrl = getPublicUrl(key);
-  const sql = neon(process.env.DATABASE_URL!);
-  const [row] = await sql`
+  const { rows } = await db.execute<{ id: string }>(sql`
     INSERT INTO assets (r2_key, times_used)
     VALUES (${key}, 0)
     RETURNING id
-  `;
+  `);
 
-  const assetId = row.id;
+  const assetId = rows[0].id;
 
   try {
     const workerUrl = process.env.WORKER_INTERNAL_URL;

@@ -1,5 +1,7 @@
 // Bootstrap verification API — runs Step 6 checks server-side.
 import { NextRequest, NextResponse } from 'next/server';
+import { sql } from 'drizzle-orm';
+import { db } from '@/lib/db/client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,9 +11,7 @@ export async function POST(_request: NextRequest) {
 
   // Database check
   try {
-    const { neon } = await import('@neondatabase/serverless');
-    const sql = neon(process.env.DATABASE_URL!);
-    const rows = await sql`SELECT COUNT(*) AS cnt FROM audit_log`;
+    const { rows } = await db.execute<{ cnt: string }>(sql`SELECT COUNT(*) AS cnt FROM audit_log`);
     results.push({
       test: 'Database',
       passed: true,

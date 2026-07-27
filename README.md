@@ -14,13 +14,20 @@ Social media automation for Pakistani furniture brands. Drafts posts, renders vi
 SocialFTE runs the social media accounts for a furniture brand. It:
 
 1. **Drafts** captions in the brand's voice (no AI-sounding copy, no em dashes, real prices upfront)
-2. **Renders** product visuals using six template layouts (hero, price-card, set-breakdown, quote, before-after, carousel)
-3. **Screenshots** the rendered template via Puppeteer and uploads to Cloudflare R2
-4. **Waits** for human approval before doing anything
-5. **Publishes** to Facebook, Instagram, YouTube Shorts, and TikTok
-6. **Logs** every action to an audit trail
+2. **Renders** product visuals using six template layouts (hero, price-card, set-breakdown, quote, before-after, carousel) — and, for video-format posts, dispatches a real Remotion render via GitHub Actions
+3. **Screenshots** the rendered template via Puppeteer and uploads to Cloudflare R2 (or downloads the rendered MP4, for video posts)
+4. **Processes raw video clips** uploaded to the asset library — noise cleanup, A/V sync check, music mixing, and vision-scored cover-frame selection
+5. **Waits** for human approval before doing anything — via Discord approval cards, including a cover-frame picker for video posts
+6. **Publishes** to Facebook, Instagram, YouTube Shorts, and TikTok
+7. **Lets a human reschedule** anything from a weekly Calendar screen, with a visible daily-cap warning
+8. **Logs** every action to an audit trail
 
 It never posts without explicit human approval. No exceptions.
+
+The product itself is brand-agnostic — every brand-specific value (name, colors, prices,
+platform credentials) lives in configuration, not code, so it can run more than one
+client's accounts from the same codebase. See `docs/client-provisioning.md` for onboarding
+a new client.
 
 ## Supported platforms
 
@@ -62,17 +69,23 @@ It never posts without explicit human approval. No exceptions.
 
 ```
 apps/
-  dashboard/          # Next.js 16 app — templates, render pipeline, dashboard UI
-  worker/             # Python — agent framework, publishers, DB models
+  dashboard/          # Next.js 16 app — templates, render pipeline, Calendar, dashboard UI
+  worker/             # Python — agent framework, publishers, DB models, BOOTSTRAP wizard
 packages/
-  remotion/           # Remotion video compositions (brand proof, shots)
+  remotion/           # Remotion video compositions (brand proof + 4 post-video templates)
 infra/
   Dockerfile.dashboard
+  Dockerfile.worker
   docker-compose.yml
-  .github/workflows/deploy.yml
+.github/workflows/
+  deploy.yml          # builds + deploys the dashboard image on push to master
+  render-video.yml    # dispatched per-post by dispatch_render.py, not by git push
+clients/
+  test-client-2/      # throwaway second-brand config proving the isolation boundary works
 tools/                # Python media tools (cut, mix, format, render)
 media/library/        # SFX, music, logos
-specs/                # Design specs, research, contracts
+specs/                # Per-week spec/plan/tasks (Speckit workflow)
+docs/                 # How-it-works, local dev + deployment, client provisioning, etc.
 ```
 
 ### Database schema (6 tables)
@@ -117,6 +130,11 @@ draft → render → review → approved → publish
   └─ Caption composed, template picked, brand tokens applied
 ```
 
+Video-format posts take a slightly different path: `draft` (no render yet) → a GitHub
+Actions workflow renders the Remotion composition and uploads it to R2 → a callback moves
+the post to `review` (or `failed`) — the rest of the lifecycle is identical. See
+`docs/how-it-works.md`'s "Week 5 additions" section for the full diagram.
+
 **Anti-repeat rules** (checked before reaching review):
 - No template repeat within 4 posts
 - No asset repeat within 10 posts
@@ -159,105 +177,47 @@ Why OpenRouter: one key instead of four, automatic fallback, prompt caching (60-
 
 ## Getting started
 
-### Prerequisites
-
-- Node.js 22+
-- Python 3.12+
-- Neon Postgres database
-- Cloudflare R2 bucket
-- OpenRouter API key
-
-### 1. Clone and install
+**Full step-by-step guide (env files, database setup, ffmpeg, BOOTSTRAP wizard,
+troubleshooting): [`docs/local-development-and-deployment.md`](docs/local-development-and-deployment.md).**
+Quick version:
 
 ```bash
-git clone https://github.com/yourusername/SocialFTE.git
+git clone <this-repo>
 cd SocialFTE
 
 # Dashboard
-cd apps/dashboard
-npm install
+cd apps/dashboard && npm install
+cp .env.example .env.local   # fill in DATABASE_URL, R2_*, SESSION_SECRET, etc.
+npx drizzle-kit push         # enable the `vector` extension in Neon first
+npm run dev                  # -> http://localhost:3000
 
-# Worker
-cd ../worker
-python -m venv venv
-pip install -r ../../requirements.txt
-```
-
-### 2. Set up environment
-
-Copy `.env.example` to `.env.local` in `apps/dashboard/` and fill in:
-
-```bash
-# Database
-DATABASE_URL=postgresql://...
-
-# R2 Storage
-R2_ACCOUNT_ID=
-R2_ACCESS_KEY_ID=
-R2_SECRET_ACCESS_KEY=
-R2_BUCKET=yl-social
-R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
-R2_PUBLIC_URL=https://media.yousufliving.com
-
-# Rendering
-RENDER_INTERNAL_SECRET=<random>
-SESSION_SECRET=<openssl rand -hex 32>
-```
-
-### 3. Apply database schema
-
-```bash
-cd apps/dashboard
-$env:DATABASE_URL = "postgresql://..."  # PowerShell
-npx drizzle-kit push
-```
-
-This creates the 6 tables, pgvector extension, and 4 indexes.
-
-### 4. Run
-
-```bash
-# Dashboard
-cd apps/dashboard
-npm run dev
-
-# Worker (separate terminal)
+# Worker (separate terminal) — needs ffmpeg/ffprobe on PATH
 cd apps/worker
-python -m venv venv
-venv\Scripts\activate
-uvicorn main:app --reload
-```
+python -m venv venv && source venv/bin/activate   # venv\Scripts\activate on Windows
+pip install -r requirements.txt
+cp .env.example .env         # same DATABASE_URL/R2_*/RENDER_INTERNAL_SECRET as the dashboard
+python main.py                                    # -> http://localhost:8000
 
-Dashboard runs at `http://localhost:3000`.
+# One-time: guided brand/platform setup
+python -m worker bootstrap
+```
 
 ---
 
 ## Deployment
 
-GitHub Actions builds the Docker image and pushes to GHCR. Dokploy pulls and runs it on the VPS.
+Two Docker services (`yl-dashboard`, `yl-worker`) on a Dokploy-managed VPS. Pushing to
+`master` builds and deploys the **dashboard** image automatically via
+`.github/workflows/deploy.yml` (GHCR → Dokploy API); the worker currently redeploys
+manually (see the deployment doc for exactly how, and why). Video rendering runs on its
+own separate, per-post-dispatched workflow (`.github/workflows/render-video.yml`), not
+tied to `git push` at all.
 
-```bash
-# Push to master triggers CI/CD
-git push origin master
-```
+**Full architecture, one-time Dokploy setup, required secrets, and manual-deploy
+commands: [`docs/local-development-and-deployment.md`](docs/local-development-and-deployment.md#7-deployment).**
 
-### GitHub secrets required
-
-| Secret | Source |
-|---|---|
-| `DOKPLOY_URL` | Your Dokploy panel URL |
-| `DOKPLOY_API_KEY` | Dokploy → API keys |
-| `DOKPLOY_APP_ID` | Application detail page in Dokploy |
-
-### Docker
-
-```bash
-# Build (in CI, not locally)
-docker build -f infra/Dockerfile.dashboard -t socialfte-dashboard .
-
-# The container installs Chromium via apt for Puppeteer
-# Standalone output, HOSTNAME=0.0.0.0, port 3000
-```
+Onboarding a **new client** onto an already-deployed instance is a separate, documented
+process — see [`docs/client-provisioning.md`](docs/client-provisioning.md).
 
 ---
 
@@ -277,36 +237,19 @@ These skills were used during development and are relevant for future work:
 
 ## Environment variables
 
-See `specs/002-week2-dashboard-render/contracts/env-vars.md` for the full list.
+Three fully-commented `.env.example` files are the canonical reference — copy the
+relevant one and fill it in, don't retype variables by hand from this README:
 
-**Dashboard (Week 2):**
+| File | For |
+|---|---|
+| `.env.example` (repo root) | Complete reference — every variable either app reads, one place |
+| `apps/dashboard/.env.example` | Copy to `apps/dashboard/.env.local` |
+| `apps/worker/.env.example` | Copy to `apps/worker/.env` |
 
-```bash
-NODE_ENV=production
-APP_URL=https://social.yousufliving.com
-SESSION_SECRET=
-DATABASE_URL=
-R2_ACCOUNT_ID=
-R2_ACCESS_KEY_ID=
-R2_SECRET_ACCESS_KEY=
-R2_BUCKET=
-R2_ENDPOINT=
-R2_PUBLIC_URL=
-RENDER_INTERNAL_SECRET=
-PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
-PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-```
-
-**Worker (Week 3+):**
-
-```bash
-OPENROUTER_API_KEY=
-REDIS_URL=
-META_ACCESS_TOKEN=
-YOUTUBE_*=
-TIKTOK_*=
-DISCORD_BOT_TOKEN=
-```
+`DATABASE_URL`, every `R2_*` variable, and `RENDER_INTERNAL_SECRET` **must be identical**
+between the dashboard's and worker's env files — they're two processes sharing one
+database, one bucket, and one internal-auth secret. Per-week variable history (which
+week introduced what, and why) lives in `specs/*/contracts/env-vars.md`.
 
 ---
 
@@ -331,21 +274,24 @@ Karachi-based furniture brand. Upholstered bedroom sets, made to order, sold dir
 
 ---
 
-## Week 2 progress
+## Status
 
-All 42 tasks complete. Verified:
+Tagged `v0.1.0` — five weeks of Speckit-driven development (`specs/001-week1-repo-harvest`
+through `specs/005-week5-motion-generalise`), each with its own spec, plan, and task
+breakdown. Current scope: schema + dashboard shell + render pipeline (Week 2), worker +
+publishers + Discord approval flow (Week 3), LLM captioning + anti-repeat + BOOTSTRAP
+wizard (Week 4), and video rendering + clip processing + Calendar + multi-client
+generalisation (Week 5).
 
-- [x] Schema applied to Neon (6 tables, pgvector, 4 indexes)
-- [x] Dashboard build succeeds
-- [x] Render round-trip (Puppeteer → R2 → public URL)
-- [x] Python models import clean
-- [x] Dockerfile written and reviewed
-- [x] GitHub Actions workflow created
-- [x] Single commit: `week2: schema, dashboard, templates, render route`
+- [x] `apps/worker/tests/` — 89 passed, 1 skipped (see `docs/how-it-works.md` for what
+      each piece actually does, verified against the real code rather than the spec)
+- [x] Dashboard typechecks clean
+- [x] Calendar screen and BOOTSTRAP's `--env` isolation both verified live against a real
+      Neon database, not just unit-tested
+- [ ] Full video-render checkpoint (dispatch → R2 → callback) needs a pushed GitHub repo
+      with Actions secrets configured — see `docs/github-actions-setup.md`
 
-Pending (environment-limited):
-- [ ] Docker build (no Docker locally, CI handles it)
-- [ ] Container smoke test (happens on VPS via Dokploy)
+Per-week task lists and their checkpoint results live in each `specs/*/tasks.md`.
 
 ---
 

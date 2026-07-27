@@ -1,8 +1,8 @@
 // Internal metrics API — serves the Performance screen (FR-010).
 // Secured by RENDER_INTERNAL_SECRET (same auth scheme as /api/internal/render).
 import { NextRequest, NextResponse } from 'next/server';
-import { drizzle } from 'drizzle-orm/neon-http';
-import { neon } from '@neondatabase/serverless';
+import { sql } from 'drizzle-orm';
+import { db } from '@/lib/db/client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,8 +28,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  const sql = neon(process.env.DATABASE_URL!);
-  const rows = await sql`
+  const { rows } = await db.execute<MetricRow>(sql`
     SELECT
       m.id,
       m.post_id,
@@ -47,7 +46,7 @@ export async function GET(request: NextRequest) {
     JOIN posts p ON p.id = m.post_id
     ORDER BY m.collected_at DESC
     LIMIT 200
-  `;
+  `);
 
   return NextResponse.json(rows);
 }
