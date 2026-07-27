@@ -85,16 +85,16 @@ async def test_manual_post_skipped(mock_deps):
 
 
 @pytest.mark.asyncio
-async def test_youtube_missing_scope_skipped(mock_deps):
-    """YouTube credentials without yt-analytics.readonly scope are skipped without raising."""
+async def test_youtube_shorts_dispatches_to_fetch_youtube_metrics(mock_deps):
+    """A published youtube_shorts post with an external_id calls _fetch_youtube_metrics.
+
+    (The missing-scope skip itself lives inside _fetch_youtube_metrics, which reads
+    the real token file's granted scopes — see test_youtube_missing_scope_skipped
+    below for that behavior in isolation.)
+    """
     from jobs.collect_metrics import collect_metrics
 
-    mock_post = _make_post("post-3", platform="youtube")
-    mock_cred = MagicMock(spec=["platform", "access_token", "refresh_token", "meta"])
-    mock_cred.platform = "youtube"
-    mock_cred.access_token = "tok"
-    mock_cred.refresh_token = "ref"
-    mock_cred.meta = {"scopes": ["youtube.upload", "youtube"]}
+    mock_post = _make_post("post-3", platform="youtube_shorts")
     mock_session = mock_deps["session"]
 
     call_order = []
@@ -103,10 +103,32 @@ async def test_youtube_missing_scope_skipped(mock_deps):
         call_order.append(1)
         if len(call_order) == 1:
             return _make_scalar_result([mock_post])
-        return _make_scalar_result([mock_cred])
+        return _make_scalar_result([])  # no credentials rows needed for youtube_shorts
 
     mock_session.execute = execute_side_effect
 
     with patch("jobs.collect_metrics._fetch_youtube_metrics", new_callable=AsyncMock) as mock_fetch:
+        mock_fetch.return_value = None
         await collect_metrics()
-        mock_fetch.assert_not_called()
+        mock_fetch.assert_called_once_with(mock_post)
+
+
+@pytest.mark.asyncio
+async def test_youtube_missing_scope_skipped(tmp_path):
+    """_fetch_youtube_metrics skips (returns None) when the token file lacks
+    yt-analytics.readonly, without raising."""
+    from jobs.collect_metrics import _fetch_youtube_metrics
+
+    token_file = tmp_path / "token.json"
+    token_file.write_text("{}", encoding="utf-8")
+
+    mock_post = _make_post("post-3", platform="youtube_shorts")
+    mock_creds = MagicMock(expired=False, scopes=["https://www.googleapis.com/auth/youtube.upload"])
+
+    with patch("jobs.collect_metrics.settings") as mock_settings, \
+         patch("google.oauth2.credentials.Credentials.from_authorized_user_file", return_value=mock_creds):
+        mock_settings.YOUTUBE_TOKEN_PATH = str(token_file)
+
+        result = await _fetch_youtube_metrics(mock_post)
+
+        assert result is None

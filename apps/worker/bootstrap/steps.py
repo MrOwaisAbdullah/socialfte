@@ -143,13 +143,18 @@ async def step_4_notification() -> bool:
         if channel == "discord":
             token = await _ask("  Discord bot token", "")
             if token:
-                _write_file(REPO / ".env.local", f"DISCORD_BOT_TOKEN={token}\nDISCORD_CHANNEL_ID={await _ask('  Discord channel ID', '')}")
+                channel_id = await _ask("  Discord channel ID", "")
+                _write_file(REPO / ".env.local", f"DISCORD_BOT_TOKEN={token}\nDISCORD_CHANNEL_ID={channel_id}\nNOTIFY_CHANNEL=discord")
         elif channel == "whatsapp":
             phone_id = await _ask("  WhatsApp Phone Number ID", "")
             token = await _ask("  WhatsApp Token", "")
+            if token and phone_id:
+                _write_file(REPO / ".env.local", f"WHATSAPP_PHONE_NUMBER_ID={phone_id}\nWHATSAPP_TOKEN={token}\nNOTIFY_CHANNEL=whatsapp")
         elif channel == "telegram":
             bot_token = await _ask("  Telegram Bot Token", "")
             chat_id = await _ask("  Telegram Chat ID", "")
+            if bot_token and chat_id:
+                _write_file(REPO / ".env.local", f"TELEGRAM_BOT_TOKEN={bot_token}\nTELEGRAM_CHAT_ID={chat_id}\nNOTIFY_CHANNEL=telegram")
         logger.info("Step 4 complete: notification channel configured")
         return True
     except Exception as e:
@@ -187,7 +192,12 @@ async def step_6_verify() -> bool:
     """Verify-and-finish: runs real tests for render, publish, notify, LLM call.
     Reports each result individually. Deletes BOOTSTRAP.md only if all required checks pass.
     """
-    if not _is_step_done(6):
+    if _is_step_done(6):
+        # _is_step_done(6) == "BOOTSTRAP.md no longer exists" == already completed
+        # previously. Only run the real checks below while the marker still exists
+        # (a genuine first-time or resumed setup) — the original `not` here inverted
+        # this, meaning verify-and-finish silently skipped every check and never
+        # deleted BOOTSTRAP.md on an actual first run.
         logger.info("Setup previously completed (no BOOTSTRAP.md marker)")
         return True
 

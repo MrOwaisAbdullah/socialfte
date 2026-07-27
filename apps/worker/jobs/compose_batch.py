@@ -1,8 +1,9 @@
 """Daily batch composer — Week 4, US3.
 
 Picks non-repeating asset + template pairs, generates captions via the caption agent,
-embeds them and anti-repeat checks them, calls the render endpoint, and writes draft
-posts to the review queue. Runs on COMPOSE_BATCH_CRON (default daily at 04:00).
+embeds them and anti-repeat checks them, calls the render endpoint, and writes posts
+in state='review' to the approval queue. Runs on COMPOSE_BATCH_CRON (default daily
+at 04:00).
 
 spec.md SC-001: A full day's draft posts with zero manual photo/template/caption selection.
 """
@@ -16,13 +17,40 @@ from brain.base import embed
 from brain.composer import write_caption
 from composer import anti_repeat
 from config import settings
-from db.models import Asset, AuditLog, Post, Template
+from db.models import Asset, AuditLog, Credential, Post, Template
 from db.session import SessionLocal
 
 logger = logging.getLogger("worker.compose_batch")
 
 TARGET_BATCH_SIZE = 5
 MAX_ASSET_TEMPLATE_COMBOS = TARGET_BATCH_SIZE * 3
+
+PLATFORM_FORMAT_MAP = {
+    "facebook": "video",
+    "instagram": "image",
+    "youtube_shorts": "short",
+    "tiktok": "video",
+}
+
+
+async def _get_connected_platforms() -> list[str]:
+    """Return platform strings from credentials that are usable right now.
+
+    A NULL expires_at means "no expiry concept" (e.g. YouTube's refresh-token-based
+    credential) and must count as valid, not excluded — matching db/credentials.py's
+    own is_expiring_soon() convention (None => not expiring). `expires_at > now` alone
+    would silently drop every NULL-expiry platform, since SQL NULL > x is NULL (falsy).
+    """
+    async with SessionLocal() as session:
+        now = datetime.now(timezone.utc)
+        creds = (
+            await session.execute(
+                select(Credential.platform).where(
+                    (Credential.expires_at.is_(None)) | (Credential.expires_at > now),
+                )
+            )
+        ).scalars().all()
+        return list(dict.fromkeys(creds))  # unique, preserve order
 
 
 async def _pick_candidates() -> list[tuple[Asset, Template]]:
@@ -57,8 +85,13 @@ async def _pick_candidates() -> list[tuple[Asset, Template]]:
 
 
 async def compose_batch():
-    """Compose a batch of draft posts. Runs on COMPOSE_BATCH_CRON."""
+    """Compose a batch of posts in state='review'. Runs on COMPOSE_BATCH_CRON."""
     logger.info("Starting batch composition — target: %d posts", TARGET_BATCH_SIZE)
+
+    platforms = await _get_connected_platforms()
+    if not platforms:
+        logger.warning("No connected platform credentials found")
+        return
 
     candidates = await _pick_candidates()
     if not candidates:
@@ -73,6 +106,8 @@ async def compose_batch():
             break
 
         asset_id_str = str(asset.id)
+        platform = platforms[composed % len(platforms)]
+        fmt = PLATFORM_FORMAT_MAP.get(platform, "image")
 
         if not await anti_repeat.check_asset(asset.id):
             shortfall_reasons.append(f"asset {asset_id_str} rejected by anti-repeat")
@@ -88,11 +123,11 @@ async def compose_batch():
             shortfall_reasons.append(f"caption failed for asset {asset_id_str}: {e}")
             continue
 
-        caption_text = (caption or "") + "\n\n" + " ".join(hashtags) if hashtags else (caption or "")
-
         caption_vec = None
         caption_ok = False
+        caption_text = ""
         for retry in range(settings.ANTI_REPEAT_MAX_RETRIES + 1):
+            caption_text = (caption or "") + ("\n\n" + " ".join(hashtags) if hashtags else "")
             caption_vec = await embed(caption_text)
             if await anti_repeat.check_caption(caption_vec):
                 caption_ok = True
@@ -106,6 +141,8 @@ async def compose_batch():
             shortfall_reasons.append(f"caption anti-repeat exhausted for asset {asset_id_str}")
             continue
 
+        asset_image_url = f"{settings.R2_PUBLIC_URL}/{asset.r2_key}" if asset.r2_key else None
+
         render_url = None
         try:
             async with httpx.AsyncClient(timeout=120.0) as client:
@@ -114,7 +151,7 @@ async def compose_batch():
                     headers={"x-render-secret": settings.RENDER_INTERNAL_SECRET},
                     json={
                         "templateId": tmpl.slug,
-                        "props": {"caption": caption_text},
+                        "props": {"caption": caption_text, "assetImageUrl": asset_image_url},
                         "aspect": "square",
                         "brand": {},
                     },
@@ -128,9 +165,9 @@ async def compose_batch():
 
         async with SessionLocal() as session:
             post = Post(
-                platform="instagram",
-                format="image",
-                state="draft",
+                platform=platform,
+                format=fmt,
+                state="review",
                 template_id=tmpl.id,
                 asset_id=asset.id,
                 caption=caption_text,
@@ -149,7 +186,9 @@ async def compose_batch():
                         "asset_id": asset_id_str,
                         "template_id": str(tmpl.id),
                         "caption_length": len(caption_text),
-                        "platform": "instagram",
+                        "platform": platform,
+                        "format": fmt,
+                        "state": "review",
                     },
                 )
             )
@@ -162,7 +201,7 @@ async def compose_batch():
             await session.commit()
 
         composed += 1
-        logger.info("Composed post %d: asset=%s template=%s", composed, asset_id_str, tmpl.slug)
+        logger.info("Composed post %d: asset=%s template=%s platform=%s", composed, asset_id_str, tmpl.slug, platform)
 
         if composed >= TARGET_BATCH_SIZE:
             break

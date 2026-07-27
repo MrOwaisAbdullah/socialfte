@@ -245,7 +245,7 @@ unasked as a side effect of this task.
 
 - [x] T071 Run `python -m pytest apps/worker/tests/` — all tests pass (existing Week 1–3 tests plus everything from Phases 2–9)
 - [x] T072 Manually verify spec.md's SC-001 through SC-007 against the implemented behavior (most are exercised by the unit tests above; SC-004/SC-006 need a manual look at the Performance screen and a BOOTSTRAP dry run respectively)
-- [ ] T073 Git commit: `git commit -m "week4: brain, loop, bootstrap"`
+- [x] T073 Git commit: `git commit -m "week4: brain, loop, bootstrap"`
 
 **Checkpoint**: All tests pass; all success criteria verified; code committed.
 
