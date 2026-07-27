@@ -236,8 +236,8 @@ responsible for each step.
 - [X] T063 Run `python -m worker bootstrap --env=clients/test-client-2/.env` — completes cleanly, confirmed isolated. **Done for real** (see Phase 8/T052's notes above): ran non-interactively with piped default answers; steps 1-5 completed for real against `clients/test-client-2/`, step 6 ran 4 real checks (3 failed on expected sandbox/config gaps — no Docker network, deprecated free LLM slug, no Discord token; Database passed against the real Neon DB); confirmed via `stat`/`git status` that the real repo root's 5 identity files were untouched (identical mtimes, zero git changes).
 - [X] T064 Confirm `docs/client-provisioning.md` exists and covers every step. Confirmed: 11KB, all 5 kickoff steps (Dokploy service, Neon project, R2 bucket, BOOTSTRAP wizard, handover) plus the per-client env-var table and secret-rotation table.
 - [X] T065 Run `python -m pytest apps/worker/tests/` — all tests pass. **89 passed, 1 skipped** (up from 78 at the start of this feature — 11 new tests across process_footage/vision/discord/bootstrap-isolation, plus fixes to 2 pre-existing tests that encoded now-corrected bootstrap semantics).
-- [ ] T066 `git tag v0.1.0`
-- [ ] T067 `git commit -m "week5: motion, calendar, generalise — v0.1.0"`
+- [X] T066 `git tag v0.1.0` — tagged at `1587f83`
+- [X] T067 `git commit -m "week5: motion, calendar, generalise — v0.1.0"` — 55 files changed, 4315 insertions(+), 136 deletions(-)
 
 **Checkpoint**: All automated tests pass; every success criterion verified except the three requiring infra this sandbox genuinely doesn't have (a working Remotion CLI TTY, a pushed GitHub repo with Actions secrets, and an installed ffmpeg + configured Discord bot) — each documented above with exactly what would be needed to complete it for real, not silently skipped.
 
