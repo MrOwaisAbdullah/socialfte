@@ -20,10 +20,17 @@ CREATE TABLE templates (
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- assets — reusable media, tagged by the vision agent (later week's work).
+-- kind/processed/sync_ok added Week 5 (research.md Decision 7, spec.md's Video
+-- clip entity) — a 'clip' starts unprocessed until process_footage.py runs
+-- noise cleanup + the A/V sync check; existing 'photo' rows default to already
+-- processed since nothing needs to happen to them.
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE assets (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   r2_key         TEXT NOT NULL,
+  kind           TEXT NOT NULL DEFAULT 'photo',  -- 'photo' | 'clip'
+  processed      BOOLEAN NOT NULL DEFAULT true,  -- false for a newly-uploaded 'clip' until process_footage.py finishes
+  sync_ok        BOOLEAN,                 -- A/V drift check result (verify_cut.py); null until checked, only set for 'clip'
   piece          TEXT,
   tier           TEXT,
   variant        TEXT,
@@ -35,6 +42,7 @@ CREATE TABLE assets (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_assets_times_used ON assets (times_used);  -- overuse detection
+CREATE INDEX idx_assets_kind_processed ON assets (kind, processed);  -- process_footage.py's polling query
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- posts — moves through AGENTS.md's draft -> render -> review -> approved ->
@@ -55,6 +63,9 @@ CREATE TABLE posts (
                                            -- currently openai/text-embedding-3-small @ 1536). NEVER change after
                                            -- first write without a full re-embed + reindex of every existing row.
   render_url    TEXT,
+  cover_frame_candidates JSONB,           -- Week 5: up to 3 {url, score} objects from cover-frame selection;
+                                           -- the chosen one overwrites render_url directly (data-model.md) —
+                                           -- this column is the offered shortlist, not the final choice
   scheduled_at  TIMESTAMPTZ,
   published_at  TIMESTAMPTZ,
   external_id   TEXT,

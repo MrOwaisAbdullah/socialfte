@@ -16,7 +16,8 @@ class Settings(BaseSettings):
     # CORE
     # ─────────────────────────────────────────────
     NODE_ENV: str = Field(default="production")
-    APP_URL: str = Field(default="https://social.yousufliving.com")
+    APP_URL: str = Field(default="")               # e.g. https://social.example.com — operator-supplied per client
+    BRAND_NAME: str = Field(default="")             # display name shown in the dashboard shell/title (Week 5, FR-016)
     SESSION_SECRET: str = Field(default="")
     TZ: str = Field(default="Asia/Karachi")
 
@@ -38,9 +39,9 @@ class Settings(BaseSettings):
     R2_ACCOUNT_ID: str = Field(default="")
     R2_ACCESS_KEY_ID: str = Field(default="")
     R2_SECRET_ACCESS_KEY: str = Field(default="")
-    R2_BUCKET: str = Field(default="yl-social")
+    R2_BUCKET: str = Field(default="")
     R2_ENDPOINT: str = Field(default="")
-    R2_PUBLIC_URL: str = Field(default="https://media.yousufliving.com")
+    R2_PUBLIC_URL: str = Field(default="")
 
     # ─────────────────────────────────────────────
     # META — Facebook Page + Instagram
@@ -125,7 +126,7 @@ class Settings(BaseSettings):
     # LLM GATEWAY — OpenRouter (Week 4, §7)
     # ─────────────────────────────────────────────
     OPENROUTER_API_KEY: str = Field(default="")
-    OPENROUTER_SITE_URL: str = Field(default="https://social.yousufliving.com")
+    OPENROUTER_SITE_URL: str = Field(default="")
     OPENROUTER_APP_NAME: str = Field(default="SocialFTE")
 
     MODEL_CAPTION: str = Field(default="deepseek/deepseek-v4-flash")
@@ -152,6 +153,17 @@ class Settings(BaseSettings):
     WEEKLY_DIGEST_CRON: str = Field(default="0 5 * * 0")  # Sundays at 05:00
 
     MEMORY_MD_PATH: str = Field(default="MEMORY.md")
+
+    # ─────────────────────────────────────────────
+    # VIDEO RENDERING — GitHub Actions dispatch (Week 5)
+    # ─────────────────────────────────────────────
+    GITHUB_TOKEN: str = Field(default="")
+    GITHUB_REPO: str = Field(default="")  # "owner/repo"
+    RENDER_WORKFLOW_FILE: str = Field(default="render-video.yml")
+    RENDER_POLL_INTERVAL_SECONDS: int = Field(default=30)
+    RENDER_POLL_MAX_MINUTES: int = Field(default=15)
+    PROCESS_FOOTAGE_CRON: str = Field(default="*/15 * * * *")
+    MUSIC_BED_DB: int = Field(default=-18)
 
     # ─────────────────────────────────────────────
     # OPTIONAL

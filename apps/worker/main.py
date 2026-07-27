@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 from config import settings
 from db.session import engine, SessionLocal
-from db.models import Base, Asset, AuditLog
+from db.models import Base, Asset, AuditLog, Post
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper()),
@@ -41,6 +41,7 @@ async def lifespan(app: FastAPI):
     from jobs.compose_batch import compose_batch
     from jobs.collect_metrics import collect_metrics
     from jobs.weekly_digest import weekly_digest
+    from jobs.process_footage import process_footage
 
     scheduler.add_job(
         refresh_tokens,
@@ -84,6 +85,13 @@ async def lifespan(app: FastAPI):
         name="Generate weekly performance digest",
         replace_existing=True,
     )
+    scheduler.add_job(
+        process_footage,
+        CronTrigger.from_crontab(settings.PROCESS_FOOTAGE_CRON),
+        id="process_footage",
+        name="Process uploaded video clips (audio + cover-frames)",
+        replace_existing=True,
+    )
 
     scheduler.start()
     logger.info("APScheduler started with %d jobs", len(scheduler.get_jobs()))
@@ -118,6 +126,56 @@ async def list_jobs():
         {"id": job.id, "name": job.name, "next_run": str(job.next_run_time)}
         for job in scheduler.get_jobs()
     ]
+
+
+class RenderCompleteRequest(BaseModel):
+    output_key: str
+    status: str
+
+
+@app.post("/api/render-complete")
+async def render_complete(request: Request, payload: RenderCompleteRequest):
+    """Callback from the GitHub Actions render workflow (Week 5, Step 2).
+
+    output_key follows dispatch_render.py's `renders/{post_id}.mp4` convention
+    — the post ID is embedded in the filename, so this endpoint doesn't need
+    a separate post_id field in the callback body to know which post to update.
+    """
+    secret = request.headers.get("x-render-secret")
+    if settings.RENDER_INTERNAL_SECRET and secret != settings.RENDER_INTERNAL_SECRET:
+        raise HTTPException(status_code=401, detail="unauthorized")
+
+    filename = payload.output_key.rsplit("/", 1)[-1]
+    post_id_str = filename.rsplit(".", 1)[0]
+    try:
+        post_id = UUID(post_id_str)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"could not parse post id from output_key: {payload.output_key}")
+
+    async with SessionLocal() as session:
+        post = await session.get(Post, post_id)
+        if not post:
+            raise HTTPException(status_code=404, detail="post not found")
+
+        if payload.status == "success":
+            post.render_url = f"{settings.R2_PUBLIC_URL}/{payload.output_key}"
+            post.state = "review"
+        else:
+            # Surfaces a failed/timed-out/cancelled render rather than leaving
+            # the post stuck invisibly forever (FR-004).
+            post.state = "failed"
+            post.error = f"video render failed (GitHub Actions status: {payload.status})"
+
+        session.add(AuditLog(
+            actor="dispatch_render",
+            action="render_complete",
+            subject_id=str(post_id),
+            payload={"output_key": payload.output_key, "status": payload.status},
+        ))
+        await session.commit()
+
+    logger.info("Render complete callback for post %s: status=%s", post_id, payload.status)
+    return {"ok": True}
 
 
 class VisionTagRequest(BaseModel):

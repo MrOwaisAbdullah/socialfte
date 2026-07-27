@@ -3,6 +3,8 @@
 Provides async SQLAlchemy engine and session factory for the worker.
 Mirrors apps/dashboard/lib/db/schema.ts — schema.sql is the source of truth.
 """
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 from config import settings
@@ -19,12 +21,26 @@ DATABASE_URL = settings.DATABASE_URL or "postgresql+asyncpg://user:pass@localhos
 if not DATABASE_URL.startswith("postgresql+asyncpg://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
+# Neon connection strings (and most managed-Postgres examples) append
+# `?sslmode=require` — a libpq/psycopg convention. asyncpg's connect() doesn't
+# accept `sslmode` as a URL query param at all and raises a TypeError, so it
+# has to be stripped from the URL and translated into asyncpg's own `ssl`
+# connect arg instead.
+connect_args = {}
+parts = urlsplit(DATABASE_URL)
+query = dict(parse_qsl(parts.query))
+if query.pop("sslmode", None) in ("require", "verify-ca", "verify-full"):
+    connect_args["ssl"] = "require"
+query.pop("channel_binding", None)  # another libpq-only param asyncpg doesn't accept
+DATABASE_URL = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
     pool_size=5,
     max_overflow=10,
     pool_pre_ping=True,
+    connect_args=connect_args,
 )
 
 SessionLocal = async_sessionmaker(

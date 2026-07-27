@@ -3,7 +3,7 @@
 Verifies quality_gate() sets reject_reason when quality_score is below the schema's
 documented threshold (60) and leaves it null otherwise.
 """
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -73,8 +73,14 @@ async def test_tag_asset_returns_tagging_fields(mock_deps):
         assert result == {"piece": "dining set", "tier": "tier2", "variant": "bridal", "quality_score": 90}
 
 
-def test_select_cover_frame_not_implemented():
-    from brain.vision import select_cover_frame
+@pytest.mark.asyncio
+async def test_score_frame_returns_structured_score(mock_deps):
+    from brain.vision import FrameScore, score_frame
 
-    with pytest.raises(NotImplementedError):
-        select_cover_frame("https://example.com/video.mp4")
+    with patch("brain.vision.Runner.run", new_callable=AsyncMock) as mock_run:
+        mock_run.return_value = MagicMock(final_output=FrameScore(score=8, reason="Product clearly visible, in focus"))
+
+        result = await score_frame("https://example.com/frame.jpg")
+
+        assert result.score == 8
+        assert "focus" in result.reason

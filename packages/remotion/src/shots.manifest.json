@@ -6,5 +6,37 @@
   "width": 1080,
   "height": 1920,
   "transparent": false
+ },
+ {
+  "id": "FabricDetail",
+  "durationInSeconds": 4,
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "transparent": false
+ },
+ {
+  "id": "HeroReveal",
+  "durationInSeconds": 5,
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "transparent": false
+ },
+ {
+  "id": "PriceReveal",
+  "durationInSeconds": 5,
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "transparent": false
+ },
+ {
+  "id": "SetReveal",
+  "durationInSeconds": 6,
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "transparent": false
  }
 ]

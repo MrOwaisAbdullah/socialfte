@@ -19,6 +19,7 @@ from composer import anti_repeat
 from config import settings
 from db.models import Asset, AuditLog, Credential, Post, Template
 from db.session import SessionLocal
+from jobs.dispatch_render import dispatch_video_render
 
 logger = logging.getLogger("worker.compose_batch")
 
@@ -31,6 +32,39 @@ PLATFORM_FORMAT_MAP = {
     "youtube_shorts": "short",
     "tiktok": "video",
 }
+
+VIDEO_FORMATS = {"video", "short", "reel"}
+
+# Closest analog between the six Week 2 static templates and the four Week 5
+# video compositions (packages/remotion/src/compositions/) — there's no 1:1
+# mapping mandated anywhere, this is a reasonable starting default, not a
+# hard requirement.
+VIDEO_COMPOSITION_MAP = {
+    "hero": "HeroReveal",
+    "price-card": "PriceReveal",
+    "set-breakdown": "SetReveal",
+    "quote": "FabricDetail",
+    "before-after": "FabricDetail",
+    "carousel-slide": "HeroReveal",
+}
+
+
+def _build_video_props(composition_id: str, image_url: str, caption_text: str) -> dict:
+    """Minimal, functional prop set per composition — derives text props from
+    the generated caption rather than requiring a separate structured-content
+    step the spec doesn't call for."""
+    headline = caption_text.splitlines()[0][:80] if caption_text else ""
+    props: dict = {"imageUrl": image_url}
+    if composition_id == "HeroReveal":
+        props["headline"] = headline
+    elif composition_id == "PriceReveal":
+        props["price"] = headline
+    elif composition_id == "FabricDetail":
+        props["qualityClaim"] = headline
+    elif composition_id == "SetReveal":
+        props["setName"] = headline
+        props["bundlePrice"] = ""
+    return props
 
 
 async def _get_connected_platforms() -> list[str]:
@@ -142,53 +176,96 @@ async def compose_batch():
             continue
 
         asset_image_url = f"{settings.R2_PUBLIC_URL}/{asset.r2_key}" if asset.r2_key else None
+        is_video = fmt in VIDEO_FORMATS
 
-        render_url = None
-        try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                resp = await client.post(
-                    f"{settings.RENDER_INTERNAL_URL}/api/internal/render",
-                    headers={"x-render-secret": settings.RENDER_INTERNAL_SECRET},
-                    json={
-                        "templateId": tmpl.slug,
-                        "props": {"caption": caption_text, "assetImageUrl": asset_image_url},
-                        "aspect": "square",
-                        "brand": {},
-                    },
+        if is_video:
+            # Video rendering is asynchronous (GitHub Actions + a callback,
+            # Week 5 Step 2) — the post has to exist before we can dispatch a
+            # render for it (the composition uses the post's own ID as the R2
+            # output key), and it starts at 'draft' rather than 'review' since
+            # there's no render_url yet. POST /api/render-complete
+            # (apps/worker/main.py) is what moves it to 'review' once the
+            # workflow finishes.
+            async with SessionLocal() as session:
+                post = Post(
+                    platform=platform,
+                    format=fmt,
+                    state="draft",
+                    template_id=tmpl.id,
+                    asset_id=asset.id,
+                    caption=caption_text,
+                    caption_vec=caption_vec,
                 )
-                resp.raise_for_status()
-                render_url = resp.json().get("url")
-        except Exception as e:
-            logger.error("Render failed for asset %s: %s", asset_id_str, e)
-            shortfall_reasons.append(f"render failed for asset {asset_id_str}: {e}")
-            continue
+                session.add(post)
+                await session.commit()
+                post_id = post.id
+
+            composition_id = VIDEO_COMPOSITION_MAP.get(tmpl.slug, "HeroReveal")
+            try:
+                await dispatch_video_render(
+                    str(post_id),
+                    composition_id,
+                    _build_video_props(composition_id, asset_image_url or "", caption_text),
+                )
+            except Exception as e:
+                logger.error("Video dispatch failed for post %s: %s", post_id, e)
+                async with SessionLocal() as session:
+                    failed_post = await session.get(Post, post_id)
+                    if failed_post:
+                        failed_post.state = "failed"
+                        failed_post.error = str(e)
+                        await session.commit()
+                shortfall_reasons.append(f"video dispatch failed for asset {asset_id_str}: {e}")
+                continue
+        else:
+            render_url = None
+            try:
+                async with httpx.AsyncClient(timeout=120.0) as client:
+                    resp = await client.post(
+                        f"{settings.RENDER_INTERNAL_URL}/api/internal/render",
+                        headers={"x-render-secret": settings.RENDER_INTERNAL_SECRET},
+                        json={
+                            "templateId": tmpl.slug,
+                            "props": {"caption": caption_text, "assetImageUrl": asset_image_url},
+                            "aspect": "square",
+                            "brand": {},
+                        },
+                    )
+                    resp.raise_for_status()
+                    render_url = resp.json().get("url")
+            except Exception as e:
+                logger.error("Render failed for asset %s: %s", asset_id_str, e)
+                shortfall_reasons.append(f"render failed for asset {asset_id_str}: {e}")
+                continue
+
+            async with SessionLocal() as session:
+                post = Post(
+                    platform=platform,
+                    format=fmt,
+                    state="review",
+                    template_id=tmpl.id,
+                    asset_id=asset.id,
+                    caption=caption_text,
+                    caption_vec=caption_vec,
+                    render_url=render_url,
+                )
+                session.add(post)
+                await session.commit()
+                post_id = post.id
 
         async with SessionLocal() as session:
-            post = Post(
-                platform=platform,
-                format=fmt,
-                state="review",
-                template_id=tmpl.id,
-                asset_id=asset.id,
-                caption=caption_text,
-                caption_vec=caption_vec,
-                render_url=render_url,
-            )
-            session.add(post)
-            await session.commit()
-
             session.add(
                 AuditLog(
                     actor="compose_batch",
                     action="post_composed",
-                    subject_id=str(post.id),
+                    subject_id=str(post_id),
                     payload={
                         "asset_id": asset_id_str,
                         "template_id": str(tmpl.id),
                         "caption_length": len(caption_text),
                         "platform": platform,
                         "format": fmt,
-                        "state": "review",
+                        "state": "draft" if is_video else "review",
                     },
                 )
             )

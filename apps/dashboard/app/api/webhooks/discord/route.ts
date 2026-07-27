@@ -80,7 +80,70 @@ export async function POST(req: NextRequest) {
     }
 
     const [action, postId] = customId.split(":");
-    
+
+    // Handle cover-frame picks — three buttons, custom_id "cover:{postId}:{n}"
+    if (action === "cover") {
+      const [, coverPostId, frameIndexStr] = customId.split(":");
+      const frameIndex = Number(frameIndexStr) - 1; // buttons are 1-indexed
+
+      try {
+        const [post] = await db
+          .select({ coverFrameCandidates: posts.coverFrameCandidates })
+          .from(posts)
+          .where(eq(posts.id, coverPostId));
+
+        const candidates = (post?.coverFrameCandidates ?? []) as Array<{ url: string; score: number }>;
+        const chosen = candidates[frameIndex];
+
+        if (!chosen) {
+          return NextResponse.json({
+            type: 4,
+            data: { content: "That cover frame is no longer available.", flags: 64 },
+          });
+        }
+
+        // The chosen cover overwrites render_url directly — no separate
+        // thumbnail field (data-model.md).
+        await db
+          .update(posts)
+          .set({ renderUrl: chosen.url, updatedAt: new Date() })
+          .where(eq(posts.id, coverPostId));
+
+        await db.insert(auditLog).values({
+          actor: "discord_webhook",
+          action: "cover_frame_selected",
+          subjectId: coverPostId,
+          payload: {
+            discordUserId: interaction.member?.user?.id,
+            discordUsername: interaction.member?.user?.username,
+            frameIndex: frameIndex + 1,
+            url: chosen.url,
+            score: chosen.score,
+          },
+        });
+
+        // Update the main embed's image to the chosen cover and drop the
+        // cover-frame picker row, keeping Approve/Edit/Skip intact.
+        const originalMessage = interaction.message;
+        const mainEmbed = originalMessage?.embeds?.[0];
+        const approvalRow = originalMessage?.components?.[0];
+
+        return NextResponse.json({
+          type: 7, // UPDATE_MESSAGE
+          data: {
+            embeds: mainEmbed ? [{ ...mainEmbed, image: { url: chosen.url } }] : undefined,
+            components: approvalRow ? [approvalRow] : [],
+          },
+        });
+      } catch (error) {
+        console.error("Failed to select cover frame:", error);
+        return NextResponse.json({
+          type: 4,
+          data: { content: `Failed to select cover frame: ${error}`, flags: 64 },
+        });
+      }
+    }
+
     // Handle approve/skip/edit actions
     const stateMap: Record<string, string> = {
       approve: "approved",

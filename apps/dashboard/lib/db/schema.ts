@@ -38,9 +38,15 @@ export const assets = pgTable(
     compositionOk: boolean('composition_ok'),
     rejectReason: text('reject_reason'),
     timesUsed: integer('times_used').notNull().default(0),
+    kind: text().notNull().default('photo'),
+    processed: boolean().notNull().default(true),
+    syncOk: boolean('sync_ok'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('idx_assets_times_used').on(table.timesUsed)]
+  (table) => [
+    index('idx_assets_times_used').on(table.timesUsed),
+    index('idx_assets_kind_processed').on(table.kind, table.processed),
+  ]
 );
 
 export const posts = pgTable(
@@ -55,6 +61,7 @@ export const posts = pgTable(
     caption: text(),
     captionVec: vector('caption_vec', { dimensions: EMBED_DIMENSIONS }),
     renderUrl: text('render_url'),
+    coverFrameCandidates: jsonb('cover_frame_candidates'),
     scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
     publishedAt: timestamp('published_at', { withTimezone: true }),
     externalId: text('external_id'),

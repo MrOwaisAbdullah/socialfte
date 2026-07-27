@@ -72,6 +72,7 @@ async def test_send_approval_creates_correct_structure(mock_deps):
     mock_post.caption = "Test caption for approval"
     mock_post.render_url = "https://media.yousufliving.com/render.jpg"
     mock_post.scheduled_at = datetime(2026, 7, 28, 15, 0, tzinfo=timezone.utc)
+    mock_post.cover_frame_candidates = None
     
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -130,6 +131,7 @@ async def test_send_approval_truncates_long_caption(mock_deps):
     mock_post.caption = "x" * 2500  # 2500 chars
     mock_post.render_url = "https://media.yousufliving.com/render.jpg"
     mock_post.scheduled_at = datetime(2026, 7, 28, 15, 0, tzinfo=timezone.utc)
+    mock_post.cover_frame_candidates = None
     
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -162,6 +164,7 @@ async def test_send_approval_no_render_url(mock_deps):
     mock_post.caption = "YouTube Short caption"
     mock_post.render_url = None
     mock_post.scheduled_at = datetime(2026, 7, 28, 15, 0, tzinfo=timezone.utc)
+    mock_post.cover_frame_candidates = None
     
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -180,3 +183,77 @@ async def test_send_approval_no_render_url(mock_deps):
         
         assert "image" not in embed
         assert "YOUTUBE_SHORTS" in embed["title"]
+
+
+@pytest.mark.asyncio
+async def test_send_approval_adds_cover_frame_picker(mock_deps):
+    """send_approval() should add a preview embed + button per cover-frame candidate."""
+    from notify.discord import send_approval
+
+    mock_post = MagicMock()
+    mock_post.id = "post_321"
+    mock_post.platform = "tiktok"
+    mock_post.format = "video"
+    mock_post.caption = "Video post caption"
+    mock_post.render_url = None
+    mock_post.scheduled_at = datetime(2026, 7, 28, 15, 0, tzinfo=timezone.utc)
+    mock_post.cover_frame_candidates = [
+        {"url": "https://example.com/f1.jpg", "score": 9, "reason": "sharp"},
+        {"url": "https://example.com/f2.jpg", "score": 8, "reason": "good"},
+        {"url": "https://example.com/f3.jpg", "score": 7, "reason": "ok"},
+    ]
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "approval_321"}
+    mock_response.raise_for_status = MagicMock()
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post_req:
+        mock_post_req.return_value = mock_response
+
+        await send_approval(mock_post)
+
+        payload = mock_post_req.call_args[1]["json"]
+
+        # 1 approval embed + 3 cover-frame preview embeds
+        assert len(payload["embeds"]) == 4
+        assert payload["embeds"][1]["image"]["url"] == "https://example.com/f1.jpg"
+        assert payload["embeds"][2]["image"]["url"] == "https://example.com/f2.jpg"
+        assert payload["embeds"][3]["image"]["url"] == "https://example.com/f3.jpg"
+
+        # Approve/Edit/Skip row + a second row of 3 cover-frame buttons
+        assert len(payload["components"]) == 2
+        cover_buttons = payload["components"][1]["components"]
+        assert len(cover_buttons) == 3
+        assert cover_buttons[0]["custom_id"] == "cover:post_321:1"
+        assert cover_buttons[1]["custom_id"] == "cover:post_321:2"
+        assert cover_buttons[2]["custom_id"] == "cover:post_321:3"
+
+
+@pytest.mark.asyncio
+async def test_send_approval_no_cover_frame_row_when_empty(mock_deps):
+    """A post with no cover-frame candidates should get exactly one action row."""
+    from notify.discord import send_approval
+
+    mock_post = MagicMock()
+    mock_post.id = "post_654"
+    mock_post.platform = "facebook"
+    mock_post.format = "image"
+    mock_post.caption = "Image post"
+    mock_post.render_url = "https://example.com/render.jpg"
+    mock_post.scheduled_at = datetime(2026, 7, 28, 15, 0, tzinfo=timezone.utc)
+    mock_post.cover_frame_candidates = None
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "approval_654"}
+    mock_response.raise_for_status = MagicMock()
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post_req:
+        mock_post_req.return_value = mock_response
+
+        await send_approval(mock_post)
+
+        payload = mock_post_req.call_args[1]["json"]
+        assert len(payload["embeds"]) == 1
+        assert len(payload["components"]) == 1

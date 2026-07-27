@@ -1,0 +1,69 @@
+name: Render video
+
+# Manually dispatched by apps/worker/jobs/dispatch_render.py — never runs on a
+# push. `ubuntu-latest` gives 7 GB RAM, which is why rendering doesn't happen
+# on the VPS (per the Week 5 kickoff).
+on:
+  workflow_dispatch:
+    inputs:
+      composition_id:
+        description: "Remotion composition id (HeroReveal | PriceReveal | FabricDetail | SetReveal)"
+        required: true
+        type: string
+      props:
+        description: "JSON string of props for the composition"
+        required: true
+        type: string
+      output_key:
+        description: "R2 object key to upload the rendered MP4 to (e.g. renders/<post-id>.mp4)"
+        required: true
+        type: string
+
+jobs:
+  render:
+    name: Render ${{ inputs.composition_id }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Remotion dependencies
+        working-directory: packages/remotion
+        run: npm install
+
+      - name: Write props to a file
+        # Writing to a file (rather than interpolating ${{ inputs.props }} directly
+        # into the render command below) avoids passing an untrusted
+        # workflow_dispatch input straight into a shell string — GitHub's own
+        # documented script-injection risk for `run:` blocks. env: + a JSON
+        # file is Remotion's own documented pattern for this exact scenario.
+        working-directory: packages/remotion
+        env:
+          RENDER_PROPS: ${{ inputs.props }}
+        run: echo "$RENDER_PROPS" > input-props.json
+
+      - name: Render
+        working-directory: packages/remotion
+        run: npx remotion render ${{ inputs.composition_id }} out/render.mp4 --props=./input-props.json
+
+      - name: Upload to R2
+        working-directory: packages/remotion
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          aws s3 cp out/render.mp4 "s3://${{ secrets.R2_BUCKET }}/${{ inputs.output_key }}" \
+            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+
+      - name: Notify the worker
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          curl -sS -X POST "${{ secrets.CALLBACK_URL }}" \
+            -H "Content-Type: application/json" \
+            -H "x-render-secret: ${{ secrets.RENDER_INTERNAL_SECRET }}" \
+            -d "{\"output_key\": \"${{ inputs.output_key }}\", \"status\": \"$STATUS\"}"

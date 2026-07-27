@@ -121,8 +121,8 @@ async def send_approval(post) -> str:
     # Add image if render_url exists
     if post.render_url:
         embed["image"] = {"url": post.render_url}
-    
-    # Build the buttons
+
+    embeds = [embed]
     components = [{
         "type": 1,  # Action Row
         "components": [
@@ -146,9 +146,32 @@ async def send_approval(post) -> str:
             },
         ],
     }]
-    
+
+    # Cover-frame candidates (Week 5, Step 4): Discord buttons can't carry an
+    # image themselves, so each candidate gets its own preview embed alongside
+    # a "Pick a cover frame" row of buttons referencing it by position.
+    candidates = getattr(post, "cover_frame_candidates", None)
+    if candidates:
+        for idx, candidate in enumerate(candidates, start=1):
+            embeds.append({
+                "title": f"Cover option {idx} — score {candidate.get('score', '?')}/10",
+                "image": {"url": candidate["url"]},
+            })
+        components.append({
+            "type": 1,  # Action Row
+            "components": [
+                {
+                    "type": 2,
+                    "style": 1,  # Primary (blurple)
+                    "label": f"Use cover {idx}",
+                    "custom_id": f"cover:{post.id}:{idx}",
+                }
+                for idx in range(1, len(candidates) + 1)
+            ],
+        })
+
     payload = {
-        "embeds": [embed],
+        "embeds": embeds,
         "components": components,
     }
     

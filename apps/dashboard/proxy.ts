@@ -6,6 +6,10 @@ import { SESSION_COOKIE, verifySessionToken } from '@/lib/session';
 // gate doesn't need it (plain cookie read + HMAC verify). Excludes:
 // - /login: where the operator enters SESSION_SECRET
 // - /api/internal/*: authenticated separately via RENDER_INTERNAL_SECRET (Story 5)
+// - /api/webhooks/*: authenticated separately via provider signature (e.g. Discord's
+//   Ed25519 header) — these are server-to-server callbacks with no session cookie;
+//   without this exclusion the gate redirected every interaction to /login instead
+//   of returning the JSON Discord expects, silently breaking the whole approval flow
 // - /render-preview: headless, navigated to by Puppeteer server-side, never by
 //   a logged-in browser session — it must stay reachable without a cookie
 export function proxy(request: NextRequest) {
@@ -17,5 +21,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!login|api/internal|render-preview|_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    '/((?!login|api/internal|api/webhooks|render-preview|_next/static|_next/image|favicon.ico).*)',
+  ],
 };

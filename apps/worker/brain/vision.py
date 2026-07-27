@@ -1,12 +1,13 @@
-"""Vision tagging agent — Week 4, Step 3.
+"""Vision tagging agent — Week 4 Step 3 (asset tagging/quality gate) and
+Week 5 Step 4 (cover-frame scoring).
 
-Two public entry points (tag_asset, quality_gate) share one underlying vision call
-(_analyze_asset) rather than firing two separate Gemini calls per photo — they're
-kept as separate functions because they're independently testable/callable per
-spec.md, but there's no reason to pay for the image twice.
+tag_asset/quality_gate share one underlying vision call (_analyze_asset) rather
+than firing two separate Gemini calls per photo — they're kept as separate
+functions because they're independently testable/callable per spec.md, but
+there's no reason to pay for the image twice.
 
-select_cover_frame is stubbed — full implementation is Week 5 (Remotion/video)
-territory, per the original kickoff.
+score_frame reuses the same structured-output Agent pattern (research.md
+Decision 6 for Week 5) rather than hand-rolling a new JSON-parsing path.
 """
 import logging
 
@@ -114,6 +115,34 @@ async def quality_gate(image_url: str) -> tuple[bool, bool, str | None]:
     return analysis.lighting_ok, analysis.composition_ok, reject_reason
 
 
-def select_cover_frame(video_url: str):
-    """Cover-frame selection for video/reel assets — Week 5 territory, not yet implemented."""
-    raise NotImplementedError("select_cover_frame is Week 5 (Remotion/video) scope")
+class FrameScore(BaseModel):
+    score: int  # 0-10
+    reason: str
+
+
+frame_scoring_agent = Agent(
+    name="CoverFrameScorer",
+    instructions=(
+        "Score this frame 0-10 for use as a social media cover. Criteria: "
+        "product fully visible (+3), in focus (+3), composition balanced (+2), "
+        "no motion blur (+2)."
+    ),
+    model=model("vision"),
+    model_settings=ModelSettings(temperature=0.2),
+    output_type=FrameScore,
+)
+
+
+async def score_frame(image_url: str) -> FrameScore:
+    """Score a single candidate cover frame — Week 5, Step 4."""
+    message = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "input_text", "text": "Score this frame for use as a social media cover image."},
+                {"type": "input_image", "image_url": image_url},
+            ],
+        }
+    ]
+    result = await Runner.run(frame_scoring_agent, message)
+    return result.final_output

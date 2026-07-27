@@ -1,0 +1,135 @@
+"""Video render dispatch — Week 5, Step 2.
+
+Triggers the GitHub Actions render-video workflow for a post that needs a
+Remotion composition rendered, then polls the run status until it finishes or
+the poll budget runs out. The actual render → R2 upload → post-state update
+happens in the workflow itself and its callback to POST /api/render-complete
+(apps/worker/main.py) — this function's job is only to kick the run off and
+watch it, not to do the rendering.
+"""
+import asyncio
+import logging
+
+import httpx
+
+from config import settings
+from db.models import AuditLog
+from db.session import SessionLocal
+
+logger = logging.getLogger("worker.dispatch_render")
+
+# The four compositions that exist in packages/remotion/src/compositions/
+# (plan.md Phase 1) — dispatching an unknown id would trigger a workflow run
+# that fails at the `npx remotion render` step for no good reason (FR-003).
+KNOWN_COMPOSITIONS = {"HeroReveal", "PriceReveal", "FabricDetail", "SetReveal"}
+
+GITHUB_API = "https://api.github.com"
+
+
+async def _write_audit(action: str, subject_id: str, payload: dict):
+    async with SessionLocal() as session:
+        session.add(AuditLog(actor="dispatch_render", action=action, subject_id=subject_id, payload=payload))
+        await session.commit()
+
+
+async def dispatch_video_render(post_id: str, composition_id: str, props: dict) -> str | None:
+    """Dispatch a video render for `post_id` using `composition_id` and `props`.
+
+    Returns as soon as the dispatch request itself succeeds — it does NOT wait
+    for the render to finish. The actual completion happens via the workflow's
+    callback to POST /api/render-complete. Status polling (for visibility into
+    a stuck/crashed run per FR-004) runs as a separate background task
+    (`asyncio.create_task`), not inline here — compose_batch may dispatch
+    several video posts in one run, and awaiting a 15-minute poll loop per post
+    serially would make the whole daily batch take hours instead of seconds.
+
+    Raises ValueError immediately for an unknown composition_id, before ever
+    making a network call (FR-003 — fail clearly, don't dispatch a workflow
+    that's guaranteed to fail at the render step).
+    """
+    if composition_id not in KNOWN_COMPOSITIONS:
+        await _write_audit(
+            "dispatch_rejected",
+            post_id,
+            {"composition_id": composition_id, "reason": "unknown composition"},
+        )
+        raise ValueError(f"Unknown composition_id {composition_id!r}; known: {sorted(KNOWN_COMPOSITIONS)}")
+
+    output_key = f"renders/{post_id}.mp4"
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {settings.GITHUB_TOKEN}",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    url = f"{GITHUB_API}/repos/{settings.GITHUB_REPO}/actions/workflows/{settings.RENDER_WORKFLOW_FILE}/dispatches"
+    body = {
+        "ref": "main",
+        "inputs": {
+            "composition_id": composition_id,
+            "props": _json_dumps(props),
+            "output_key": output_key,
+        },
+    }
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(url, headers=headers, json=body, timeout=30.0)
+        resp.raise_for_status()
+
+        # Current GitHub REST API returns 200 with the run ID in the body;
+        # older/Enterprise Server behavior returns 204 with no body at all —
+        # handle both rather than assuming one (verified via Tavily against
+        # docs.github.com, research.md's Open Questions flagged this as
+        # unverified going into implementation).
+        run_id = None
+        if resp.status_code == 200 and resp.content:
+            run_id = resp.json().get("workflow_run_id")
+
+    await _write_audit(
+        "dispatch_sent",
+        post_id,
+        {"composition_id": composition_id, "output_key": output_key, "run_id": run_id},
+    )
+    logger.info("Dispatched render for post %s: composition=%s run_id=%s", post_id, composition_id, run_id)
+
+    if run_id is not None:
+        asyncio.create_task(_poll_run_status(post_id, run_id, headers))
+
+    return str(run_id) if run_id is not None else None
+
+
+async def _poll_run_status(post_id: str, run_id: int, headers: dict) -> None:
+    """Poll the run's status every RENDER_POLL_INTERVAL_SECONDS, up to
+    RENDER_POLL_MAX_MINUTES, then stop — the callback (not this loop) is what
+    actually completes the post. This is purely observability/logging.
+    """
+    max_polls = int((settings.RENDER_POLL_MAX_MINUTES * 60) / settings.RENDER_POLL_INTERVAL_SECONDS)
+    url = f"{GITHUB_API}/repos/{settings.GITHUB_REPO}/actions/runs/{run_id}"
+
+    async with httpx.AsyncClient() as client:
+        for _ in range(max_polls):
+            await asyncio.sleep(settings.RENDER_POLL_INTERVAL_SECONDS)
+            resp = await client.get(url, headers=headers, timeout=15.0)
+            if resp.status_code != 200:
+                logger.warning("Render run status check failed for post %s: HTTP %s", post_id, resp.status_code)
+                continue
+            data = resp.json()
+            if data.get("status") == "completed":
+                logger.info("Render run %s for post %s completed: conclusion=%s", run_id, post_id, data.get("conclusion"))
+                return
+
+        logger.warning(
+            "Render run %s for post %s did not report completed within %d minutes — the callback will still "
+            "update the post if the workflow eventually finishes; this is a visibility timeout, not a failure",
+            run_id, post_id, settings.RENDER_POLL_MAX_MINUTES,
+        )
+        await _write_audit(
+            "dispatch_poll_timeout",
+            post_id,
+            {"run_id": run_id, "max_minutes": settings.RENDER_POLL_MAX_MINUTES},
+        )
+
+
+def _json_dumps(props: dict) -> str:
+    import json
+
+    return json.dumps(props)

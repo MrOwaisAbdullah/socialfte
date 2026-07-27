@@ -16,9 +16,15 @@ const body = Archivo({
   variable: '--font-body',
 });
 
+// Per-client display name (FR-016) — an unconfigured deployment still
+// renders a sensible title instead of a hardcoded brand.
+const brandName = process.env.BRAND_NAME;
+
 export const metadata: Metadata = {
-  title: 'SocialFTE — Yousuf Living',
-  description: 'Draft, review, and publish social content for Yousuf Living.',
+  title: brandName ? `SocialFTE — ${brandName}` : 'SocialFTE',
+  description: brandName
+    ? `Draft, review, and publish social content for ${brandName}.`
+    : 'Draft, review, and publish social content.',
 };
 
 // Bare root layout — fonts, globals, nothing else. Route groups add their own

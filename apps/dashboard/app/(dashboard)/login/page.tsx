@@ -24,9 +24,10 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
+  const brandName = process.env.BRAND_NAME || 'Dashboard';
   return (
     <div className="mx-auto mt-24 max-w-sm">
-      <h1 className="font-heading text-3xl text-primary">Yousuf Living</h1>
+      <h1 className="font-heading text-3xl text-primary">{brandName}</h1>
       <p className="mt-1 font-body text-sm text-muted">SocialFTE dashboard</p>
       <form action={login} className="mt-8 flex flex-col gap-4">
         <label htmlFor="password" className="font-body text-sm text-dark">

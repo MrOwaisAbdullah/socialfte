@@ -6,7 +6,7 @@ import sys
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "bootstrap":
         from bootstrap.cli import main as bootstrap_main
-        bootstrap_main()
+        bootstrap_main(sys.argv[2:])  # strip the "bootstrap" subcommand token itself
     else:
         from main import main as worker_main
         worker_main()

@@ -37,6 +37,9 @@ class Asset(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     r2_key: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False, server_default="photo")
+    processed: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    sync_ok: Mapped[bool | None] = mapped_column(Boolean)
     piece: Mapped[str | None] = mapped_column(Text)
     tier: Mapped[str | None] = mapped_column(Text)
     variant: Mapped[str | None] = mapped_column(Text)
@@ -60,6 +63,7 @@ class Post(Base):
     caption: Mapped[str | None] = mapped_column(Text)
     caption_vec: Mapped[list[float] | None] = mapped_column(Vector(EMBED_DIMENSIONS))
     render_url: Mapped[str | None] = mapped_column(Text)
+    cover_frame_candidates: Mapped[dict | None] = mapped_column(JSONB)
     scheduled_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
     published_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
     external_id: Mapped[str | None] = mapped_column(Text)
