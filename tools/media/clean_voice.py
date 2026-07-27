@@ -101,10 +101,16 @@ def main():
         print(f"level: src RMS {src_rms} dB, cleaned RMS {iso_rms} dB / peak {iso_peak} dB -> gain {gain:+.2f} dB")
 
     # 4) remux: video COPIED, cleaned audio (gain-matched, padded to video length)
+    # `apad` has no natural end (it pads forever); `-shortest` alone doesn't
+    # reliably bound it when paired with `-c:v copy` (verified: without an
+    # explicit `-t`, this command hangs indefinitely instead of stopping at
+    # the video's length — a real, reproducible ffmpeg interaction, not a
+    # slow-but-finite render). `-t {dur}` hard-caps the output to the source's
+    # own probed duration regardless of that interaction.
     print("remux (video copy) ...")
     run(["ffmpeg", "-y", "-hide_banner", "-i", src, "-i", iso,
          "-filter_complex", f"[1:a]volume={gain:.2f}dB,apad[a]",
-         "-map", "0:v:0", "-map", "[a]", "-shortest",
+         "-map", "0:v:0", "-map", "[a]", "-shortest", "-t", f"{dur:.3f}",
          "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", out])
 
     od = probe_dur(out)

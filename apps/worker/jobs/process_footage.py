@@ -127,13 +127,20 @@ async def _process_one_clip(asset: Asset, work_dir: Path) -> None:
 
     mixed_path = work_dir / f"{asset.id}-mixed.mp4"
     try:
+        # `--bed <id>` (not `--all`) is required for `--out` to take effect —
+        # mix_music.py's own main() explicitly ignores `--out` when `--all` is
+        # set (it instead renders one file per catalog bed next to `--base`,
+        # for manual audition-comparison use), so `--all --out <mixed_path>`
+        # would silently leave `mixed_path` never created while still exiting
+        # 0 — a real bug this call had until verified against the real CLI
+        # rather than only a mocked `_run`.
         _run([
             "python3", str(TOOLS_MEDIA / "mix_music.py"),
-            "--all", "--base", str(cleaned_path),
+            "--bed", settings.MUSIC_BED_ID, "--base", str(cleaned_path),
             "--bed-gain", str(settings.MUSIC_BED_DB),
             "--out", str(mixed_path),
         ])
-        await _write_audit("music_mixed", str(asset.id), {"bed_gain_db": settings.MUSIC_BED_DB})
+        await _write_audit("music_mixed", str(asset.id), {"bed_gain_db": settings.MUSIC_BED_DB, "bed_id": settings.MUSIC_BED_ID})
     except Exception as e:
         logger.warning("Music mix failed for asset %s, continuing with unmixed clip: %s", asset.id, e)
         mixed_path = cleaned_path

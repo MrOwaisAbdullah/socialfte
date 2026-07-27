@@ -164,6 +164,7 @@ class Settings(BaseSettings):
     RENDER_POLL_MAX_MINUTES: int = Field(default=15)
     PROCESS_FOOTAGE_CRON: str = Field(default="*/15 * * * *")
     MUSIC_BED_DB: int = Field(default=-18)
+    MUSIC_BED_ID: str = Field(default="ambient-pad")  # id from media/library/music/catalog.json
 
     # ─────────────────────────────────────────────
     # OPTIONAL

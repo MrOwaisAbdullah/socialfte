@@ -38,7 +38,11 @@ vision_agent = Agent(
     name="AssetTagger",
     instructions=load_prompt("BRAND.md", "skills/asset-tagging.md"),
     model=model("vision"),
-    model_settings=ModelSettings(temperature=0.2),
+    # A tagging result is a handful of short fields — bounding max_tokens avoids
+    # requesting the model's full (very large) default output budget, which some
+    # OpenRouter accounts' remaining credit can't cover (verified: an unbounded
+    # request failed with a 402 "requested 65535, can only afford 16000" error).
+    model_settings=ModelSettings(temperature=0.2, max_tokens=1024),
     output_type=AssetAnalysis,
 )
 
@@ -128,7 +132,9 @@ frame_scoring_agent = Agent(
         "no motion blur (+2)."
     ),
     model=model("vision"),
-    model_settings=ModelSettings(temperature=0.2),
+    # See vision_agent's comment above — same fix, same reason: a {score, reason}
+    # output needs a few hundred tokens at most, not the model's full default budget.
+    model_settings=ModelSettings(temperature=0.2, max_tokens=800),
     output_type=FrameScore,
 )
 
