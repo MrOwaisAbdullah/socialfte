@@ -18,7 +18,7 @@ export default function JobsPage() {
   const fetchJobs = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_WORKER_URL || ""}/jobs`);
+      const res = await fetch("/api/jobs");
       if (res.ok) setJobs(await res.json());
     } catch {
       setError("Could not reach worker");
@@ -35,11 +35,10 @@ export default function JobsPage() {
     setRunning(jobId);
     setError(null);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_WORKER_URL || ""}/jobs/${jobId}/run`, {
+      const res = await fetch("/api/jobs", {
         method: "POST",
-        headers: {
-          "x-internal-secret": process.env.NEXT_PUBLIC_RENDER_INTERNAL_SECRET || "",
-        },
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: jobId }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
