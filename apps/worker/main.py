@@ -17,6 +17,8 @@ from audit import write_audit
 from config import settings
 from db.session import engine, SessionLocal
 from db.models import Base, Asset, Post
+from scheduling import trigger_to_cron, humanize_cron
+from job_runs import tracked, current_trigger, last_runs
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper()),
@@ -44,50 +46,54 @@ async def lifespan(app: FastAPI):
     from jobs.weekly_digest import weekly_digest
     from jobs.process_footage import process_footage
 
+    # Wrapped with tracked() so every execution — cron-triggered or manually
+    # run from the dashboard's Jobs page — records a job_runs row (status,
+    # timing, error). The manual endpoint calls job.func(), which after
+    # registration IS this wrapped version, so one wrapper covers both paths.
     scheduler.add_job(
-        refresh_tokens,
+        tracked("refresh_tokens", refresh_tokens),
         CronTrigger.from_crontab(settings.TOKEN_REFRESH_CRON),
         id="refresh_tokens",
         name="Refresh platform tokens",
         replace_existing=True,
     )
     scheduler.add_job(
-        publish_due,
+        tracked("publish_due", publish_due),
         CronTrigger.from_crontab(settings.PUBLISH_DUE_CRON),
         id="publish_due",
         name="Publish approved posts",
         replace_existing=True,
     )
     scheduler.add_job(
-        notify_review,
+        tracked("notify_review", notify_review),
         CronTrigger.from_crontab(settings.NOTIFY_REVIEW_CRON),
         id="notify_review",
         name="Send approval cards to Discord",
         replace_existing=True,
     )
     scheduler.add_job(
-        compose_batch,
+        tracked("compose_batch", compose_batch),
         CronTrigger.from_crontab(settings.COMPOSE_BATCH_CRON),
         id="compose_batch",
         name="Compose daily draft batch",
         replace_existing=True,
     )
     scheduler.add_job(
-        collect_metrics,
+        tracked("collect_metrics", collect_metrics),
         CronTrigger.from_crontab(settings.COLLECT_METRICS_CRON),
         id="collect_metrics",
         name="Collect post performance metrics",
         replace_existing=True,
     )
     scheduler.add_job(
-        weekly_digest,
+        tracked("weekly_digest", weekly_digest),
         CronTrigger.from_crontab(settings.WEEKLY_DIGEST_CRON),
         id="weekly_digest",
         name="Generate weekly performance digest",
         replace_existing=True,
     )
     scheduler.add_job(
-        process_footage,
+        tracked("process_footage", process_footage),
         CronTrigger.from_crontab(settings.PROCESS_FOOTAGE_CRON),
         id="process_footage",
         name="Process uploaded video clips (audio + cover-frames)",
@@ -122,15 +128,20 @@ async def health():
 
 @app.get("/jobs")
 async def list_jobs():
-    """List all registered APScheduler jobs with schedules."""
+    """List all registered APScheduler jobs with schedules and last-run status."""
+    jobs = scheduler.get_jobs()
+    runs = await last_runs([job.id for job in jobs])
     return [
         {
             "id": job.id,
             "name": job.name,
             "next_run": str(job.next_run_time) if job.next_run_time else None,
             "trigger": str(job.trigger),
+            "cron": trigger_to_cron(job.trigger),
+            "schedule_text": humanize_cron(trigger_to_cron(job.trigger)),
+            "last_run": runs.get(job.id),
         }
-        for job in scheduler.get_jobs()
+        for job in jobs
     ]
 
 
@@ -146,7 +157,15 @@ async def run_job(job_id: str, request: Request):
         raise HTTPException(status_code=404, detail=f"job '{job_id}' not found")
 
     import asyncio
-    asyncio.create_task(job.func())
+    # asyncio.create_task copies the current context at creation time, so
+    # setting current_trigger here (then resetting it) labels only this
+    # task's run as "manual" in job_runs without leaking into anything else
+    # handled by this same request/context.
+    token = current_trigger.set("manual")
+    try:
+        asyncio.create_task(job.func())
+    finally:
+        current_trigger.reset(token)
     await write_audit("manual_trigger", job_id, job_id, {"triggered_by": "dashboard"})
     logger.info("Manually triggered job: %s", job_id)
     return {"ok": True, "job_id": job_id, "name": job.name}

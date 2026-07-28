@@ -129,6 +129,22 @@ CREATE TABLE credentials (
 -- config.py's BRAND_* env vars remain the fallback for a fresh deployment
 -- before this row exists.
 -- ─────────────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────────────────────────────────────────
+-- job_runs — every APScheduler job execution (cron-triggered or manually run
+-- from the dashboard's Jobs page), so an operator can see status/last-run/
+-- errors instead of only a list of registered jobs with no execution history.
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE job_runs (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id      TEXT NOT NULL,            -- APScheduler job id, e.g. 'compose_batch'
+  trigger     TEXT NOT NULL,            -- 'scheduled' | 'manual'
+  status      TEXT NOT NULL DEFAULT 'running',  -- 'running' | 'success' | 'failed'
+  error       TEXT,
+  started_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  finished_at TIMESTAMPTZ
+);
+CREATE INDEX idx_job_runs_job_id_started_at ON job_runs (job_id, started_at DESC);
+
 CREATE TABLE brand_config (
   key             TEXT PRIMARY KEY DEFAULT 'default',
   brand_name      TEXT,

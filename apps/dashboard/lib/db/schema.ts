@@ -111,6 +111,20 @@ export const credentials = pgTable('credentials', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const jobRuns = pgTable(
+  'job_runs',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    jobId: text('job_id').notNull(),
+    trigger: text().notNull(),
+    status: text().notNull().default('running'),
+    error: text(),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (table) => [index('idx_job_runs_job_id_started_at').on(table.jobId, table.startedAt)]
+);
+
 export const brandConfig = pgTable('brand_config', {
   key: text().primaryKey().default('default'),
   brandName: text('brand_name'),
