@@ -16,8 +16,9 @@ from datetime import datetime, timedelta, timezone
 import httpx
 from sqlalchemy import select
 
+from audit import write_audit
 from config import settings
-from db.models import AuditLog, Credential, Metric, Post
+from db.models import Credential, Metric, Post
 from db.session import SessionLocal
 
 logger = logging.getLogger("worker.collect_metrics")
@@ -210,9 +211,7 @@ async def _write_metric(post_id, window, metrics: dict | None, error: str | None
 
 
 async def _write_audit(action: str, subject_id: str, payload: dict):
-    async with SessionLocal() as session:
-        session.add(AuditLog(actor="collect_metrics", action=action, subject_id=subject_id, payload=payload))
-        await session.commit()
+    await write_audit("collect_metrics", action, subject_id, payload)
 
 
 async def collect_metrics():

@@ -13,17 +13,16 @@ import logging
 
 from sqlalchemy import select
 
+from audit import write_audit
 from config import settings
-from db.models import AuditLog, Post
+from db.models import Post
 from db.session import SessionLocal
 
 logger = logging.getLogger("worker.anti_repeat")
 
 
 async def _write_audit(action: str, subject_id: str, payload: dict):
-    async with SessionLocal() as session:
-        session.add(AuditLog(actor="anti_repeat", action=action, subject_id=subject_id, payload=payload))
-        await session.commit()
+    await write_audit("anti_repeat", action, subject_id, payload)
 
 
 async def _recent_posts(limit: int) -> list[Post]:

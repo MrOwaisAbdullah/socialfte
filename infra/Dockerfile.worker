@@ -20,9 +20,14 @@ RUN apt-get update \
     curl \
  && rm -rf /var/lib/apt/lists/*
 
+# uv: fast pip-compatible installer — copy the static binary rather than
+# pip-installing it into the image we're about to strip pip from.
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
 # Copy requirements first (Docker layer caching)
 COPY apps/worker/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# --system: no venv in a container — install straight into the image's site-packages.
+RUN uv pip install --system --no-cache -r requirements.txt
 
 # Copy worker code directly into /app — every module uses bare absolute
 # imports (`from config import settings`, `from db.session import ...`), so

@@ -1,0 +1,41 @@
+[project]
+name = "socialfte-worker"
+version = "0.1.0"
+description = "SocialFTE worker — FastAPI + APScheduler agent runtime"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "apscheduler>=3.10.4",
+    "sqlalchemy>=2.0.23",
+    "asyncpg>=0.29.0",
+    "pgvector>=0.2.4",
+    "httpx>=0.25.2",
+    "pydantic>=2.5.3",
+    "pydantic-settings>=2.1.0",
+    "boto3>=1.33.8",
+    "google-api-python-client>=2.110.0",
+    "google-auth-oauthlib>=1.2.0",
+    "google-auth-httplib2>=0.2.0",
+    "pynacl>=1.5.0",
+    "ffmpeg-python>=0.2.0",
+    "openai-agents>=0.1.0",
+    "python-json-logger>=2.0.7",
+    # faster-whisper>=0.10.0  # Week 4 audio transcription — uncomment when needed
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4.3",
+    "pytest-asyncio>=0.23.2",
+    "pytest-mock>=3.12.0",
+    "respx>=0.20.2",  # httpx mocking
+]
+
+[tool.uv]
+# Flat script-style layout, not an importable package — every module uses bare
+# absolute imports (`from config import settings`), and /app (or apps/worker/
+# itself locally) is the import root, not a `worker/` package subdirectory.
+# `uv sync` should only manage the venv + dependencies, never try to build/
+# install this directory as a package.
+package = false

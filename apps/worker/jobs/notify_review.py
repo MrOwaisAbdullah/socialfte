@@ -9,8 +9,9 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
+from audit import write_audit
 from config import settings
-from db.models import Post, AuditLog
+from db.models import Post
 from db.session import SessionLocal
 from notify.discord import send, send_approval
 
@@ -19,15 +20,7 @@ logger = logging.getLogger("worker.notify_review")
 
 async def _write_audit(actor: str, action: str, subject_id: str, payload: dict):
     """Write an audit_log row."""
-    async with SessionLocal() as session:
-        audit = AuditLog(
-            actor=actor,
-            action=action,
-            subject_id=subject_id,
-            payload=payload,
-        )
-        session.add(audit)
-        await session.commit()
+    await write_audit(actor, action, subject_id, payload)
 
 
 async def notify_review():

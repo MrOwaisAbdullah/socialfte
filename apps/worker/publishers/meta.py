@@ -10,9 +10,8 @@ from typing import Optional
 
 import httpx
 
+from audit import write_audit
 from config import settings
-from db.models import AuditLog
-from db.session import SessionLocal
 
 logger = logging.getLogger("worker.meta")
 
@@ -35,15 +34,7 @@ async def _get_page_token() -> str:
 
 async def _write_audit(actor: str, action: str, subject_id: str, payload: dict):
     """Write an audit_log row."""
-    async with SessionLocal() as session:
-        audit = AuditLog(
-            actor=actor,
-            action=action,
-            subject_id=subject_id,
-            payload=payload,
-        )
-        session.add(audit)
-        await session.commit()
+    await write_audit(actor, action, subject_id, payload)
 
 
 async def post_image(page_id: str, image_url: str, caption: str) -> str:

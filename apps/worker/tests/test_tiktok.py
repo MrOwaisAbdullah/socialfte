@@ -11,7 +11,8 @@ from datetime import datetime, timezone
 def mock_deps():
     """Mock all dependencies for TikTok publisher tests."""
     with patch("publishers.tiktok.SessionLocal") as mock_session, \
-         patch("notify.discord.send", new_callable=AsyncMock) as mock_send:
+         patch("notify.discord.send", new_callable=AsyncMock) as mock_send, \
+         patch("publishers.tiktok.write_audit", new_callable=AsyncMock) as mock_write_audit:
 
         mock_send.return_value = "message_123"
         mock_session_instance = AsyncMock()
@@ -21,6 +22,7 @@ def mock_deps():
         yield {
             "session": mock_session_instance,
             "discord_send": mock_send,
+            "write_audit": mock_write_audit,
         }
 
 
@@ -90,13 +92,13 @@ async def test_tiktok_draft_only_writes_audit(mock_deps):
         )
         
         # Verify audit log was written
-        mock_deps["session"].add.assert_called_once()
-        audit_call = mock_deps["session"].add.call_args[0][0]
-        assert audit_call.actor == "tiktok_publisher"
-        assert audit_call.action == "draft_ready"
-        assert audit_call.subject_id == "test_post_123"
-        assert audit_call.payload["platform"] == "tiktok"
-        assert audit_call.payload["mode"] == "draft_only"
+        mock_deps["write_audit"].assert_called()
+        actor, action, subject_id, payload = mock_deps["write_audit"].call_args[0]
+        assert actor == "tiktok_publisher"
+        assert action == "draft_ready"
+        assert subject_id == "test_post_123"
+        assert payload["platform"] == "tiktok"
+        assert payload["mode"] == "draft_only"
 
 
 @pytest.mark.asyncio

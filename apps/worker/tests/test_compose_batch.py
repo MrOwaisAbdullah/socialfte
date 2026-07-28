@@ -1,7 +1,8 @@
 """Tests for the daily batch composer — Week 4, US3.
 
-Verifies a full run produces posts rows with real captions and render URLs, and
-that a forced anti-repeat violation causes a retry (not a published duplicate).
+Verifies a full run produces posts in state='review' with real captions and render
+URLs, that a forced anti-repeat violation causes a retry (not a published duplicate),
+and that the render props include the asset image URL.
 """
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -18,16 +19,17 @@ def _make_scalar_result(rows):
 
 @pytest.fixture(autouse=True)
 def mock_deps():
-    with patch("jobs.compose_batch.SessionLocal") as mock_session_factory:
+    with patch("jobs.compose_batch.SessionLocal") as mock_session_factory, \
+         patch("jobs.compose_batch.write_audit", new_callable=AsyncMock) as mock_write_audit:
         mock_session = AsyncMock()
         mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
-        yield {"session": mock_session}
+        yield {"session": mock_session, "write_audit": mock_write_audit}
 
 
 @pytest.mark.asyncio
 async def test_compose_batch_produces_posts(mock_deps):
-    """A full run (mocked caption_agent, mocked render) produces at least one post row."""
+    """A full run (mocked caption_agent, mocked render) produces at least one post in state='review'."""
     from jobs.compose_batch import compose_batch
 
     mock_asset = MagicMock(id="asset-1", r2_key="photos/test.jpg", piece="chair", tier="tier1",
@@ -47,29 +49,34 @@ async def test_compose_batch_produces_posts(mock_deps):
 
     mock_session.execute = execute_side_effect
 
-    with patch("jobs.compose_batch.write_caption", new_callable=AsyncMock) as mock_write:
+    with patch("jobs.compose_batch.write_caption", new_callable=AsyncMock) as mock_write, \
+         patch("jobs.compose_batch.embed", new_callable=AsyncMock) as mock_embed, \
+         patch("jobs.compose_batch.anti_repeat.check_asset", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.anti_repeat.check_template", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.anti_repeat.check_caption", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.httpx.AsyncClient") as mock_httpx, \
+         patch("jobs.compose_batch._get_connected_platforms", new_callable=AsyncMock, return_value=["instagram"]):
         mock_write.return_value = ("Solid chair.", ["#chair"])
-        with patch("jobs.compose_batch.embed", new_callable=AsyncMock) as mock_embed:
-            mock_embed.return_value = [0.1] * 10
-            with patch("jobs.compose_batch.anti_repeat.check_asset", new_callable=AsyncMock) as mock_ca:
-                mock_ca.return_value = True
-                with patch("jobs.compose_batch.anti_repeat.check_template", new_callable=AsyncMock) as mock_ct:
-                    mock_ct.return_value = True
-                    with patch("jobs.compose_batch.anti_repeat.check_caption", new_callable=AsyncMock) as mock_cc:
-                        mock_cc.return_value = True
-                        with patch("jobs.compose_batch.httpx.AsyncClient") as mock_httpx:
-                            mock_resp = MagicMock()
-                            mock_resp.raise_for_status = MagicMock()
-                            mock_resp.json.return_value = {"url": "https://media.test.com/render.jpg"}
-                            mock_httpx_instance = AsyncMock()
-                            mock_httpx_instance.__aenter__ = AsyncMock(return_value=mock_httpx_instance)
-                            mock_httpx_instance.__aexit__ = AsyncMock(return_value=False)
-                            mock_httpx_instance.post = AsyncMock(return_value=mock_resp)
-                            mock_httpx.return_value = mock_httpx_instance
+        mock_embed.return_value = [0.1] * 10
 
-                            await compose_batch()
-                            assert mock_session.add.called
-                            assert mock_session.commit.called
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {"url": "https://media.test.com/render.jpg"}
+        mock_httpx_instance = AsyncMock()
+        mock_httpx_instance.__aenter__ = AsyncMock(return_value=mock_httpx_instance)
+        mock_httpx_instance.__aexit__ = AsyncMock(return_value=False)
+        mock_httpx_instance.post = AsyncMock(return_value=mock_resp)
+        mock_httpx.return_value = mock_httpx_instance
+
+        await compose_batch()
+        assert mock_session.add.called
+        assert mock_session.commit.called
+
+        # Verify post was created with state='review'
+        post_call = mock_session.add.call_args_list[0]
+        created_post = post_call[0][0]
+        assert created_post.state == "review"
+        assert created_post.platform == "instagram"
 
 
 @pytest.mark.asyncio
@@ -94,17 +101,71 @@ async def test_anti_repeat_violation_retries(mock_deps):
 
     mock_session.execute = execute_side_effect
 
-    with patch("jobs.compose_batch.write_caption", new_callable=AsyncMock) as mock_write:
+    with patch("jobs.compose_batch.write_caption", new_callable=AsyncMock) as mock_write, \
+         patch("jobs.compose_batch.embed", new_callable=AsyncMock) as mock_embed, \
+         patch("jobs.compose_batch.anti_repeat.check_asset", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.anti_repeat.check_template", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.anti_repeat.check_caption", new_callable=AsyncMock, return_value=False), \
+         patch("jobs.compose_batch._get_connected_platforms", new_callable=AsyncMock, return_value=["instagram"]):
         mock_write.return_value = ("Test caption.", ["#test"])
-        with patch("jobs.compose_batch.embed", new_callable=AsyncMock) as mock_embed:
-            mock_embed.return_value = [0.1] * 10
-            with patch("jobs.compose_batch.anti_repeat.check_asset", new_callable=AsyncMock) as mock_ca:
-                mock_ca.return_value = True
-                with patch("jobs.compose_batch.anti_repeat.check_template", new_callable=AsyncMock) as mock_ct:
-                    mock_ct.return_value = True
-                    with patch("jobs.compose_batch.anti_repeat.check_caption", new_callable=AsyncMock) as mock_cc:
-                        mock_cc.return_value = False
+        mock_embed.return_value = [0.1] * 10
 
-                        await compose_batch()
+        await compose_batch()
 
-                        assert mock_write.call_count > 1
+        assert mock_write.call_count > 1
+
+
+@pytest.mark.asyncio
+async def test_render_props_include_asset_image_url(mock_deps):
+    """Render request includes the asset image URL from R2."""
+    from jobs.compose_batch import compose_batch
+
+    mock_asset = MagicMock(id="asset-3", r2_key="photos/chair.jpg", piece="chair", tier="tier1",
+                           variant="standard", times_used=0, reject_reason=None,
+                           created_at=MagicMock())
+    mock_template = MagicMock(id="tmpl-3", slug="story", display_name="Story", created_at=MagicMock())
+
+    mock_session = mock_deps["session"]
+    call_count = 0
+
+    async def execute_side_effect(stmt, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return _make_scalar_result([mock_asset])
+        return _make_scalar_result([mock_template])
+
+    mock_session.execute = execute_side_effect
+
+    with patch("jobs.compose_batch.write_caption", new_callable=AsyncMock, return_value=("Caption.", ["#tag"])), \
+         patch("jobs.compose_batch.embed", new_callable=AsyncMock, return_value=[0.1] * 10), \
+         patch("jobs.compose_batch.anti_repeat.check_asset", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.anti_repeat.check_template", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.anti_repeat.check_caption", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.httpx.AsyncClient") as mock_httpx, \
+         patch("jobs.compose_batch._get_connected_platforms", new_callable=AsyncMock, return_value=["instagram"]), \
+         patch("jobs.compose_batch.settings") as mock_settings:
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {"url": "https://media.test.com/render.jpg"}
+        mock_httpx_instance = AsyncMock()
+        mock_httpx_instance.__aenter__ = AsyncMock(return_value=mock_httpx_instance)
+        mock_httpx_instance.__aexit__ = AsyncMock(return_value=False)
+        mock_httpx_instance.post = AsyncMock(return_value=mock_resp)
+        mock_httpx.return_value = mock_httpx_instance
+
+        mock_settings.R2_PUBLIC_URL = "https://pub-9482aec63df7420bb53018258d2b14ef.r2.dev"
+        mock_settings.ANTI_REPEAT_MAX_RETRIES = 3
+        mock_settings.RENDER_INTERNAL_URL = "http://localhost:3001"
+        mock_settings.RENDER_INTERNAL_SECRET = "test-secret"
+
+        await compose_batch()
+
+        # Verify render was called with assetImageUrl in props
+        post_call = mock_httpx_instance.post
+        call_kwargs = post_call.call_args
+        json_data = call_kwargs.kwargs["json"]
+        assert "props" in json_data, f"Expected 'props' in json data, got keys: {list(json_data.keys())}"
+        props = json_data["props"]
+        assert "assetImageUrl" in props
+        assert props["assetImageUrl"] == "https://pub-9482aec63df7420bb53018258d2b14ef.r2.dev/photos/chair.jpg"

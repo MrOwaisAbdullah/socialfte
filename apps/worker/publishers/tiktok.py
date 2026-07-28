@@ -13,8 +13,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
+from audit import write_audit
 from config import settings
-from db.models import AuditLog, Post
+from db.models import Post
 from db.session import SessionLocal
 
 logger = logging.getLogger("worker.tiktok")
@@ -22,15 +23,7 @@ logger = logging.getLogger("worker.tiktok")
 
 async def _write_audit(actor: str, action: str, subject_id: str, payload: dict):
     """Write an audit_log row."""
-    async with SessionLocal() as session:
-        audit = AuditLog(
-            actor=actor,
-            action=action,
-            subject_id=subject_id,
-            payload=payload,
-        )
-        session.add(audit)
-        await session.commit()
+    await write_audit(actor, action, subject_id, payload)
 
 
 async def publish_video(

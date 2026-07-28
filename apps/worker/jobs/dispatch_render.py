@@ -12,9 +12,8 @@ import logging
 
 import httpx
 
+from audit import write_audit
 from config import settings
-from db.models import AuditLog
-from db.session import SessionLocal
 
 logger = logging.getLogger("worker.dispatch_render")
 
@@ -27,9 +26,7 @@ GITHUB_API = "https://api.github.com"
 
 
 async def _write_audit(action: str, subject_id: str, payload: dict):
-    async with SessionLocal() as session:
-        session.add(AuditLog(actor="dispatch_render", action=action, subject_id=subject_id, payload=payload))
-        await session.commit()
+    await write_audit("dispatch_render", action, subject_id, payload)
 
 
 async def dispatch_video_render(post_id: str, composition_id: str, props: dict) -> str | None:

@@ -20,9 +20,10 @@ from pathlib import Path
 
 from sqlalchemy import select
 
+from audit import write_audit
 from brain.vision import score_frame
 from config import settings
-from db.models import Asset, AuditLog, Post
+from db.models import Asset, Post
 from db.session import SessionLocal
 
 logger = logging.getLogger("worker.process_footage")
@@ -42,9 +43,7 @@ MIN_USABLE_FRAME_SCORE = 4  # out of 10, per the kickoff's scoring prompt
 
 
 async def _write_audit(action: str, subject_id: str, payload: dict):
-    async with SessionLocal() as session:
-        session.add(AuditLog(actor="process_footage", action=action, subject_id=subject_id, payload=payload))
-        await session.commit()
+    await write_audit("process_footage", action, subject_id, payload)
 
 
 def _run(cmd: list[str]) -> str:

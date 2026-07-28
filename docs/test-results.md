@@ -1,6 +1,7 @@
 # Test Results
 
-Latest run: 2026-07-28 (Week 5 implementation + real-bug-fixing pass + dashboard build fix).
+Latest run: 2026-07-28 (Week 5 implementation + real-bug-fixing pass + dashboard build fix
++ audit-log/`AGENT_LOG.md` consolidation).
 
 ## Worker (`apps/worker/tests/`)
 
@@ -77,3 +78,25 @@ Phase 6 and Phase 11 for full detail:
 - **Dashboard home page / nav / metrics route**: after fixing the `@neondatabase/serverless`
   build error, ran the dev server and confirmed `/`, `/calendar`, `/performance`, and
   `/api/internal/metrics` all return `200` with the expected content.
+
+## Audit-log consolidation (`apps/worker/audit.py`, `AGENT_LOG.md`)
+
+Every job/publisher/agent module used to define its own near-identical `_write_audit`
+helper (8+ copies). Consolidated all of them into one shared `apps/worker/audit.py`
+`write_audit()` that writes the `audit_log` DB row **and** appends a line to `AGENT_LOG.md`
+at the repo root, so an operator can `tail -f`/grep one file instead of querying Postgres
+to see what the agent is doing.
+
+This required updating the mocking strategy in every affected test file — they previously
+patched each module's own `SessionLocal` to intercept the audit DB write; since that write
+now goes through the shared `audit.write_audit()`, tests patch `<module>.write_audit`
+instead. Files touched: `test_anti_repeat.py`, `test_compose_batch.py`,
+`test_notify_review.py`, `test_process_footage.py`, `test_publish_due.py`, `test_tiktok.py`,
+`test_weekly_digest.py`, `test_composer.py`, `test_dispatch_render.py`, `test_meta.py`,
+`test_refresh_tokens.py`, `test_vision.py`. Getting this wrong first surfaced as real
+side effects during test runs — a handful of tests briefly wrote real rows to the dev
+database and real lines to `AGENT_LOG.md` before the mocks were corrected (cleaned up
+afterward; see `AGENT_LOG.md`'s own history for why it starts empty).
+
+**Result after the fix: 89 passed, 1 skipped** — same count as before the refactor, all
+green. `python3 -c "import main"` also confirmed clean.

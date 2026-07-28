@@ -36,7 +36,7 @@ AGENT_LOG.md          # running log of AI agent sessions - see Conventions below
 | DB | Neon Postgres + pgvector, Drizzle ORM |
 | Storage | Cloudflare R2 (S3-compatible) |
 | Render | Puppeteer (screenshots), bundled Chromium |
-| Worker | Python 3.12, pg, R2 via boto3 |
+| Worker | Python 3.12, uv (package manager, not pip), pg, R2 via boto3 |
 | Infra | Docker, Dokploy on Hetzner VPS, Cloudflare |
 | LLM | OpenRouter (DeepSeek V4 Flash primary, Gemini 2.5 Flash vision) |
 
@@ -53,10 +53,11 @@ npm run typecheck    # tsc --noEmit
 cd apps/dashboard
 $env:DATABASE_URL = "postgresql://..." ; npx drizzle-kit push
 
-# Worker
+# Worker (uv, not pip)
 cd apps/worker
-python -m venv venv; venv\Scripts\activate
-pip install -r ../../requirements.txt
+uv venv
+.venv\Scripts\activate  # .venv/bin/activate on macOS/Linux
+uv pip install -r requirements.txt
 `
 
 ## Conventions
@@ -65,15 +66,11 @@ pip install -r ../../requirements.txt
 - No AI-sounding copy. No "elevate your space", no forced enthusiasm.
 - Human approval before publish. No exceptions.
 - Audit log every action. No action is too small to log.
-- **Agent work log**: every AI coding session that changes this repo (implementing a
-  feature, fixing a bug, writing docs, anything beyond a read-only question) MUST append an
-  entry to `AGENT_LOG.md` at the repo root before finishing, using the format already
-  established there (newest entry on top; **Asked** / **Did** / **Found and fixed** /
-  **Left for a human** / **Test status**). This is the product's own audit-log discipline
-  applied to the agent's own work — a future session (or human) reading this repo cold
-  should be able to reconstruct what happened and why without replaying the whole
-  conversation. Update the entry incrementally as the session progresses on anything
-  substantial, not only in one shot at the very end.
+- **AGENT_LOG.md**: every audit_log DB write the worker makes also appends a
+  human-readable line to `AGENT_LOG.md` at the repo root (via `apps/worker/audit.py`'s
+  shared `write_audit()`), so an operator can `tail -f`/grep one file to see what the
+  SocialFTE agent is actually doing without querying Postgres. This is a runtime log the
+  *product* writes, not a place for an AI coding assistant to leave session notes.
 - Anti-repeat: no template repeat within 4 posts, no asset repeat within 10,
   no caption >0.85 cosine similarity within 30.
 - Token refresh: never publish with less than 7 days until credential expiry.

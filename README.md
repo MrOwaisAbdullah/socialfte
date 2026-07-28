@@ -191,10 +191,10 @@ cp .env.example .env.local   # fill in DATABASE_URL, R2_*, SESSION_SECRET, etc.
 npx drizzle-kit push         # enable the `vector` extension in Neon first
 npm run dev                  # -> http://localhost:3000
 
-# Worker (separate terminal) — needs ffmpeg/ffprobe on PATH
+# Worker (separate terminal) — needs ffmpeg/ffprobe on PATH, uses uv (not pip)
 cd apps/worker
-python -m venv venv && source venv/bin/activate   # venv\Scripts\activate on Windows
-pip install -r requirements.txt
+uv venv && source .venv/bin/activate   # .venv\Scripts\activate on Windows
+uv pip install -r requirements.txt
 cp .env.example .env         # same DATABASE_URL/R2_*/RENDER_INTERNAL_SECRET as the dashboard
 python main.py                                    # -> http://localhost:8000
 

@@ -13,9 +13,10 @@ from pathlib import Path
 from agents import Agent, Runner
 from sqlalchemy import select, func as sqlfunc
 
+from audit import write_audit
 from brain.base import model, load_prompt
 from config import settings
-from db.models import AuditLog, Metric, Post
+from db.models import Metric, Post
 from db.session import SessionLocal
 
 logger = logging.getLogger("worker.weekly_digest")
@@ -125,18 +126,14 @@ async def weekly_digest():
     from notify.discord import send
     await send(f"**Weekly Digest**\n\n{summary}")
 
-    async with SessionLocal() as session:
-        session.add(
-            AuditLog(
-                actor="weekly_digest",
-                action="digest_generated",
-                subject_id="weekly_digest",
-                payload={
-                    "total_published": data["total_published"],
-                    "summary_length": len(summary),
-                },
-            )
-        )
-        await session.commit()
+    await write_audit(
+        "weekly_digest",
+        "digest_generated",
+        "weekly_digest",
+        {
+            "total_published": data["total_published"],
+            "summary_length": len(summary),
+        },
+    )
 
     logger.info("Weekly digest complete")

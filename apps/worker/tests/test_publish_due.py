@@ -13,18 +13,20 @@ def mock_deps():
     with patch("jobs.publish_due.SessionLocal") as mock_session, \
          patch("jobs.publish_due._check_platform_cap") as mock_cap, \
          patch("jobs.publish_due._dispatch_publisher") as mock_dispatch, \
-         patch("jobs.publish_due.send") as mock_send:
-        
+         patch("jobs.publish_due.send") as mock_send, \
+         patch("jobs.publish_due.write_audit", new_callable=AsyncMock) as mock_write_audit:
+
         # Setup mock session
         mock_session_instance = AsyncMock()
         mock_session.return_value.__aenter__ = AsyncMock(return_value=mock_session_instance)
         mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
-        
+
         yield {
             "session": mock_session_instance,
             "check_cap": mock_cap,
             "dispatch": mock_dispatch,
             "send": mock_send,
+            "write_audit": mock_write_audit,
         }
 
 
@@ -178,12 +180,12 @@ async def test_publish_due_writes_audit_on_success(mock_deps):
     
     # Run the job
     await publish_due()
-    
+
     # Verify audit log was written
-    mock_deps["session"].add.assert_called()
-    audit_call = mock_deps["session"].add.call_args[0][0]
-    assert audit_call.actor == "publish_due"
-    assert audit_call.action == "publish_success"
-    assert audit_call.subject_id == "test_post_123"
-    assert audit_call.payload["platform"] == "facebook"
-    assert audit_call.payload["external_id"] == "fb_post_456"
+    mock_deps["write_audit"].assert_called()
+    actor, action, subject_id, payload = mock_deps["write_audit"].call_args[0]
+    assert actor == "publish_due"
+    assert action == "publish_success"
+    assert subject_id == "test_post_123"
+    assert payload["platform"] == "facebook"
+    assert payload["external_id"] == "fb_post_456"

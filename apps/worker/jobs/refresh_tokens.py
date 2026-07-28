@@ -11,10 +11,9 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
+from audit import write_audit
 from config import settings
 from db.credentials import get_all_credentials, is_expiring_soon, save_token
-from db.models import AuditLog
-from db.session import SessionLocal
 
 logger = logging.getLogger("worker.refresh_tokens")
 
@@ -201,19 +200,16 @@ async def refresh_tokens():
         new_token = await handler(cred)
         
         # Record the attempt in audit_log
-        async with SessionLocal() as session:
-            audit = AuditLog(
-                actor="refresh_tokens",
-                action="token_refresh_attempt",
-                subject_id=platform,
-                payload={
-                    "platform": platform,
-                    "expires_at": expires_at.isoformat() if expires_at else None,
-                    "success": new_token is not None,
-                },
-            )
-            session.add(audit)
-            await session.commit()
+        await write_audit(
+            "refresh_tokens",
+            "token_refresh_attempt",
+            platform,
+            {
+                "platform": platform,
+                "expires_at": expires_at.isoformat() if expires_at else None,
+                "success": new_token is not None,
+            },
+        )
         
         if new_token:
             # Save the new token

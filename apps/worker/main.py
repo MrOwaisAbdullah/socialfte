@@ -13,9 +13,10 @@ from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
+from audit import write_audit
 from config import settings
 from db.session import engine, SessionLocal
-from db.models import Base, Asset, AuditLog, Post
+from db.models import Base, Asset, Post
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper()),
@@ -166,13 +167,14 @@ async def render_complete(request: Request, payload: RenderCompleteRequest):
             post.state = "failed"
             post.error = f"video render failed (GitHub Actions status: {payload.status})"
 
-        session.add(AuditLog(
-            actor="dispatch_render",
-            action="render_complete",
-            subject_id=str(post_id),
-            payload={"output_key": payload.output_key, "status": payload.status},
-        ))
         await session.commit()
+
+    await write_audit(
+        "dispatch_render",
+        "render_complete",
+        str(post_id),
+        {"output_key": payload.output_key, "status": payload.status},
+    )
 
     logger.info("Render complete callback for post %s: status=%s", post_id, payload.status)
     return {"ok": True}
@@ -221,19 +223,20 @@ async def vision_tag(request: Request, payload: VisionTagRequest):
         asset.lighting_ok = analysis.lighting_ok
         asset.composition_ok = analysis.composition_ok
         asset.reject_reason = reject_reason
-        session.add(AuditLog(
-            actor="vision_agent",
-            action="asset_tagged",
-            subject_id=str(payload.asset_id),
-            payload={"piece": analysis.piece, "tier": analysis.tier, "variant": analysis.variant, "quality_score": analysis.quality_score},
-        ))
-        session.add(AuditLog(
-            actor="vision_agent",
-            action="asset_quality_checked",
-            subject_id=str(payload.asset_id),
-            payload={"quality_score": analysis.quality_score, "lighting_ok": analysis.lighting_ok, "composition_ok": analysis.composition_ok, "reject_reason": reject_reason},
-        ))
         await session.commit()
+
+    await write_audit(
+        "vision_agent",
+        "asset_tagged",
+        str(payload.asset_id),
+        {"piece": analysis.piece, "tier": analysis.tier, "variant": analysis.variant, "quality_score": analysis.quality_score},
+    )
+    await write_audit(
+        "vision_agent",
+        "asset_quality_checked",
+        str(payload.asset_id),
+        {"quality_score": analysis.quality_score, "lighting_ok": analysis.lighting_ok, "composition_ok": analysis.composition_ok, "reject_reason": reject_reason},
+    )
 
     return {
         "piece": analysis.piece,

@@ -22,7 +22,8 @@ def mock_deps():
     """Mock all dependencies for notify_review tests."""
     with patch("jobs.notify_review.SessionLocal") as mock_session, \
          patch("jobs.notify_review.send", new_callable=AsyncMock) as mock_send, \
-         patch("jobs.notify_review.send_approval", new_callable=AsyncMock) as mock_send_approval:
+         patch("jobs.notify_review.send_approval", new_callable=AsyncMock) as mock_send_approval, \
+         patch("jobs.notify_review.write_audit", new_callable=AsyncMock) as mock_write_audit:
 
         mock_session_instance = AsyncMock()
         mock_session.return_value.__aenter__ = AsyncMock(return_value=mock_session_instance)
@@ -32,6 +33,7 @@ def mock_deps():
             "session": mock_session_instance,
             "send": mock_send,
             "send_approval": mock_send_approval,
+            "write_audit": mock_write_audit,
         }
 
 
@@ -98,8 +100,8 @@ async def test_notify_review_writes_audit_per_card(mock_deps):
 
     await notify_review()
 
-    mock_deps["session"].add.assert_called()
-    audit_call = mock_deps["session"].add.call_args[0][0]
-    assert audit_call.actor == "notify_review"
-    assert audit_call.action == "approval_card_sent"
-    assert audit_call.subject_id == "post_0"
+    mock_deps["write_audit"].assert_called()
+    call_args = mock_deps["write_audit"].call_args[0]
+    assert call_args[0] == "notify_review"
+    assert call_args[1] == "approval_card_sent"
+    assert call_args[2] == "post_0"

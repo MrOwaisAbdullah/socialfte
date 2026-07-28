@@ -13,11 +13,12 @@ from datetime import datetime, timezone
 import httpx
 from sqlalchemy import select, update
 
+from audit import write_audit
 from brain.base import embed
 from brain.composer import write_caption
 from composer import anti_repeat
 from config import settings
-from db.models import Asset, AuditLog, Credential, Post, Template
+from db.models import Asset, Credential, Post, Template
 from db.session import SessionLocal
 from jobs.dispatch_render import dispatch_video_render
 
@@ -253,23 +254,21 @@ async def compose_batch():
                 await session.commit()
                 post_id = post.id
 
-        async with SessionLocal() as session:
-            session.add(
-                AuditLog(
-                    actor="compose_batch",
-                    action="post_composed",
-                    subject_id=str(post_id),
-                    payload={
-                        "asset_id": asset_id_str,
-                        "template_id": str(tmpl.id),
-                        "caption_length": len(caption_text),
-                        "platform": platform,
-                        "format": fmt,
-                        "state": "draft" if is_video else "review",
-                    },
-                )
-            )
+        await write_audit(
+            "compose_batch",
+            "post_composed",
+            str(post_id),
+            {
+                "asset_id": asset_id_str,
+                "template_id": str(tmpl.id),
+                "caption_length": len(caption_text),
+                "platform": platform,
+                "format": fmt,
+                "state": "draft" if is_video else "review",
+            },
+        )
 
+        async with SessionLocal() as session:
             await session.execute(
                 update(Asset)
                 .where(Asset.id == asset.id)
@@ -286,15 +285,11 @@ async def compose_batch():
     if shortfall_reasons:
         summary = "; ".join(shortfall_reasons)
         logger.warning("Batch shortfall (%d composed, %d shortfalls): %s", composed, len(shortfall_reasons), summary)
-        async with SessionLocal() as session:
-            session.add(
-                AuditLog(
-                    actor="compose_batch",
-                    action="batch_shortfall",
-                    subject_id="compose_batch",
-                    payload={"composed": composed, "shortfalls": shortfall_reasons},
-                )
-            )
-            await session.commit()
+        await write_audit(
+            "compose_batch",
+            "batch_shortfall",
+            "compose_batch",
+            {"composed": composed, "shortfalls": shortfall_reasons},
+        )
 
     logger.info("Batch composition complete: %d posts composed", composed)

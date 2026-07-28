@@ -11,10 +11,9 @@ from pydantic import BaseModel
 
 from agents import Agent, ModelSettings, Runner
 
+from audit import write_audit
 from brain.base import load_prompt, model
 from config import settings
-from db.models import AuditLog
-from db.session import SessionLocal
 
 logger = logging.getLogger("worker.composer")
 
@@ -60,9 +59,7 @@ caption_agent = Agent(
 
 
 async def _write_audit(actor: str, action: str, subject_id: str, payload: dict):
-    async with SessionLocal() as session:
-        session.add(AuditLog(actor=actor, action=action, subject_id=subject_id, payload=payload))
-        await session.commit()
+    await write_audit(actor, action, subject_id, payload)
 
 
 async def write_caption(asset, template, brand: dict | None = None) -> tuple[str, list[str]]:

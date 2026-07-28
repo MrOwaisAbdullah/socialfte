@@ -10,11 +10,12 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def mock_deps():
-    with patch("composer.anti_repeat.SessionLocal") as mock_session:
+    with patch("composer.anti_repeat.SessionLocal") as mock_session, \
+         patch("composer.anti_repeat.write_audit", new_callable=AsyncMock) as mock_write_audit:
         mock_session_instance = AsyncMock()
         mock_session.return_value.__aenter__ = AsyncMock(return_value=mock_session_instance)
         mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
-        yield {"session": mock_session_instance}
+        yield {"session": mock_session_instance, "write_audit": mock_write_audit}
 
 
 @pytest.mark.asyncio

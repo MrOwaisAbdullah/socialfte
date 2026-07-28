@@ -22,7 +22,7 @@ R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
 R2_BUCKET=                            # e.g. yl-social
 R2_ENDPOINT=                          # https://<account-id>.r2.cloudflarestorage.com
-R2_PUBLIC_URL=                        # e.g. https://media.yousufliving.com
+R2_PUBLIC_URL=https://pub-9482aec63df7420bb53018258d2b14ef.r2.dev  # public R2.dev subdomain — Meta fetches media server-side, must be public
 
 # Rendering (Story 5)
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1

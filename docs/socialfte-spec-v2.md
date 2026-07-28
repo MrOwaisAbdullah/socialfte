@@ -552,7 +552,7 @@ R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
 R2_BUCKET=yl-social
 R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
-R2_PUBLIC_URL=https://media.yousufliving.com          # Meta fetches media server-side — must be public
+R2_PUBLIC_URL=https://pub-9482aec63df7420bb53018258d2b14ef.r2.dev  # public R2.dev subdomain — Meta fetches media server-side, must be public
 
 # ─────────────────────────────────────────────
 # META — Facebook Page + Instagram (one app)
@@ -657,7 +657,7 @@ Dokploy project: socialfte-yl
 └── (external)
     Neon Postgres       free tier, scales to zero
     Upstash Redis       free tier
-    Cloudflare R2       media.yousufliving.com
+    Cloudflare R2       pub-*.r2.dev (public subdomain)
     GitHub Actions      Remotion video renders
 ```
 

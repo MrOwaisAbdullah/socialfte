@@ -18,11 +18,12 @@ def _make_scalar_result(rows):
 
 @pytest.fixture(autouse=True)
 def mock_deps():
-    with patch("jobs.weekly_digest.SessionLocal") as mock_session_factory:
+    with patch("jobs.weekly_digest.SessionLocal") as mock_session_factory, \
+         patch("jobs.weekly_digest.write_audit", new_callable=AsyncMock) as mock_write_audit:
         mock_session = AsyncMock()
         mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
-        yield {"session": mock_session}
+        yield {"session": mock_session, "write_audit": mock_write_audit}
 
 
 @pytest.mark.asyncio

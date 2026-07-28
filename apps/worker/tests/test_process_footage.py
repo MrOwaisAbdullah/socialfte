@@ -32,11 +32,12 @@ def test_check_av_sync_passes_with_no_audio_stream():
 
 @pytest.fixture(autouse=True)
 def mock_deps():
-    with patch("jobs.process_footage.SessionLocal") as mock_session:
+    with patch("jobs.process_footage.SessionLocal") as mock_session, \
+         patch("jobs.process_footage.write_audit", new_callable=AsyncMock) as mock_write_audit:
         mock_session_instance = AsyncMock()
         mock_session.return_value.__aenter__ = AsyncMock(return_value=mock_session_instance)
         mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
-        yield {"session": mock_session_instance}
+        yield {"session": mock_session_instance, "write_audit": mock_write_audit}
 
 
 @pytest.mark.asyncio

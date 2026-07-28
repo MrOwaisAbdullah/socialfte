@@ -11,17 +11,12 @@ import httpx
 @pytest.fixture(autouse=True)
 def mock_deps():
     """Mock all dependencies for refresh_tokens tests."""
-    with patch("jobs.refresh_tokens.SessionLocal") as mock_session, \
+    with patch("jobs.refresh_tokens.write_audit", new_callable=AsyncMock) as mock_write_audit, \
          patch("jobs.refresh_tokens.save_token") as mock_save, \
          patch("jobs.refresh_tokens.is_expiring_soon") as mock_expiring, \
          patch("jobs.refresh_tokens.get_all_credentials") as mock_get_creds, \
          patch("jobs.refresh_tokens.notify_token_refresh_failure") as mock_notify, \
          patch("jobs.refresh_tokens.settings") as mock_settings:
-
-        # Setup mock session
-        mock_session_instance = AsyncMock()
-        mock_session.return_value.__aenter__ = AsyncMock(return_value=mock_session_instance)
-        mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
 
         # Isolate from real environment — these tests must pass with no .env present
         mock_settings.META_APP_ID = "test_app_id"
@@ -32,7 +27,7 @@ def mock_deps():
         mock_settings.TIKTOK_CLIENT_SECRET = "test_client_secret"
 
         yield {
-            "session": mock_session_instance,
+            "write_audit": mock_write_audit,
             "save_token": mock_save,
             "is_expiring_soon": mock_expiring,
             "get_all_credentials": mock_get_creds,

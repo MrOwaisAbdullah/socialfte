@@ -10,19 +10,14 @@ import httpx
 @pytest.fixture(autouse=True)
 def mock_deps():
     """Mock all dependencies for meta publisher tests."""
-    with patch("publishers.meta.SessionLocal") as mock_session, \
-         patch("publishers.meta._get_page_token") as mock_get_token:
-        
-        # Setup mock session
-        mock_session_instance = AsyncMock()
-        mock_session.return_value.__aenter__ = AsyncMock(return_value=mock_session_instance)
-        mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
-        
+    with patch("publishers.meta._get_page_token") as mock_get_token, \
+         patch("publishers.meta.write_audit", new_callable=AsyncMock) as mock_write_audit:
+
         # Setup mock token
         mock_get_token.return_value = "test_page_token"
-        
+
         yield {
-            "session": mock_session_instance,
+            "write_audit": mock_write_audit,
             "get_token": mock_get_token,
         }
 
@@ -121,12 +116,12 @@ async def test_post_ig_image_writes_audit_on_success(mock_deps):
         )
         
         # Verify audit log was written
-        mock_deps["session"].add.assert_called_once()
-        audit_call = mock_deps["session"].add.call_args[0][0]
-        assert audit_call.actor == "meta_publisher"
-        assert audit_call.action == "post_ig_image_success"
-        assert audit_call.subject_id == "ig_media_456"
-        assert audit_call.payload["platform"] == "instagram"
+        mock_deps["write_audit"].assert_called_once()
+        actor, action, subject_id, payload = mock_deps["write_audit"].call_args[0]
+        assert actor == "meta_publisher"
+        assert action == "post_ig_image_success"
+        assert subject_id == "ig_media_456"
+        assert payload["platform"] == "instagram"
 
 
 @pytest.mark.asyncio
@@ -159,12 +154,12 @@ async def test_post_ig_image_writes_audit_on_failure(mock_deps):
             )
         
         # Verify audit log was written
-        mock_deps["session"].add.assert_called_once()
-        audit_call = mock_deps["session"].add.call_args[0][0]
-        assert audit_call.actor == "meta_publisher"
-        assert audit_call.action == "post_ig_image_failed"
-        assert audit_call.payload["platform"] == "instagram"
-        assert "Container processing failed" in audit_call.payload["error"]
+        mock_deps["write_audit"].assert_called_once()
+        actor, action, subject_id, payload = mock_deps["write_audit"].call_args[0]
+        assert actor == "meta_publisher"
+        assert action == "post_ig_image_failed"
+        assert payload["platform"] == "instagram"
+        assert "Container processing failed" in payload["error"]
 
 
 @pytest.mark.asyncio
