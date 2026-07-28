@@ -122,11 +122,34 @@ async def health():
 
 @app.get("/jobs")
 async def list_jobs():
-    """List all registered APScheduler jobs (for debugging)."""
+    """List all registered APScheduler jobs with schedules."""
     return [
-        {"id": job.id, "name": job.name, "next_run": str(job.next_run_time)}
+        {
+            "id": job.id,
+            "name": job.name,
+            "next_run": str(job.next_run_time) if job.next_run_time else None,
+            "trigger": str(job.trigger),
+        }
         for job in scheduler.get_jobs()
     ]
+
+
+@app.post("/jobs/{job_id}/run")
+async def run_job(job_id: str, request: Request):
+    """Manually trigger a job by ID. Requires x-internal-secret header."""
+    secret = request.headers.get("x-internal-secret")
+    if settings.RENDER_INTERNAL_SECRET and secret != settings.RENDER_INTERNAL_SECRET:
+        raise HTTPException(status_code=401, detail="unauthorized")
+
+    job = scheduler.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"job '{job_id}' not found")
+
+    import asyncio
+    asyncio.create_task(job.func())
+    await write_audit("manual_trigger", job_id, job_id, {"triggered_by": "dashboard"})
+    logger.info("Manually triggered job: %s", job_id)
+    return {"ok": True, "job_id": job_id, "name": job.name}
 
 
 class RenderCompleteRequest(BaseModel):

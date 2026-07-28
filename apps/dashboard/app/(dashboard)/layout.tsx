@@ -5,14 +5,14 @@ import Link from 'next/link';
 // code change. Falls back to "Dashboard" if unset.
 const brandName = process.env.BRAND_NAME || 'Dashboard';
 
-// The only two real content screens that exist so far (Assets/Templates/Queue
-// screens are out of scope per plan.md). Without this, the shell had no way
-// to reach either page except typing the URL directly — the home page's own
-// placeholder text was the only "navigation" and it just said "come later."
+// All content screens available in the dashboard.
 const NAV_LINKS = [
   { href: '/', label: 'Home' },
+  { href: '/posts', label: 'Posts' },
+  { href: '/assets', label: 'Assets' },
   { href: '/calendar', label: 'Calendar' },
   { href: '/performance', label: 'Performance' },
+  { href: '/jobs', label: 'Jobs' },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

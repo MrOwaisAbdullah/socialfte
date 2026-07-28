@@ -1,9 +1,7 @@
+// GET /api/posts — list all posts (with optional state filter).
 // GET /api/posts?weekStart=YYYY-MM-DD — Calendar week data (Week 5, US4, T039/T040).
-// Returns one column per platform per day, with posts and the daily-cap fill
-// status already computed server-side (single source, same cap values
-// publish_due.py enforces at actual publish time — see lib/cap-limits.ts).
 import { NextRequest, NextResponse } from 'next/server';
-import { and, gte, lt } from 'drizzle-orm';
+import { and, desc, eq, gte, lt } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { posts } from '@/lib/db/schema';
 import { getDailyCap } from '@/lib/cap-limits';
@@ -21,7 +19,53 @@ function mondayOf(date: Date): Date {
 
 export async function GET(request: NextRequest) {
   const weekStartParam = request.nextUrl.searchParams.get('weekStart');
-  const weekStart = mondayOf(weekStartParam ? new Date(weekStartParam) : new Date());
+  const stateFilter = request.nextUrl.searchParams.get('state');
+
+  // If no weekStart param, return all posts (for the /posts management page)
+  if (!weekStartParam && !stateFilter) {
+    const allPosts = await db
+      .select({
+        id: posts.id,
+        platform: posts.platform,
+        format: posts.format,
+        state: posts.state,
+        caption: posts.caption,
+        renderUrl: posts.renderUrl,
+        scheduledAt: posts.scheduledAt,
+        externalId: posts.externalId,
+        error: posts.error,
+        createdAt: posts.createdAt,
+      })
+      .from(posts)
+      .orderBy(desc(posts.createdAt))
+      .limit(100);
+    return NextResponse.json(allPosts.map(p => ({ ...p, scheduledAt: p.scheduledAt?.toISOString() ?? null, createdAt: p.createdAt?.toISOString() ?? null })));
+  }
+
+  // If state filter, return filtered posts
+  if (stateFilter) {
+    const filteredPosts = await db
+      .select({
+        id: posts.id,
+        platform: posts.platform,
+        format: posts.format,
+        state: posts.state,
+        caption: posts.caption,
+        renderUrl: posts.renderUrl,
+        scheduledAt: posts.scheduledAt,
+        externalId: posts.externalId,
+        error: posts.error,
+        createdAt: posts.createdAt,
+      })
+      .from(posts)
+      .where(eq(posts.state, stateFilter))
+      .orderBy(desc(posts.createdAt))
+      .limit(100);
+    return NextResponse.json(filteredPosts.map(p => ({ ...p, scheduledAt: p.scheduledAt?.toISOString() ?? null, createdAt: p.createdAt?.toISOString() ?? null })));
+  }
+
+  // Calendar week view
+  const weekStart = mondayOf(new Date(weekStartParam));
   const weekEnd = new Date(weekStart);
   weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
 
