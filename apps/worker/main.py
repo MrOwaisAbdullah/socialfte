@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from audit import write_audit
 from config import settings
 from db.session import engine, SessionLocal
-from db.models import Base, Asset, Post
+from db.models import Base, Asset, Post, Template
 from scheduling import trigger_to_cron, humanize_cron, build_cron, InvalidSchedule
 from job_runs import tracked, current_trigger, last_runs
 from job_schedules import get_overrides, save_override
@@ -35,6 +35,38 @@ scheduler = AsyncIOScheduler(timezone=settings.SCHEDULER_TIMEZONE)
 JOB_DEFAULT_CRONS: dict[str, str] = {}
 
 
+# Matches apps/dashboard/components/templates/registry.ts's TEMPLATE_REGISTRY
+# keys exactly — compose_batch.py joins on Template.slug to build render
+# requests, and nothing ever populated this table for a fresh deployment
+# (confirmed live: 10 real uploaded assets, 0 templates, "No candidate
+# asset+template pairs found" — compose_batch had nothing to actually
+# compose regardless of how many assets existed).
+DEFAULT_TEMPLATES = [
+    ("hero", "Hero"),
+    ("price-card", "Price Card"),
+    ("set-breakdown", "Set Breakdown"),
+    ("quote", "Quote"),
+    ("before-after", "Before / After"),
+    ("carousel-slide", "Carousel Slide"),
+]
+
+
+async def _seed_templates() -> None:
+    """Insert the default templates if the table is empty. Only runs when
+    empty (not an upsert) so an operator's own template edits/deletions are
+    never silently overwritten on the next restart."""
+    async with SessionLocal() as session:
+        from sqlalchemy import select, func as sa_func
+
+        count = (await session.execute(select(sa_func.count()).select_from(Template))).scalar_one()
+        if count > 0:
+            return
+        for slug, display_name in DEFAULT_TEMPLATES:
+            session.add(Template(slug=slug, display_name=display_name))
+        await session.commit()
+        logger.info("Seeded %d default templates", len(DEFAULT_TEMPLATES))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle for FastAPI."""
@@ -42,6 +74,8 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables verified")
+
+    await _seed_templates()
 
     # Register cron jobs
     from jobs.refresh_tokens import refresh_tokens
