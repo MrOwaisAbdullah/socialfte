@@ -1,3 +1,7 @@
+# Build and deploy SocialFTE to VPS via Dokploy.
+# Two jobs: build (Docker → GHCR) → deploy (trigger Dokploy).
+# Every master push builds; deploy runs on master + manual dispatch.
+
 name: Build and deploy
 
 on:
@@ -6,14 +10,17 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE: ghcr.io/your-github-username-lowercase/socialfte-dashboard
+  # GHCR requires lowercase — github.repository_owner preserves case, so hardcode.
+  # Replace <your-username> with your GitHub username (lowercase).
+  IMAGE_DASHBOARD: ghcr.io/<your-username>/socialfte-dashboard
+  IMAGE_WORKER: ghcr.io/<your-username>/socialfte-worker
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      packages: write       # allows pushing to GHCR with GITHUB_TOKEN
     outputs:
       sha: ${{ github.sha }}
     steps:
@@ -28,7 +35,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push dashboard
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -36,18 +43,38 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            ${{ env.IMAGE }}:latest
-            ${{ env.IMAGE }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ env.IMAGE_DASHBOARD }}:latest
+            ${{ env.IMAGE_DASHBOARD }}:${{ github.sha }}
+          cache-from: type=gha,scope=dashboard
+          cache-to: type=gha,mode=max,scope=dashboard
+
+      - name: Build and push worker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/Dockerfile.worker
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ env.IMAGE_WORKER }}:latest
+            ${{ env.IMAGE_WORKER }}:${{ github.sha }}
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,mode=max,scope=worker
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Dokploy deploy
+      - name: Trigger Dokploy deploy — dashboard
         run: |
           curl -fsSL -X POST "${{ secrets.DOKPLOY_URL }}/api/application.deploy" \
             -H "x-api-key: ${{ secrets.DOKPLOY_API_KEY }}" \
             -H "Content-Type: application/json" \
-            -d '{"applicationId":"${{ secrets.DOKPLOY_APP_ID }}"}'
+            -d '{"applicationId":"${{ secrets.DOKPLOY_APP_ID_DASHBOARD }}"}'
+
+      - name: Trigger Dokploy deploy — worker
+        run: |
+          curl -fsSL -X POST "${{ secrets.DOKPLOY_URL }}/api/application.deploy" \
+            -H "x-api-key: ${{ secrets.DOKPLOY_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"applicationId":"${{ secrets.DOKPLOY_APP_ID_WORKER }}"}'
