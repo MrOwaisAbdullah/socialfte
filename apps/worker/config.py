@@ -97,7 +97,13 @@ class Settings(BaseSettings):
     # ─────────────────────────────────────────────
     PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: int = Field(default=1)
     PUPPETEER_EXECUTABLE_PATH: str = Field(default="/usr/bin/chromium")
-    RENDER_INTERNAL_URL: str = Field(default="http://yl-dashboard:3000")
+    # No safe hardcoded fallback for a real deployment: Dokploy runs each app
+    # as a Swarm service with its own generated internal hostname, including a
+    # random per-deployment suffix (e.g. socialfte-dashboard-<suffix>, not
+    # docker-compose.yml's yl-dashboard) — check that app's Dokploy panel for
+    # its real name and set RENDER_INTERNAL_URL explicitly. localhost is only
+    # correct for local dev (both processes on the same machine).
+    RENDER_INTERNAL_URL: str = Field(default="http://localhost:3000")
     RENDER_INTERNAL_SECRET: str = Field(default="")
 
     # Brand tokens sent as the `brand` payload to /api/internal/render
