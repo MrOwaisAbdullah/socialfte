@@ -132,7 +132,7 @@ trigger.
 
 ## 3. Cron schedule
 
-| Job | Schedule | File |
+| Job | Default schedule | File |
 |---|---|---|
 | `refresh_tokens` | Daily, 03:00 | `apps/worker/jobs/refresh_tokens.py` |
 | `publish_due` | Every 15 minutes | `apps/worker/jobs/publish_due.py` |
@@ -140,34 +140,58 @@ trigger.
 | `compose_batch` | Daily, 04:00 | `apps/worker/jobs/compose_batch.py` |
 | `collect_metrics` | Every 6 hours | `apps/worker/jobs/collect_metrics.py` |
 | `weekly_digest` | Sundays, 05:00 | `apps/worker/jobs/weekly_digest.py` |
+| `process_footage` | Every 15 minutes | `apps/worker/jobs/process_footage.py` |
 
-All six are registered in `apps/worker/main.py`'s FastAPI `lifespan` handler via
-APScheduler (`AsyncIOScheduler`), reading their schedules from the `*_CRON` env
-vars in `apps/worker/config.py`. `GET /jobs` on the worker lists all registered
-jobs and their next run time; `GET /health` is the container healthcheck.
+All seven are registered in `apps/worker/main.py`'s FastAPI `lifespan` handler
+via APScheduler (`AsyncIOScheduler`), each wrapped by `job_runs.tracked()` so
+every execution — scheduled or manual — records a `job_runs` row (status,
+timing, error). Default schedules come from the `*_CRON` env vars in
+`apps/worker/config.py`; the dashboard's **Jobs** page (`/jobs`) can override
+any of them live via `POST /jobs/{id}/schedule` (persisted to `job_schedules`,
+applied immediately with no restart) and shows each job's schedule in plain
+English, last-run status, and a manual "Run Now" trigger. `GET /jobs` lists
+every registered job with its schedule and last run; `GET /health` is the
+container healthcheck. See "Jobs management" below for the full picture.
 
 ## 4. BOOTSTRAP — how a brand gets set up in the first place
 
-Everything above assumes `SOUL.md`, `BRAND.md`, `HEARTBEAT.md`, and at least one
-row in `credentials` already exist. `apps/worker/bootstrap/steps.py`'s six
-steps are what produce them:
+There are **two** BOOTSTRAP paths, and only one of them actually configures a
+live deployment — this used to not be true of either, worth being explicit
+about given it was a real, confusing gap for a while:
 
-1. **Identity** → writes `SOUL.md`, `IDENTITY.md`
-2. **Brand** → writes `BRAND.md`, regenerates `packages/remotion/src/brand.ts`/
-   `fonts.ts` via the `/brand-setup` skill
-3. **Platforms** → runs each platform's OAuth flow, writes rows to `credentials`
-4. **Notification channel** → writes the chosen channel's token/IDs to
-   `.env.local`, sends a real test message to confirm it works
-5. **Cadence** → writes `HEARTBEAT.md` (posts/day per platform, posting hours)
-6. **Verify and finish** → runs a real LLM call, a real render, a real
-   notification, and a DB check; only deletes `BOOTSTRAP.md` if all pass
+**The CLI wizard** (`python -m worker bootstrap`, `apps/worker/bootstrap/steps.py`)
+is a **local-only** tool — it writes `SOUL.md`, `BRAND.md`, `HEARTBEAT.md`,
+`IDENTITY.md`, `.env.local`, and `BOOTSTRAP.md` to whatever's passed via
+`--env=<path>` (default: the real repo root on disk). Step 2's docstring says
+it "regenerates `packages/remotion/src/brand.ts`/`fonts.ts`" — it doesn't;
+that never got implemented, it only writes `BRAND.md`. Step 4's `.env.local`
+write is also inert: `config.py` only ever loads `.env`, never `.env.local`,
+so nothing reads those values at runtime. This wizard only makes sense run
+against a real repo checkout before a deployment exists (or for the
+`clients/`-isolation testing described in `docs/client-provisioning.md`) — it
+can't reach a live Docker container's actual config, since the deployed
+worker has no repo root on disk to write to at all (confirmed live: it tried
+to write `AGENT_LOG.md` to `/` and got a permission error — same root cause).
 
-Every step is resumable — it checks whether its own output already exists
-before re-prompting, so a killed process or closed browser tab doesn't lose
-prior answers. `BOOTSTRAP.md`'s mere existence is the "first-time setup still
-available" flag; step 6 deletes it on success, and both the CLI
-(`python -m worker bootstrap`) and the dashboard's `/setup` page refuse to
-re-run once it's gone.
+**The dashboard wizard** (`/setup`, six steps in
+`apps/dashboard/app/setup/page.tsx`) is what actually configures a **live**
+deployment. Its last step (`POST /api/internal/bootstrap/verify`) upserts
+brand name, tagline, primary/accent colors, logo URL, social handle, and the
+brand-mark toggle into a single-row `brand_config` DB table, and sets
+`setup_complete=true` there once its checks pass. `GET /api/internal/bootstrap/status`
+reads that same flag (previously `existsSync(BOOTSTRAP.md)`, which could never
+work in production — the dashboard and worker are separate Docker containers
+sharing no filesystem). `compose_batch.py`'s `_build_brand_tokens()` reads
+`brand_config` at render time, falling back field-by-field to `config.py`'s
+`BRAND_*` env vars for anything the wizard hasn't set yet (or a completely
+fresh deployment with no row at all). This wizard does **not** yet run
+platform OAuth flows or persist connected-platform selection — connecting
+Facebook/Instagram/YouTube/TikTok credentials is still a manual, out-of-band
+step (register an app in each platform's own developer console, then insert
+the token via `db/credentials.py`'s `save_token()`).
+
+Both wizards are resumable — each step checks whether its own output already
+exists before re-prompting.
 
 ## 5. Where to look
 
@@ -312,3 +336,95 @@ root — proven by actually running `python -m worker bootstrap
 the real repo root's `SOUL.md`/`BRAND.md`/`HEARTBEAT.md`/`IDENTITY.md`/`BOOTSTRAP.md`
 were untouched. See `docs/client-provisioning.md` for the full new-client
 onboarding runbook this isolation makes possible.
+
+## Operational fixes and Jobs management (post-launch)
+
+Found and fixed after Week 5's implementation, mostly by actually running the
+deployed system and watching what broke rather than by re-reading code —
+each is a real, previously-live bug, not a hypothetical.
+
+**Still-image rendering was completely broken.** `compose_batch.py`'s
+non-video branch sent every render request with `props: {caption,
+assetImageUrl}` and `brand: {}` regardless of which template was picked —
+none of the 6 templates' actual required props (`registry.ts`) are named
+`caption`/`assetImageUrl`, so `validateTemplateProps` rejected every single
+one with a 400 before anything rendered, and colors/fonts/wordmark were
+undefined even on the rare request that did validate. The video-dispatch
+path already had a working props-builder (`_build_video_props`); the
+still-image path never got an equivalent. Fixed with `_build_image_props()`
+(maps each template slug to its real required props, same "honest
+best-effort" precedent already set for video's `SetReveal.bundlePrice`) and
+`_build_brand_tokens()` (reads `brand_config`, falls back to `config.py`'s
+`BRAND_*` env vars).
+
+**Brand logo + social handle toggle**, added at the same time since it
+touches the same `brand_config`/`BrandTokens` object: `logoUrl`,
+`socialHandle`, `showBrandMark` fields flow from the `/setup` wizard →
+`brand_config` → `_build_brand_tokens()` → a shared `BrandBadge` component
+rendered bottom-right on all 6 dashboard templates (still images,
+`apps/dashboard/components/templates/brand-badge.tsx`) and all 5 Remotion
+compositions (video, `packages/remotion/src/lib/kit.tsx`'s `BrandBadge`,
+sourced from `brand.ts`'s static `logoUrl`/`socialHandle`/`showMark` fields
+since that pipeline renders on GitHub Actions, not per-request).
+
+**compose_batch drafted zero posts with no connected platform credentials.**
+`_get_connected_platforms()` returning empty made the whole job return
+immediately — but drafting doesn't need real publish credentials, only
+`publish_due` does, and it already fails safely (`state='failed'`, a clear
+error) when a platform has no token. Now falls back to drafting for every
+known platform when none are connected, so there's something to
+review/approve while OAuth setup for real platforms is still pending.
+
+**The `templates` table was never seeded.** `registry.ts`'s 6 templates have
+always been code constants; nothing ever inserted matching rows into the DB
+table `compose_batch.py` joins against by slug — confirmed live: 10 real
+uploaded assets, 0 templates, "No candidate asset+template pairs found" on
+every run, regardless of asset count. `main.py`'s `_seed_templates()` now
+inserts the 6 defaults at worker startup, only when the table is completely
+empty (never overwrites an operator's own edits).
+
+**Internal service hostnames have no safe hardcoded default.** Dokploy runs
+each app as its own Docker Swarm service with a generated internal hostname
+that includes a random per-deployment suffix (confirmed live:
+`socialfte-worker-2s66t5`, not `socialfte-worker` and not
+`docker-compose.yml`'s `yl-worker`) — `WORKER_INTERNAL_URL` (on the dashboard
+app) and `RENDER_INTERNAL_URL` (on the worker app) must be set explicitly per
+deployment; check each app's own Dokploy panel for its real name, verify with
+`curl http://<name>:<port>/health` (worker) or `/login` (dashboard) from the
+*other* app's Dokploy terminal before trusting a guess. Both env vars now
+default to `localhost` (correct for local dev, the one case where no env var
+is needed) instead of a plausible-looking but wrong guess.
+
+**`AGENT_LOG.md` couldn't be written in Docker.** `audit.py`'s `REPO` path
+(three `.parent`s up from its own file) resolves to `/` inside the worker
+container — no monorepo root is copied in, just `apps/worker/`'s own
+contents (`Dockerfile.worker`) — so every write attempted
+`/AGENT_LOG.md`, which the non-root `worker` user can't touch. Falls back to
+right next to `audit.py` (`/app/AGENT_LOG.md`, writable) instead of just
+logging a warning on every single action; a real host-visible `tail -f` in
+production still needs a Dokploy volume mount at that path.
+
+**Jobs management** (`/jobs` in the dashboard, `apps/worker/main.py` +
+`scheduling.py` + `job_runs.py` + `job_schedules.py`) went from "list
+registered jobs, trigger one" to a full operational view in three parts:
+
+1. *Human-friendly schedules* — `scheduling.trigger_to_cron()` reconstructs
+   the actual cron string from APScheduler's trigger object (its own
+   `str(trigger)` is a verbose non-cron repr), and `humanize_cron()` renders
+   the shapes this app uses ("Daily at 4:00 AM", "Every 15 minutes") —
+   falling back to the raw cron for anything more complex.
+2. *Run status/history* — every job registration is wrapped in
+   `job_runs.tracked()`, which records a `job_runs` row (status,
+   started/finished, error) for **every** execution, cron-triggered or
+   manual. Both paths go through the same wrapper: the manual endpoint calls
+   `job.func()`, which after registration *is* the tracked version; a
+   `contextvar` labels which is which without a second code path. `GET
+   /jobs` attaches each job's most recent run.
+3. *Editable schedules* — `POST /jobs/{id}/schedule` takes a structured
+   shape (`every_n_minutes`, `every_n_hours`, `every_n_days`, `hourly`,
+   `daily`, `weekly`, `monthly` + the relevant time/day fields),
+   `scheduling.build_cron()` turns it into a validated cron expression
+   (`InvalidSchedule` on out-of-range input), persists it to
+   `job_schedules`, and calls APScheduler's `reschedule_job()` directly — no
+   restart needed, and it survives one anyway since `job_schedules` is
+   checked at startup before falling back to the `*_CRON` env var default.

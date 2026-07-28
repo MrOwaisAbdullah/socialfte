@@ -89,10 +89,20 @@ DATABASE_URL="postgresql://..." npx drizzle-kit push
 outright if `pgvector` isn't enabled first (Neon console → your project → the SQL editor →
 `CREATE EXTENSION IF NOT EXISTS vector;`).
 
-This creates all 8 tables (`templates`, `assets`, `posts`, `metrics`, `audit_log`,
-`credentials`, plus Week 5's additions to `assets`/`posts`), every index, and the
+This creates all 9 tables (`templates`, `assets`, `posts`, `metrics`, `audit_log`,
+`credentials`, `brand_config`, `job_runs`, `job_schedules`), every index, and the
 `caption_vec` pgvector column. Re-run it any time `schema.sql`/`schema.ts` changes — it's
-additive/idempotent for new columns, not destructive.
+additive/idempotent for new columns, not destructive. The last three tables were added
+post-launch (brand config persistence + Jobs page run-tracking/scheduling — see
+`docs/how-it-works.md`'s "Operational fixes and Jobs management" section) — if the `/setup`
+wizard fails to save or the Jobs page can't show run status/schedule edits, re-run this first
+to confirm those tables actually exist on the target database.
+
+`templates` needs at least one row before `compose_batch` can produce anything — the worker
+seeds the 6 default templates automatically on startup if the table is empty
+(`main.py`'s `_seed_templates()`), so this is normally a non-issue, but if you ever see
+"No candidate asset+template pairs found" in the worker logs despite having uploaded assets,
+check `SELECT count(*) FROM templates` first.
 
 ## 5. Run it
 
@@ -132,6 +142,15 @@ skips whatever's already been answered. It writes `SOUL.md`, `BRAND.md`, `HEARTB
 `IDENTITY.md` at the repo root, and only writes `BOOTSTRAP.md` (the "setup verified
 complete" marker) once its 4 final checks — LLM call, render, notification, database —
 all pass. Re-running it after `BOOTSTRAP.md` exists refuses immediately (by design).
+
+**This CLI wizard is local-only** — it writes to files on disk (repo root by default), which
+a deployed worker container doesn't have (no shared filesystem with the dashboard, no repo
+root copied in). Brand colors/name/tagline collected here only go into `BRAND.md`, a doc
+nothing reads at runtime. For a **live deployment**'s actual brand config (colors, logo,
+social handle — what `compose_batch` and every render actually use), use the dashboard's
+`/setup` page instead — it persists to a `brand_config` DB row both the dashboard and worker
+read. See `docs/how-it-works.md`'s BOOTSTRAP section for the full picture of which wizard
+does what.
 
 To simulate a second client's setup in isolation without touching the first client's
 files (see `docs/client-provisioning.md`), pass `--env=<path-to-a-.env-file>` — its parent
@@ -235,6 +254,27 @@ URL/API key).
 6. Note each application's ID from its Dokploy URL/settings — you'll need both for the repo
    secrets below.
 
+**The internal-hostname gotcha** (this cost real debugging time — worth reading before step
+2 above): `WORKER_INTERNAL_URL` (set on the dashboard app) and `RENDER_INTERNAL_URL` (set on
+the worker app) do **not** use `docker-compose.yml`'s service names (`yl-worker`,
+`yl-dashboard`) in a real Dokploy deployment — Dokploy runs each app as its own Docker Swarm
+service with a generated internal hostname that includes a random per-deployment suffix.
+Confirmed live: the worker app's real hostname was `socialfte-worker-2s66t5`, not
+`socialfte-worker` and not `yl-worker`. To find the real value:
+
+1. Open the app's page in Dokploy (worker or dashboard) → the **General** tab shows its name
+   directly under the app title (e.g. `socialfte-worker-2s66t5`) — that *is* the hostname.
+2. Verify before trusting it: open a terminal on the *other* app (Dokploy's "Open Terminal"
+   button) and run `curl http://<that-name>:8000/health` (worker) or
+   `curl http://<that-name>:3000/login` (dashboard). A real JSON/HTML response confirms it;
+   a connection error means it's the wrong name.
+3. Set `WORKER_INTERNAL_URL=http://<worker's real name>:8000` on the **dashboard** app, and
+   `RENDER_INTERNAL_URL=http://<dashboard's real name>:3000` on the **worker** app.
+
+Symptoms of getting this wrong: the Jobs page shows "Could not reach worker", and
+`compose_batch`'s still-image render calls fail silently (shortfall logged, no error surfaced
+to the dashboard).
+
 ### GitHub repository secrets required for `deploy.yml`
 
 | Secret | Purpose |
@@ -284,3 +324,7 @@ docker compose up -d
 | Worker can't connect to Postgres at all (`Connect call failed ('127.0.0.1', 5432)`) | `DATABASE_URL` isn't set in `apps/worker/.env` — it silently falls back to a localhost placeholder (see `db/session.py`'s comment) rather than crashing on import |
 | `drizzle-kit push` fails immediately | The `vector` extension isn't enabled on the Neon database yet — enable it first, then re-run |
 | A vision/LLM call fails with a 402 "requires more credits" error | The OpenRouter account is out of credit for the requested token budget — check `apps/worker/brain/vision.py`'s `max_tokens` settings and the account's remaining balance at openrouter.ai/settings/credits |
+| Jobs page shows "Could not reach worker" (or vice versa: render/vision calls from the worker fail silently) | `WORKER_INTERNAL_URL`/`RENDER_INTERNAL_URL` set to a hostname that doesn't exist on Dokploy's network — see "The internal-hostname gotcha" above; there is no safe hardcoded default in a real deployment |
+| `compose_batch` logs "No candidate asset+template pairs found" despite real uploaded assets | `templates` table is empty — should auto-seed on worker startup (`main.py`'s `_seed_templates()`), but confirm with `SELECT count(*) FROM templates`; if it's an existing deployment from before this fix, either restart the worker or insert the 6 rows manually (slugs must match `apps/dashboard/components/templates/registry.ts` exactly) |
+| Worker logs a `Permission denied: '/AGENT_LOG.md'` warning | Expected inside Docker without a volume mount — the write now falls back to `/app/AGENT_LOG.md` automatically (see `audit.py`), so this is a warning, not a failure; the real `audit_log` DB row is written either way |
+| `/setup` wizard's "Verify & Finish" doesn't seem to save anything, or `/setup` keeps showing as incomplete after a successful run | `brand_config` table doesn't exist yet — run `drizzle-kit push` (see "Database schema" above) |
