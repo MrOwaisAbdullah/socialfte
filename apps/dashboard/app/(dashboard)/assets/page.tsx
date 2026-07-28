@@ -4,14 +4,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 interface Asset {
   id: string;
-  r2_key: string;
+  // /api/assets returns Drizzle's .select() rows as-is, which serializes
+  // with the schema's camelCase JS property names (r2Key, not r2_key) — not
+  // the underlying snake_case DB column names. Matches /api/posts + its page.
+  r2Key: string;
   piece: string | null;
   tier: string | null;
   variant: string | null;
-  quality_score: number | null;
-  reject_reason: string | null;
-  times_used: number;
-  created_at: string;
+  qualityScore: number | null;
+  rejectReason: string | null;
+  timesUsed: number;
+  createdAt: string;
 }
 
 interface QueueItem {
@@ -52,7 +55,7 @@ export default function AssetsPage() {
         if (res.ok) {
           const data = await res.json();
           setAssets((prev) => [
-            { id: data.id, r2_key: data.url || "", piece: null, tier: null, variant: null, quality_score: null, reject_reason: null, times_used: 0, created_at: new Date().toISOString() },
+            { id: data.id, r2Key: data.url || "", piece: null, tier: null, variant: null, qualityScore: null, rejectReason: null, timesUsed: 0, createdAt: new Date().toISOString() },
             ...prev,
           ]);
           setQueue((prev) =>
@@ -177,20 +180,20 @@ export default function AssetsPage() {
         {assets.map((asset) => (
           <div key={asset.id} className="rounded-lg border border-dark/10 bg-light p-4">
             <img
-              src={asset.r2_key.startsWith("http") ? asset.r2_key : `${R2_PUBLIC}/${asset.r2_key}`}
+              src={asset.r2Key.startsWith("http") ? asset.r2Key : `${R2_PUBLIC}/${asset.r2Key}`}
               alt={asset.piece || "Asset"}
               className="mb-2 aspect-square w-full rounded object-cover"
             />
             <div className="flex items-center justify-between text-sm">
               <span className="font-body text-dark">{asset.piece || "Untagged"}</span>
               <span className={`rounded px-2 py-0.5 text-xs ${
-                asset.reject_reason ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+                asset.rejectReason ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
               }`}>
-                {asset.reject_reason ? "Rejected" : "Active"}
+                {asset.rejectReason ? "Rejected" : "Active"}
               </span>
             </div>
             <p className="mt-1 font-body text-xs text-muted">
-              Used {asset.times_used}x · {asset.tier || "?"} · {asset.variant || "?"}
+              Used {asset.timesUsed}x · {asset.tier || "?"} · {asset.variant || "?"}
             </p>
           </div>
         ))}
