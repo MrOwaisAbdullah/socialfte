@@ -12,6 +12,10 @@ import { SESSION_COOKIE, verifySessionToken } from '@/lib/session';
 //   of returning the JSON Discord expects, silently breaking the whole approval flow
 // - /render-preview: headless, navigated to by Puppeteer server-side, never by
 //   a logged-in browser session — it must stay reachable without a cookie
+// - /api/render-complete: the render-video.yml GitHub Actions callback (the
+//   worker has no public port, so this dashboard route proxies the callback
+//   through) — authenticated via x-render-secret, same reasoning as
+//   api/webhooks above; a GitHub-hosted runner has no session cookie either
 export function proxy(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   if (verifySessionToken(token)) {
@@ -22,6 +26,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!login|api/internal|api/webhooks|render-preview|_next/static|_next/image|favicon.ico).*)',
+    '/((?!login|api/internal|api/webhooks|api/render-complete|render-preview|_next/static|_next/image|favicon.ico).*)',
   ],
 };

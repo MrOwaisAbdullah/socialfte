@@ -18,7 +18,7 @@ secret** in the GitHub repo:
 | `R2_SECRET_ACCESS_KEY` | The R2 API token's secret access key |
 | `R2_ACCOUNT_ID` | Your Cloudflare account ID — used to build the R2 endpoint URL (`https://<account_id>.r2.cloudflarestorage.com`) |
 | `R2_BUCKET` | The R2 bucket name renders get uploaded to |
-| `CALLBACK_URL` | The worker's publicly reachable `POST /api/render-complete` URL. The GitHub-hosted runner cannot reach the worker over its internal Docker network — this must be a real, internet-reachable address (or a tunnel) |
+| `CALLBACK_URL` | `https://<your dashboard's public domain>/api/render-complete` — **not** the worker directly. The worker has no public port at all (internal-only, Dokploy Docker network) and the GitHub-hosted runner can't reach it. `apps/dashboard/app/api/render-complete/route.ts` is a public proxy that forwards the callback to the worker's real `/api/render-complete` over the internal network — it exists specifically because the worker itself is unreachable from outside Dokploy's network |
 | `RENDER_INTERNAL_SECRET` | The same shared secret the worker already uses for its other internal endpoints (`RENDER_INTERNAL_SECRET` in `apps/worker/config.py`) — sent as the `x-render-secret` header so the worker can verify the callback actually came from this workflow |
 
 **Note**: `R2_ACCOUNT_ID`, `R2_BUCKET`, and `RENDER_INTERNAL_SECRET` already
