@@ -428,3 +428,88 @@ registered jobs, trigger one" to a full operational view in three parts:
    `job_schedules`, and calls APScheduler's `reschedule_job()` directly — no
    restart needed, and it survives one anyway since `job_schedules` is
    checked at startup before falling back to the `*_CRON` env var default.
+
+**No connected platform credentials → compose_batch drafted zero posts.**
+`_get_connected_platforms()` returning empty made the whole job return
+immediately. Drafting doesn't need real publish credentials, only
+`publish_due` does — and it already fails safely (`state='failed'`, a clear
+error) when a platform has no token, confirmed by checking `meta.py`'s
+`_get_page_token()`. Falls back to drafting for every known platform when
+none are connected, so there's something to review/approve/test before any
+OAuth setup exists.
+
+**The `templates` table was never seeded.** `registry.ts`'s 6 templates have
+always been code constants; nothing ever inserted matching rows into the DB
+table `compose_batch.py` joins against by slug — confirmed live: 10 real
+uploaded assets, 0 templates, "No candidate asset+template pairs found" on
+every run regardless of asset count. `main.py`'s `_seed_templates()` now
+inserts the 6 defaults at worker startup, only when the table is completely
+empty (never overwrites an operator's own edits).
+
+**Facebook/Instagram were hardcoded to one fixed format.** The original
+`PLATFORM_FORMAT_MAP` said Facebook is always "video," Instagram always
+"image" — doesn't match reality (both platforms take either) and fed the
+round-robin bug above (a platform whose one fixed format kept failing had
+nowhere else to go). Replaced with `PLATFORM_FORMATS` (list of supported
+formats per platform) and `_choose_format()`, weighted-random for
+Facebook/Instagram via `IMAGE_POST_RATIO` (default 0.7 = 70% image), fixed
+for TikTok/YouTube Shorts (video-only).
+
+**A new "retag assets" job catches vision-tagging failures.** The
+upload-time `/vision/tag` call is fire-and-forget — if it fails (wrong
+internal hostname, LLM timeout), the asset stays untagged forever with
+nothing to retry it. Confirmed live: all 10 real uploaded assets had
+`piece`/`tier`/`variant`/`quality_score` stuck null after
+`WORKER_INTERNAL_URL` was misconfigured at upload time. `retag_assets`
+(`RETAG_ASSETS_CRON`, default every 6 hours, also manually runnable from
+the Jobs page) finds every asset with `quality_score IS NULL` and retags it.
+
+**Video dispatch's `ref` was hardcoded to the wrong branch.**
+`dispatch_render.py` sent `"ref": "main"` to GitHub's `workflow_dispatch`
+API — this repo's actual default branch is `master` (confirmed via
+`gh repo view`), so every video render dispatch failed with a 422. Now
+configurable (`RENDER_WORKFLOW_REF`, default `"master"`).
+
+**Vision quality scores were on the wrong scale.** Confirmed live: 7 real
+assets all scored `quality_score: 9` while *also* marked
+`lighting_ok: true` and `composition_ok: true` by the same model call — a
+photo the model itself considers well-lit and well-composed shouldn't score
+9 out of 100. `skills/asset-tagging.md`'s prompt already said "0-100" but
+the model (Gemini 2.5 Flash) was drifting to a 0-10 scale regardless;
+hardened the prompt with explicit anchor points (90-100 = studio quality,
+below 50 = genuinely poor) and a self-check instruction. Existing
+mis-scored rows aren't auto-corrected (the retag job only targets
+`quality_score IS NULL`, not "already scored but probably wrong") — reset
+`quality_score` to `NULL` by hand for any row you want re-scored under the
+fixed prompt.
+
+**Captions had zero brand context.** `write_caption(asset, template, brand)`
+accepted a `brand` parameter, but both real call sites in `compose_batch.py`
+called it as `write_caption(asset, tmpl)` — `brand` always defaulted to
+`{}`. `_build_brand_tokens()` (previously computed redundantly, only inside
+the still-image render branch) is now computed once per batch and threaded
+into both `write_caption()` calls and the render payload.
+
+**Caption language is now a real, selectable setting.** `brand_config`
+gained `caption_language`, exposed as a dropdown in step 2 of the `/setup`
+wizard (Roman Urdu + English / English / Urdu), read by
+`skills/caption-writer.md` via `brand.language`. Default (unset) is
+**Roman Urdu + English** — how Pakistani furniture brands actually write on
+social media — not the plain English every caption used before, with no way
+to change it (both because brand context never reached the model at all,
+per the bug above, and because there was no field for it to read even if it
+had).
+
+`skills/caption-writer.md` was also rewritten for tone, after loading the
+`humanizer-main` and `social-media-writer` Claude Code skills as reference
+(neither runs at request time — the deployed caption agent calls DeepSeek
+via OpenRouter directly, not Claude Code — their guidance was used to
+rewrite the static prompt file instead). Significance-inflation
+("stands as a testament to..."), promotional puffery ("nestled," "boasts,"
+"showcases"), superficial "-ing" padding, rule-of-three padding, vague
+attribution, and same-length-sentence sameness are now called out
+explicitly in the prompt, not just left to banned-phrase matching.
+`HUMANIZER_BANNED_PHRASES` (the code-level enforcement list `check_humanizer()`
+actually runs) gained ~20 more phrases pulled from the same patterns.
+`hallmark` (also loaded as a candidate) turned out to be a page/UI-design
+skill with nothing applicable to caption text — not used.
