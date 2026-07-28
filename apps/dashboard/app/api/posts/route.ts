@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Calendar week view
-  const weekStart = mondayOf(new Date(weekStartParam));
+  const weekStart = mondayOf(new Date(weekStartParam!));
   const weekEnd = new Date(weekStart);
   weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
 
