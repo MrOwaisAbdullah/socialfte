@@ -179,10 +179,19 @@ async def compose_batch():
     """Compose a batch of posts in state='review'. Runs on COMPOSE_BATCH_CRON."""
     logger.info("Starting batch composition — target: %d posts", TARGET_BATCH_SIZE)
 
+    # Drafting doesn't need real publish credentials — only publish_due does,
+    # and it already fails safely (post -> state='failed', clear error) when
+    # a platform has no real token. Blocking composition entirely here meant
+    # zero drafts could ever be created (nothing to review/approve/test)
+    # before OAuth setup existed for any platform.
     platforms = await _get_connected_platforms()
     if not platforms:
-        logger.warning("No connected platform credentials found")
-        return
+        platforms = list(PLATFORM_FORMAT_MAP.keys())
+        logger.warning(
+            "No connected platform credentials — drafting for all platforms (%s) anyway; "
+            "publish_due will still refuse to publish until real credentials exist",
+            ", ".join(platforms),
+        )
 
     candidates = await _pick_candidates()
     if not candidates:

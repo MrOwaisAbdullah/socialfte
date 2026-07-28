@@ -80,6 +80,63 @@ async def test_compose_batch_produces_posts(mock_deps):
 
 
 @pytest.mark.asyncio
+async def test_compose_batch_drafts_without_connected_platforms(mock_deps):
+    """No connected credentials must NOT block draft creation — only
+    publish_due needs real tokens. compose_batch falls back to drafting for
+    every known platform instead of returning early with zero posts."""
+    from jobs.compose_batch import compose_batch, PLATFORM_FORMAT_MAP
+
+    mock_asset = MagicMock(id="asset-4", r2_key="photos/test4.jpg", piece="chair", tier="tier1",
+                           variant="standard", times_used=0, reject_reason=None,
+                           created_at=MagicMock())
+    mock_template = MagicMock(id="tmpl-4", slug="hero", display_name="Hero", created_at=MagicMock())
+
+    mock_session = mock_deps["session"]
+    call_count = 0
+
+    async def execute_side_effect(stmt, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return _make_scalar_result([mock_asset])
+        return _make_scalar_result([mock_template])
+
+    mock_session.execute = execute_side_effect
+
+    with patch("jobs.compose_batch.write_caption", new_callable=AsyncMock) as mock_write, \
+         patch("jobs.compose_batch.embed", new_callable=AsyncMock) as mock_embed, \
+         patch("jobs.compose_batch.anti_repeat.check_asset", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.anti_repeat.check_template", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.anti_repeat.check_caption", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.httpx.AsyncClient") as mock_httpx, \
+         patch("jobs.compose_batch.dispatch_video_render", new_callable=AsyncMock), \
+         patch("jobs.compose_batch._get_connected_platforms", new_callable=AsyncMock, return_value=[]):
+        mock_write.return_value = ("Solid chair.", ["#chair"])
+        mock_embed.return_value = [0.1] * 10
+
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {"url": "https://media.test.com/render.jpg"}
+        mock_httpx_instance = AsyncMock()
+        mock_httpx_instance.__aenter__ = AsyncMock(return_value=mock_httpx_instance)
+        mock_httpx_instance.__aexit__ = AsyncMock(return_value=False)
+        mock_httpx_instance.post = AsyncMock(return_value=mock_resp)
+        mock_httpx.return_value = mock_httpx_instance
+
+        await compose_batch()
+
+        # Composition proceeded (didn't return early) — a post was still
+        # created, whichever path the fallback's first platform took (video
+        # posts start 'draft' until the render callback; still images go
+        # straight to 'review').
+        assert mock_session.add.called
+        post_call = mock_session.add.call_args_list[0]
+        created_post = post_call[0][0]
+        assert created_post.state in ("draft", "review")
+        assert created_post.platform in PLATFORM_FORMAT_MAP
+
+
+@pytest.mark.asyncio
 async def test_anti_repeat_violation_retries(mock_deps):
     """Forced anti-repeat violation causes retry (not a published duplicate)."""
     from jobs.compose_batch import compose_batch
