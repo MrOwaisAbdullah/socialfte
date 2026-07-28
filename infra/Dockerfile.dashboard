@@ -33,11 +33,23 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends chromium \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system --gid 1001 nodejs \
- && useradd --system --uid 1001 --gid nodejs nextjs
+ && useradd --system --uid 1001 --gid nodejs nextjs \
+ && mkdir -p /tmp/.chromium /tmp/.puppeteer-profile \
+ && chown -R nextjs:nodejs /tmp/.chromium /tmp/.puppeteer-profile
 
 ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# `useradd --system` gives `nextjs` no real home directory, so Chrome's
+# crashpad crash-handler subprocess has nowhere to write its crash
+# database — confirmed live: "Failed to launch the browser process...
+# chrome_crashpad_handler: --database is required". Puppeteer's own
+# troubleshooting docs cover this exact failure mode (restricted/read-only
+# container, no writable profile dir) — point XDG_CONFIG_HOME/XDG_CACHE_HOME
+# at a writable path; api/internal/render/route.ts also sets an explicit
+# userDataDir and disables the crash reporter outright as a second layer.
+ENV XDG_CONFIG_HOME=/tmp/.chromium
+ENV XDG_CACHE_HOME=/tmp/.chromium
 # HOSTNAME=0.0.0.0: node server.js defaults to 127.0.0.1, which Traefik
 # cannot reach across the Docker network (pitfall P11).
 ENV PORT=3000 HOSTNAME=0.0.0.0

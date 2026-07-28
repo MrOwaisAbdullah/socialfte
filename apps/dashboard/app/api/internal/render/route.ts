@@ -54,12 +54,23 @@ export async function POST(request: NextRequest) {
   // bundled Chromium — no env var needed in .env.local.
   const browser = await puppeteer.launch({
     headless: 'shell',
+    // userDataDir + --disable-crash-reporter: the container's non-root user
+    // (useradd --system, no real home dir) has nowhere for Chrome's crashpad
+    // handler to write its crash database — confirmed live: "Failed to
+    // launch the browser process... chrome_crashpad_handler: --database is
+    // required". --disable-crash-reporter skips that subprocess outright;
+    // userDataDir (backed by infra/Dockerfile.dashboard's writable
+    // /tmp/.puppeteer-profile) covers whatever else needs a writable
+    // profile dir. Puppeteer's own troubleshooting docs cover this exact
+    // restricted-container failure mode.
+    userDataDir: '/tmp/.puppeteer-profile',
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-web-security',
       '--font-render-hinting=none',
       '--disable-gpu',
+      '--disable-crash-reporter',
     ],
     protocolTimeout: 180_000,
   });
