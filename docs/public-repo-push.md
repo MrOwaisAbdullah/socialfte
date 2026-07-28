@@ -38,8 +38,28 @@ git checkout master                     # switch back — restores specs/docs/.c
 ```
 
 The push target is `github-push:master` — pushing a *local* branch named `github-push` to
-the *remote* branch named `master`. The remote never sees a branch called `github-push`;
-GitHub's `master` just becomes whatever `github-push` pointed to.
+the *remote* branch named `master`. In principle the remote should never see a branch
+called `github-push`; in practice a stray `refs/heads/github-push` showed up on the remote
+once anyway (cause unconfirmed — possibly a `push.default` config interaction). Check for
+it and delete it if present, so the public repo only ever has one branch:
+
+```bash
+git ls-remote origin                        # should list only refs/heads/master (+ HEAD)
+git push origin --delete github-push         # if a stray one shows up
+```
+
+**After pushing, always `git checkout master` before making any further changes.** It's
+easy to keep working while still checked out on the `github-push` orphan branch — any
+commits made there won't have `specs/`/`docs/`/`.claude/` restored (they were `rm -rf`'d
+for that branch) and, more importantly, they won't be part of `master`'s real history
+unless explicitly `git cherry-pick`ed over. If this happens, cherry-pick the commit onto
+`master` from `github-push`'s log before doing anything else:
+
+```bash
+git log --oneline github-push -3   # find the commit(s) made while on the wrong branch
+git checkout master
+git cherry-pick <sha>
+```
 
 ## Doing this again for the next update
 
