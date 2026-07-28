@@ -8,6 +8,7 @@ at 04:00).
 spec.md SC-001: A full day's draft posts with zero manual photo/template/caption selection.
 """
 import logging
+import random
 from datetime import datetime, timezone
 
 import httpx
@@ -27,14 +28,31 @@ logger = logging.getLogger("worker.compose_batch")
 TARGET_BATCH_SIZE = 5
 MAX_ASSET_TEMPLATE_COMBOS = TARGET_BATCH_SIZE * 3
 
-PLATFORM_FORMAT_MAP = {
-    "facebook": "video",
-    "instagram": "image",
-    "youtube_shorts": "short",
-    "tiktok": "video",
+# Formats each platform actually supports — Facebook and Instagram accept
+# either an image or a video post; YouTube Shorts and TikTok are video-only.
+# Was a fixed one-format-per-platform map (facebook always "video", instagram
+# always "image"), which doesn't match reality and also caused the platform
+# round-robin bug: a platform whose single fixed format kept failing had
+# nowhere else to go.
+PLATFORM_FORMATS: dict[str, list[str]] = {
+    "facebook": ["image", "video"],
+    "instagram": ["image", "video"],
+    "youtube_shorts": ["short"],
+    "tiktok": ["video"],
 }
 
 VIDEO_FORMATS = {"video", "short", "reel"}
+
+
+def _choose_format(platform: str) -> str:
+    """Pick a format for `platform`. Platforms with only one supported
+    format always use it; Facebook/Instagram (both) are chosen by weighted
+    random — settings.IMAGE_POST_RATIO fraction of the time image, the rest
+    video — so the mix is configurable without hardcoding either format."""
+    formats = PLATFORM_FORMATS.get(platform, ["image"])
+    if len(formats) == 1:
+        return formats[0]
+    return "image" if random.random() < settings.IMAGE_POST_RATIO else "video"
 
 # Closest analog between the six Week 2 static templates and the four Week 5
 # video compositions (packages/remotion/src/compositions/) — there's no 1:1
@@ -186,7 +204,7 @@ async def compose_batch():
     # before OAuth setup existed for any platform.
     platforms = await _get_connected_platforms()
     if not platforms:
-        platforms = list(PLATFORM_FORMAT_MAP.keys())
+        platforms = list(PLATFORM_FORMATS.keys())
         logger.warning(
             "No connected platform credentials — drafting for all platforms (%s) anyway; "
             "publish_due will still refuse to publish until real credentials exist",
@@ -214,7 +232,7 @@ async def compose_batch():
 
         asset_id_str = str(asset.id)
         platform = platforms[attempt % len(platforms)]
-        fmt = PLATFORM_FORMAT_MAP.get(platform, "image")
+        fmt = _choose_format(platform)
 
         if not await anti_repeat.check_asset(asset.id):
             shortfall_reasons.append(f"asset {asset_id_str} rejected by anti-repeat")

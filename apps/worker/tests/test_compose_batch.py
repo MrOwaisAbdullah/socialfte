@@ -84,7 +84,7 @@ async def test_compose_batch_drafts_without_connected_platforms(mock_deps):
     """No connected credentials must NOT block draft creation — only
     publish_due needs real tokens. compose_batch falls back to drafting for
     every known platform instead of returning early with zero posts."""
-    from jobs.compose_batch import compose_batch, PLATFORM_FORMAT_MAP
+    from jobs.compose_batch import compose_batch, PLATFORM_FORMATS
 
     mock_asset = MagicMock(id="asset-4", r2_key="photos/test4.jpg", piece="chair", tier="tier1",
                            variant="standard", times_used=0, reject_reason=None,
@@ -133,7 +133,26 @@ async def test_compose_batch_drafts_without_connected_platforms(mock_deps):
         post_call = mock_session.add.call_args_list[0]
         created_post = post_call[0][0]
         assert created_post.state in ("draft", "review")
-        assert created_post.platform in PLATFORM_FORMAT_MAP
+        assert created_post.platform in PLATFORM_FORMATS
+
+
+@pytest.mark.parametrize(
+    "platform,ratio,random_value,expected",
+    [
+        ("tiktok", 0.7, 0.0, "video"),  # single-format platform ignores the ratio entirely
+        ("youtube_shorts", 0.7, 0.99, "short"),
+        ("facebook", 0.7, 0.5, "image"),  # 0.5 < 0.7 -> image
+        ("facebook", 0.7, 0.8, "video"),  # 0.8 >= 0.7 -> video
+        ("instagram", 0.3, 0.2, "image"),  # 0.2 < 0.3 -> image
+        ("instagram", 0.3, 0.5, "video"),  # 0.5 >= 0.3 -> video
+    ],
+)
+def test_choose_format(platform, ratio, random_value, expected):
+    from jobs.compose_batch import _choose_format
+
+    with patch("jobs.compose_batch.settings.IMAGE_POST_RATIO", ratio), \
+         patch("jobs.compose_batch.random.random", return_value=random_value):
+        assert _choose_format(platform) == expected
 
 
 @pytest.mark.asyncio
@@ -280,6 +299,10 @@ async def test_render_props_include_asset_image_url(mock_deps):
         mock_settings.ANTI_REPEAT_MAX_RETRIES = 3
         mock_settings.RENDER_INTERNAL_URL = "http://localhost:3001"
         mock_settings.RENDER_INTERNAL_SECRET = "test-secret"
+        # 1.0 forces _choose_format("instagram") to always pick "image" —
+        # this test exercises the still-image render path specifically, and
+        # must not be flaky depending on random.random()'s draw.
+        mock_settings.IMAGE_POST_RATIO = 1.0
 
         await compose_batch()
 

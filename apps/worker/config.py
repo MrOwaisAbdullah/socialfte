@@ -194,6 +194,12 @@ class Settings(BaseSettings):
     ANTI_REPEAT_CAPTION_MAX_SIMILARITY: float = Field(default=0.85)
     ANTI_REPEAT_MAX_RETRIES: int = Field(default=5)
 
+    # Fraction of Facebook/Instagram posts that get the "image" format
+    # rather than "video" (compose_batch.py's _choose_format) — those two
+    # platforms accept either; TikTok/YouTube Shorts are always video
+    # regardless of this setting.
+    IMAGE_POST_RATIO: float = Field(default=0.7)
+
     # Cron schedules (Week 4, from §9)
     COMPOSE_BATCH_CRON: str = Field(default="0 4 * * *")  # daily at 04:00
     COLLECT_METRICS_CRON: str = Field(default="0 */6 * * *")  # every 6 hours
@@ -212,6 +218,11 @@ class Settings(BaseSettings):
     PROCESS_FOOTAGE_CRON: str = Field(default="*/15 * * * *")
     MUSIC_BED_DB: int = Field(default=-18)
     MUSIC_BED_ID: str = Field(default="ambient-pad")  # id from media/library/music/catalog.json
+
+    # Catches any asset whose upload-time vision-tag call failed (network
+    # blip, wrong internal hostname, LLM timeout) — that call is fire-and-
+    # forget and never retries on its own otherwise.
+    RETAG_ASSETS_CRON: str = Field(default="0 */6 * * *")  # every 6 hours
 
     # ─────────────────────────────────────────────
     # OPTIONAL
