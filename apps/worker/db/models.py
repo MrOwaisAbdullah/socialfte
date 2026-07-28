@@ -151,5 +151,6 @@ class BrandConfig(Base):
     logo_url: Mapped[str | None] = mapped_column(Text)
     social_handle: Mapped[str | None] = mapped_column(Text)
     show_brand_mark: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    caption_language: Mapped[str | None] = mapped_column(Text)
     setup_complete: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())

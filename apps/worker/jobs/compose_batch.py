@@ -98,6 +98,10 @@ async def _build_brand_tokens() -> dict:
         "logoUrl": field(row and row.logo_url, settings.BRAND_LOGO_URL) or None,
         "socialHandle": field(row and row.social_handle, settings.BRAND_SOCIAL_HANDLE) or None,
         "showBrandMark": row.show_brand_mark if row else settings.BRAND_SHOW_MARK,
+        # Read by skills/caption-writer.md's write_caption() prompt as
+        # brand.language — empty/unset means the prompt's own default
+        # (Roman Urdu + English) applies.
+        "language": field(row and row.caption_language, settings.CAPTION_LANGUAGE) or None,
     }
 
 
@@ -219,6 +223,13 @@ async def compose_batch():
     composed = 0
     shortfall_reasons: list[str] = []
 
+    # Computed once and reused for both the caption prompt and the render
+    # payload below — was only built inside the still-image render branch,
+    # so write_caption() never got brand.language, brand.wordmark, or
+    # anything else here; every real call passed brand={} (the signature's
+    # default), meaning captions were always written with zero brand context.
+    brand_tokens = await _build_brand_tokens()
+
     # Indexed by attempt (enumerate), not by `composed` (successes) — using
     # `composed` here meant a failing first platform (e.g. Facebook's video
     # dispatch erroring on every attempt) kept `composed` stuck at 0, so
@@ -242,7 +253,7 @@ async def compose_batch():
             continue
 
         try:
-            caption, hashtags = await write_caption(asset, tmpl)
+            caption, hashtags = await write_caption(asset, tmpl, brand=brand_tokens)
         except Exception as e:
             logger.error("Caption generation failed for asset %s: %s", asset_id_str, e)
             shortfall_reasons.append(f"caption failed for asset {asset_id_str}: {e}")
@@ -259,7 +270,7 @@ async def compose_batch():
                 break
             logger.warning("Caption rejected by anti-repeat (attempt %d), regenerating", retry)
             try:
-                caption, hashtags = await write_caption(asset, tmpl)
+                caption, hashtags = await write_caption(asset, tmpl, brand=brand_tokens)
             except Exception:
                 break
         if not caption_ok:
@@ -311,7 +322,6 @@ async def compose_batch():
         else:
             render_url = None
             try:
-                brand_tokens = await _build_brand_tokens()
                 async with httpx.AsyncClient(timeout=120.0) as client:
                     resp = await client.post(
                         f"{settings.RENDER_INTERNAL_URL}/api/internal/render",

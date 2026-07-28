@@ -124,6 +124,7 @@ class Settings(BaseSettings):
     BRAND_LOGO_URL: str = Field(default="")          # empty = no logo mark rendered
     BRAND_SOCIAL_HANDLE: str = Field(default="")     # e.g. "@yousufliving" — empty = not shown
     BRAND_SHOW_MARK: bool = Field(default=True)      # toggle: logo + handle on posts/reels
+    CAPTION_LANGUAGE: str = Field(default="")         # 'roman-urdu-english' | 'english' | 'urdu' — empty = skills/caption-writer.md's own default (Roman Urdu + English)
 
     # ─────────────────────────────────────────────
     # PUBLISHING RULES
@@ -213,6 +214,7 @@ class Settings(BaseSettings):
     GITHUB_TOKEN: str = Field(default="")
     GITHUB_REPO: str = Field(default="")  # "owner/repo"
     RENDER_WORKFLOW_FILE: str = Field(default="render-video.yml")
+    RENDER_WORKFLOW_REF: str = Field(default="master")  # branch the render-video.yml workflow dispatches against — confirmed live via `gh repo view` this repo's default branch is master, not main
     RENDER_POLL_INTERVAL_SECONDS: int = Field(default=30)
     RENDER_POLL_MAX_MINUTES: int = Field(default=15)
     PROCESS_FOOTAGE_CRON: str = Field(default="*/15 * * * *")

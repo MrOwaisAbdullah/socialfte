@@ -52,6 +52,30 @@ async def test_write_caption_retries_on_humanizer_violation(mock_deps):
 
 
 @pytest.mark.asyncio
+async def test_write_caption_passes_brand_language_into_prompt(mock_deps):
+    """write_caption() was always called with brand={} (the signature's
+    default) in every real caller — brand.language never reached the model.
+    Confirms the prompt actually carries whatever language the caller
+    passes, and states the default explicitly when none is set."""
+    from brain.composer import CaptionOutput, write_caption
+
+    asset = MagicMock(id="asset-1", piece="dining set", tier="tier1", variant="standard")
+    template = MagicMock(slug="hero", display_name="Hero")
+    result = MagicMock()
+    result.final_output = CaptionOutput(caption="Solid sheesham dining set.", hashtags=["#furniture"])
+
+    with patch("brain.composer.Runner.run", new_callable=AsyncMock, return_value=result) as mock_run:
+        await write_caption(asset, template, brand={"language": "english"})
+        prompt = mock_run.call_args[0][1]
+        assert "Language: english" in prompt
+
+    with patch("brain.composer.Runner.run", new_callable=AsyncMock, return_value=result) as mock_run:
+        await write_caption(asset, template, brand={})
+        prompt = mock_run.call_args[0][1]
+        assert "Roman Urdu + English" in prompt
+
+
+@pytest.mark.asyncio
 async def test_write_caption_raises_when_model_unreachable(mock_deps):
     from brain.composer import write_caption
 

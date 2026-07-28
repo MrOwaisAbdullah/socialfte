@@ -123,6 +123,16 @@ export default function SetupPage() {
             />
             Show logo + handle on posts and reels
           </label>
+          <label className="font-body text-sm text-muted">Caption language</label>
+          <select
+            className="rounded border border-dark/10 px-4 py-2 font-body"
+            defaultValue="roman-urdu-english"
+            onChange={(e) => update("captionLanguage", e.target.value)}
+          >
+            <option value="roman-urdu-english">Roman Urdu + English (default)</option>
+            <option value="english">English</option>
+            <option value="urdu">Urdu</option>
+          </select>
         </div>
       )}
 

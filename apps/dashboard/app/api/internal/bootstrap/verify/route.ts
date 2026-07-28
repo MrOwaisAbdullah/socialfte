@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
   const accentColor = typeof body.accentColor === 'string' ? body.accentColor : null;
   const logoUrl = typeof body.logoUrl === 'string' ? body.logoUrl : null;
   const socialHandle = typeof body.socialHandle === 'string' ? body.socialHandle : null;
+  const captionLanguage = typeof body.captionLanguage === 'string' && body.captionLanguage ? body.captionLanguage : null;
   // setup/page.tsx's form state is Record<string, string> (a checkbox stores
   // "true"/"false"), so accept either a real boolean or that string form —
   // only an explicit false turns the mark off.
@@ -43,8 +44,8 @@ export async function POST(request: NextRequest) {
 
   try {
     await db.execute(sql`
-      INSERT INTO brand_config (key, brand_name, tagline, primary_color, accent_color, logo_url, social_handle, show_brand_mark, setup_complete, updated_at)
-      VALUES ('default', ${brandName}, ${tagline}, ${primaryColor}, ${accentColor}, ${logoUrl}, ${socialHandle}, ${showBrandMark}, ${allOk}, now())
+      INSERT INTO brand_config (key, brand_name, tagline, primary_color, accent_color, logo_url, social_handle, show_brand_mark, caption_language, setup_complete, updated_at)
+      VALUES ('default', ${brandName}, ${tagline}, ${primaryColor}, ${accentColor}, ${logoUrl}, ${socialHandle}, ${showBrandMark}, ${captionLanguage}, ${allOk}, now())
       ON CONFLICT (key) DO UPDATE SET
         brand_name = EXCLUDED.brand_name,
         tagline = EXCLUDED.tagline,
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
         logo_url = EXCLUDED.logo_url,
         social_handle = EXCLUDED.social_handle,
         show_brand_mark = EXCLUDED.show_brand_mark,
+        caption_language = EXCLUDED.caption_language,
         setup_complete = brand_config.setup_complete OR EXCLUDED.setup_complete,
         updated_at = now()
     `);

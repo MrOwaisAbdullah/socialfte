@@ -53,6 +53,10 @@ async def test_dispatch_sends_correct_inputs(mock_deps):
         assert body["inputs"]["composition_id"] == "HeroReveal"
         assert body["inputs"]["output_key"] == "renders/post-1.mp4"
         assert '"headline": "Test"' in body["inputs"]["props"]
+        # Was hardcoded "main" — this repo's real default branch is "master"
+        # (confirmed via `gh repo view`), and GitHub's workflow_dispatch API
+        # 422s outright when `ref` doesn't exist (confirmed live).
+        assert body["ref"] == "master"
 
         # Polling must be scheduled as a background task, not awaited inline —
         # dispatch_video_render must return promptly regardless of render duration.

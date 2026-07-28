@@ -18,7 +18,10 @@ from config import settings
 logger = logging.getLogger("worker.composer")
 
 # Starting list per research.md Decision 3 — expected to grow as new AI-sounding
-# patterns are noticed, not exhaustive on day one.
+# patterns are noticed, not exhaustive on day one. Second batch added after
+# loading the humanizer-main skill's Wikipedia "Signs of AI writing" reference —
+# promotional/significance-inflation phrases that are especially common in
+# generated furniture-marketing copy specifically.
 HUMANIZER_BANNED_PHRASES = [
     "elevate your space",
     "elevate your home",
@@ -35,6 +38,28 @@ HUMANIZER_BANNED_PHRASES = [
     "game changer",
     "whether you're",
     "at the end of the day",
+    "nestled",
+    "boasts a",
+    "showcases",
+    "showcasing",
+    "exemplifies",
+    "epitomizes",
+    "redefines",
+    "stands as a testament",
+    "serves as a testament",
+    "a testament to",
+    "underscores its",
+    "underscoring its",
+    "highlighting its",
+    "reflects the brand's",
+    "embodies the",
+    "timeless elegance",
+    "crafted to perfection",
+    "commitment to quality",
+    "in the heart of",
+    "breathtaking",
+    "must-have",
+    "must have",
 ]
 
 
@@ -71,10 +96,16 @@ async def write_caption(asset, template, brand: dict | None = None) -> tuple[str
     must never silently return a blank/placeholder caption (spec.md US1 scenario 3).
     """
     brand = brand or {}
+    # Language called out on its own line rather than left buried in the raw
+    # Context dict — it's the field skills/caption-writer.md's prompt
+    # explicitly checks for (brand.language), so it needs to be legible to
+    # the model, not just present somewhere in a repr.
+    language = brand.get("language")
     prompt = (
         f"Write a social media caption and hashtags for this post.\n"
         f"Asset: piece={asset.piece}, tier={asset.tier}, variant={asset.variant}\n"
         f"Template: {getattr(template, 'display_name', None) or getattr(template, 'slug', None)}\n"
+        f"Language: {language or 'not set — use your default (Roman Urdu + English)'}\n"
         f"Context: {brand}"
     )
 

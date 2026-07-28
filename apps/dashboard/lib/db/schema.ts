@@ -145,6 +145,7 @@ export const brandConfig = pgTable('brand_config', {
   logoUrl: text('logo_url'),
   socialHandle: text('social_handle'),
   showBrandMark: boolean('show_brand_mark').notNull().default(true),
+  captionLanguage: text('caption_language'),
   setupComplete: boolean('setup_complete').notNull().default(false),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

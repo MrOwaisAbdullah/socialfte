@@ -77,7 +77,7 @@ async def dispatch_video_render(post_id: str, composition_id: str, props: dict) 
     }
     url = f"{GITHUB_API}/repos/{settings.GITHUB_REPO}/actions/workflows/{settings.RENDER_WORKFLOW_FILE}/dispatches"
     body = {
-        "ref": "main",
+        "ref": settings.RENDER_WORKFLOW_REF,
         "inputs": {
             "composition_id": composition_id,
             "props": _json_dumps(props),

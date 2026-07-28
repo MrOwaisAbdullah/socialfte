@@ -171,6 +171,7 @@ CREATE TABLE brand_config (
   logo_url        TEXT,
   social_handle   TEXT,
   show_brand_mark BOOLEAN NOT NULL DEFAULT true,
+  caption_language TEXT,   -- 'roman-urdu-english' | 'english' | 'urdu'; null = caption-writer.md's own default (Roman Urdu + English)
   setup_complete  BOOLEAN NOT NULL DEFAULT false,
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
