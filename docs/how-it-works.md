@@ -530,3 +530,34 @@ explicitly in the prompt, not just left to banned-phrase matching.
 actually runs) gained ~20 more phrases pulled from the same patterns.
 `hallmark` (also loaded as a candidate) turned out to be a page/UI-design
 skill with nothing applicable to caption text — not used.
+
+**`render-video.yml`'s GitHub Actions secrets were never actually set.**
+Confirmed live: 4 real workflow runs, all failing the same way — the R2
+upload step got `Invalid endpoint: https://.r2.cloudflarestorage.com` (an
+empty `R2_ACCOUNT_ID`) and the worker-notify step got `curl: (3) URL
+rejected: Malformed input to a URL function` (an empty `CALLBACK_URL` and
+`RENDER_INTERNAL_SECRET`). `gh secret list` confirmed none of the 6 secrets
+`docs/github-actions-setup.md` already documented as required were ever
+actually added to the repo — only the 4 Dokploy deploy secrets existed.
+
+Diagnosing this surfaced a real, separate architectural gap:
+`CALLBACK_URL` can't point at the worker directly, because the worker has
+**no public port at all** (internal-only, Dokploy Docker network) — a
+GitHub-hosted runner has no way to reach it. Nothing publicly reachable
+existed for the callback to hit. `apps/dashboard/app/api/render-complete/route.ts`
+is a new public proxy (the dashboard has a real domain) that forwards the
+callback through to the worker's actual `/api/render-complete` over the
+internal network, authenticated the same `x-render-secret` way as every
+other internal endpoint. `proxy.ts`'s session gate excludes it, same
+reasoning as the existing Discord webhook exclusion — a GitHub-hosted
+runner has no session cookie either.
+
+**Posts page had no real preview.** Each post only showed a bare "View"
+text link when it had a `renderUrl` — no thumbnail in the list, no way to
+read a full caption without truncation, no way to watch a video without
+leaving the dashboard for a new tab. Post cards now show a real thumbnail
+(`<img>` for image posts, a muted `<video>` for video/reel/short formats),
+and clicking a card opens a detail popup — full-size image or a real
+`<video controls>` player, the untruncated caption, platform/state,
+timestamps, and error text for failed posts — closer to how
+Instagram/Facebook's own post detail view works.
