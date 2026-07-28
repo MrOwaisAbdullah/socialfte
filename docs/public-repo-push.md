@@ -1,8 +1,36 @@
-# Pushing to the public GitHub repo
+# Pushing to GitHub
 
-How `master` in this working copy relates to `github.com/mrowaisabdullah/socialfte`, and how
-to push an update there. This is **not** a plain `git push` — the public repo intentionally
-does not get the full local history or every locally-tracked directory.
+`github.com/mrowaisabdullah/socialfte` is a **private** repo. As of 2026-07-28 it holds the
+full, real local history — `master` is pushed there with a plain `git push` (or
+`--force-with-lease` after a history rewrite), no filtering. `specs/`, `docs/`, and
+`.claude/skills/` are all included; there's nothing to hide from yourself in your own private
+repo.
+
+The squash-and-filter mechanism documented below (orphan `github-push` branch, excluding
+`specs/`/`docs/`/`.claude/`) is **retired for this repo**. It's kept here because the same
+recipe applies whenever a genuinely public, open-source repo gets set up later — that would
+be a *different* repo (a new `github.com/mrowaisabdullah/<something>`, not this one), and it
+would need the filtering again since anyone could clone it. Until that repo exists, ignore
+this file for day-to-day pushes: just `git push origin master`.
+
+## Why the squash/filter approach existed (historical)
+
+Originally this repo was pushed as if it might go public, so `master` on GitHub was kept as a
+single squashed commit excluding `specs/`, `docs/`, and `.claude/`. Once the repo's actual
+visibility was confirmed private (`gh repo view mrowaisabdullah/socialfte --json visibility`
+→ `PRIVATE`), that constraint no longer applied, and the real history was force-pushed over
+the squashed snapshot (`96a8216`, 2026-07-28) — restoring normal `git push` for this repo and
+fixing `deploy.yml`'s `on: push: branches: [master]` trigger, which needs a real, current
+`master` to work correctly on every commit rather than only on manually-triggered squash-pushes.
+
+---
+
+*Everything below describes the retired squash/filter mechanism — reference material for
+setting up a future public repo, not the current workflow for this one.*
+
+How `master` in this working copy related to `github.com/mrowaisabdullah/socialfte` under the
+old approach, and how the squash-push worked. This is **not** a plain `git push` — the public
+repo intentionally does not get the full local history or every locally-tracked directory.
 
 ## Why this isn't a plain push
 
@@ -116,10 +144,13 @@ this is done correctly.
   `/` match at any depth), and this was verified clean via a full-history secret scan before
   the first push (no API keys, private keys, or `.env` files anywhere in git history).
 
-## Current state (as of the first push)
+## Historical state (superseded 2026-07-28)
 
 - Remote: `origin` → `https://github.com/mrowaisabdullah/socialfte.git`
 - Pushed: `github-push` (local) → `master` (remote), a single squashed commit
 - Excluded from the public repo: `specs/`, `docs/`, `.claude/` (skills + commands)
-- Local `master` and all `NNN-weekN-*` branches are untouched — full real history stays
-  local, only the filtered snapshot goes to GitHub
+- Local `master` and all `NNN-weekN-*` branches were untouched — full real history stayed
+  local, only the filtered snapshot went to GitHub
+
+This is no longer the case — see the top of this file. `origin/master` now mirrors local
+`master` exactly, full history included.
