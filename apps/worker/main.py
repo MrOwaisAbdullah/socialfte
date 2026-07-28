@@ -292,6 +292,7 @@ async def render_complete(request: Request, payload: RenderCompleteRequest):
 class VisionTagRequest(BaseModel):
     asset_id: UUID
     image_url: str
+    original_filename: str | None = None
 
 
 @app.post("/vision/tag")
@@ -307,7 +308,7 @@ async def vision_tag(request: Request, payload: VisionTagRequest):
     if settings.RENDER_INTERNAL_SECRET and secret != settings.RENDER_INTERNAL_SECRET:
         raise HTTPException(status_code=401, detail="unauthorized")
     try:
-        analysis = await _analyze_asset(payload.image_url)
+        analysis = await _analyze_asset(payload.image_url, payload.original_filename)
     except Exception as exc:
         logger.error("Vision analysis failed for %s: %s", payload.asset_id, exc)
         raise HTTPException(status_code=502, detail=f"vision analysis failed: {exc}")

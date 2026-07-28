@@ -30,9 +30,12 @@ export async function POST(request: NextRequest) {
   await uploadBuffer(key, buffer, file.type || `image/${ext}`);
 
   const imageUrl = getPublicUrl(key);
+  // r2_key is always a random UUID — file.name is the only place any
+  // operator-supplied naming (color, product line, etc.) survives at all.
+  // Stored so the vision model can use it as a hint (brain/vision.py).
   const { rows } = await db.execute<{ id: string }>(sql`
-    INSERT INTO assets (r2_key, times_used)
-    VALUES (${key}, 0)
+    INSERT INTO assets (r2_key, original_filename, times_used)
+    VALUES (${key}, ${file.name || null}, 0)
     RETURNING id
   `);
 
@@ -47,7 +50,7 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json',
           'x-internal-secret': process.env.RENDER_INTERNAL_SECRET ?? '',
         },
-        body: JSON.stringify({ asset_id: assetId, image_url: imageUrl }),
+        body: JSON.stringify({ asset_id: assetId, image_url: imageUrl, original_filename: file.name || null }),
       });
 
       if (!tagRes.ok) {

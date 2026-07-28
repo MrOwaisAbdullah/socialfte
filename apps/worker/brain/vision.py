@@ -10,6 +10,7 @@ score_frame reuses the same structured-output Agent pattern (research.md
 Decision 6 for Week 5) rather than hand-rolling a new JSON-parsing path.
 """
 import logging
+import re
 
 from pydantic import BaseModel
 
@@ -50,18 +51,41 @@ async def _write_audit(action: str, subject_id: str, payload: dict):
     await write_audit("vision_agent", action, subject_id, payload)
 
 
-async def _analyze_asset(image_url: str) -> AssetAnalysis:
+def _filename_hint(original_filename: str | None) -> str | None:
+    """Turn "pink-velvet-storage-bench.jpg" into "pink velvet storage bench" —
+    a plain-language hint, not a value to copy verbatim. r2_key is always a
+    random UUID, so the uploader's own filename is the only place any
+    operator-supplied naming (color, product line, etc.) survives at all;
+    previously it was discarded at upload time and never reached the vision
+    model, so every same-shaped product (e.g. six different-colored storage
+    benches) got an identical "piece" label with only the shorter, purely
+    visual "variant" field to tell them apart."""
+    if not original_filename:
+        return None
+    stem = original_filename.rsplit(".", 1)[0]
+    words = re.sub(r"[-_]+", " ", stem).strip()
+    return words or None
+
+
+async def _analyze_asset(image_url: str, original_filename: str | None = None) -> AssetAnalysis:
+    hint = _filename_hint(original_filename)
+    text = (
+        "Analyze this furniture product photo. Identify the piece type, "
+        "quality tier, and variant, and assess lighting and composition."
+    )
+    if hint:
+        text += (
+            f'\n\nThe uploader\'s filename was: "{hint}". Treat this as a hint only, '
+            "not ground truth — it may name the color, material, or product line, which "
+            "helps distinguish this piece from visually similar ones (e.g. the same bench "
+            "shape in six different colors). Verify against what the image actually shows; "
+            "don't copy the filename if it contradicts the photo."
+        )
     message = [
         {
             "role": "user",
             "content": [
-                {
-                    "type": "input_text",
-                    "text": (
-                        "Analyze this furniture product photo. Identify the piece type, "
-                        "quality tier, and variant, and assess lighting and composition."
-                    ),
-                },
+                {"type": "input_text", "text": text},
                 {"type": "input_image", "image_url": image_url},
             ],
         }
@@ -70,9 +94,9 @@ async def _analyze_asset(image_url: str) -> AssetAnalysis:
     return result.final_output
 
 
-async def tag_asset(image_url: str) -> dict:
+async def tag_asset(image_url: str, original_filename: str | None = None) -> dict:
     """Tag a newly uploaded asset — piece/tier/variant/quality_score."""
-    analysis = await _analyze_asset(image_url)
+    analysis = await _analyze_asset(image_url, original_filename)
     await _write_audit(
         "asset_tagged",
         image_url,
@@ -86,14 +110,14 @@ async def tag_asset(image_url: str) -> dict:
     }
 
 
-async def quality_gate(image_url: str) -> tuple[bool, bool, str | None]:
+async def quality_gate(image_url: str, original_filename: str | None = None) -> tuple[bool, bool, str | None]:
     """Return (lighting_ok, composition_ok, reject_reason).
 
     reject_reason is set (non-null) when quality_score < 60 — the asset is still
     inserted into the library either way (spec.md edge case: flagged, not
     discarded); this function only reports the assessment.
     """
-    analysis = await _analyze_asset(image_url)
+    analysis = await _analyze_asset(image_url, original_filename)
     reject_reason = None
     if analysis.quality_score < QUALITY_SCORE_REJECT_THRESHOLD:
         reasons = []

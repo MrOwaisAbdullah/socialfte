@@ -37,6 +37,7 @@ class Asset(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     r2_key: Mapped[str] = mapped_column(Text, nullable=False)
+    original_filename: Mapped[str | None] = mapped_column(Text)
     kind: Mapped[str] = mapped_column(Text, nullable=False, server_default="photo")
     processed: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     sync_ok: Mapped[bool | None] = mapped_column(Boolean)

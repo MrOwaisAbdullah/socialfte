@@ -30,6 +30,7 @@ export const assets = pgTable(
   {
     id: uuid().defaultRandom().primaryKey(),
     r2Key: text('r2_key').notNull(),
+    originalFilename: text('original_filename'),
     piece: text(),
     tier: text(),
     variant: text(),

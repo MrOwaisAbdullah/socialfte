@@ -55,7 +55,7 @@ async def retag_assets():
             continue
         image_url = f"{settings.R2_PUBLIC_URL}/{asset.r2_key}"
         try:
-            analysis = await _analyze_asset(image_url)
+            analysis = await _analyze_asset(image_url, asset.original_filename)
         except Exception as e:
             failed += 1
             logger.error("Retag failed for asset %s: %s", asset.id, e)

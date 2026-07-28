@@ -105,7 +105,7 @@ async def _build_brand_tokens() -> dict:
     }
 
 
-def _build_image_props(template_slug: str, image_url: str, caption_text: str) -> dict:
+def _build_image_props(template_slug: str, image_url: str, caption_text: str, headline: str) -> dict:
     """Mirrors _build_video_props below — was sending {"caption": ..., "assetImageUrl": ...}
     unconditionally, which matches none of registry.ts's actual requiredProps for any
     template, so every still-image render 400'd on validateTemplateProps before this fix.
@@ -113,8 +113,11 @@ def _build_image_props(template_slug: str, image_url: str, caption_text: str) ->
     structured data this single-asset pipeline doesn't have (price-card's tier/price,
     set-breakdown's per-piece prices, before-after's second image) get an honest
     best-effort value rather than crashing — same acknowledged gap as SetReveal's
-    bundlePrice below."""
-    headline = caption_text.splitlines()[0][:80] if caption_text else ""
+    bundlePrice below.
+
+    `headline` is the caption agent's dedicated 2-5 word overlay text
+    (brain/composer.py's write_caption) — was `caption_text.splitlines()[0][:80]`,
+    a truncated sentence fragment of the full caption rather than a real headline."""
     if template_slug == "price-card":
         return {"productName": headline, "tierLabel": "", "price": ""}
     if template_slug == "set-breakdown":
@@ -128,11 +131,10 @@ def _build_image_props(template_slug: str, image_url: str, caption_text: str) ->
     return {"imageUrl": image_url, "headline": headline}
 
 
-def _build_video_props(composition_id: str, image_url: str, caption_text: str) -> dict:
-    """Minimal, functional prop set per composition — derives text props from
-    the generated caption rather than requiring a separate structured-content
-    step the spec doesn't call for."""
-    headline = caption_text.splitlines()[0][:80] if caption_text else ""
+def _build_video_props(composition_id: str, image_url: str, headline: str) -> dict:
+    """Minimal, functional prop set per composition. `headline` is the caption
+    agent's dedicated 2-5 word overlay text (see _build_image_props above) —
+    previously derived from the caption's first line truncated at 80 chars."""
     props: dict = {"imageUrl": image_url}
     if composition_id == "HeroReveal":
         props["headline"] = headline
@@ -253,7 +255,7 @@ async def compose_batch():
             continue
 
         try:
-            caption, hashtags = await write_caption(asset, tmpl, brand=brand_tokens)
+            caption, headline, hashtags = await write_caption(asset, tmpl, brand=brand_tokens)
         except Exception as e:
             logger.error("Caption generation failed for asset %s: %s", asset_id_str, e)
             shortfall_reasons.append(f"caption failed for asset {asset_id_str}: {e}")
@@ -270,7 +272,7 @@ async def compose_batch():
                 break
             logger.warning("Caption rejected by anti-repeat (attempt %d), regenerating", retry)
             try:
-                caption, hashtags = await write_caption(asset, tmpl, brand=brand_tokens)
+                caption, headline, hashtags = await write_caption(asset, tmpl, brand=brand_tokens)
             except Exception:
                 break
         if not caption_ok:
@@ -307,7 +309,7 @@ async def compose_batch():
                 await dispatch_video_render(
                     str(post_id),
                     composition_id,
-                    _build_video_props(composition_id, asset_image_url or "", caption_text),
+                    _build_video_props(composition_id, asset_image_url or "", headline),
                 )
             except Exception as e:
                 logger.error("Video dispatch failed for post %s: %s", post_id, e)
@@ -328,7 +330,7 @@ async def compose_batch():
                         headers={"x-render-secret": settings.RENDER_INTERNAL_SECRET},
                         json={
                             "templateId": tmpl.slug,
-                            "props": _build_image_props(tmpl.slug, asset_image_url or "", caption_text),
+                            "props": _build_image_props(tmpl.slug, asset_image_url or "", caption_text, headline),
                             "aspect": "square",
                             "brand": brand_tokens,
                         },
@@ -363,6 +365,7 @@ async def compose_batch():
                 "asset_id": asset_id_str,
                 "template_id": str(tmpl.id),
                 "caption_length": len(caption_text),
+                "headline": headline,
                 "platform": platform,
                 "format": fmt,
                 "state": "draft" if is_video else "review",

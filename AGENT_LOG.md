@@ -19,3 +19,17 @@ too large to be useful (it is not the source of truth; the `audit_log` table is)
 2026-07-28 09:41:16 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
 2026-07-28 09:45:27 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
 2026-07-28 11:26:14 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
+2026-07-28 17:04:41 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
+2026-07-28 17:04:45 UTC | dispatch_render | dispatch_rejected | None | {'composition_id': 'HeroReveal', 'reason': 'GITHUB_TOKEN or GITHUB_REPO not configured'}
+2026-07-28 17:08:55 UTC | dispatch_render | dispatch_rejected | None | {'composition_id': 'HeroReveal', 'reason': 'GITHUB_TOKEN or GITHUB_REPO not configured'}
+2026-07-28 17:10:27 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
+2026-07-28 17:10:29 UTC | dispatch_render | dispatch_rejected | None | {'composition_id': 'HeroReveal', 'reason': 'GITHUB_TOKEN or GITHUB_REPO not configured'}
+2026-07-28 18:20:19 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
+2026-07-28 19:01:15 UTC | dispatch_render | dispatch_rejected | None | {'composition_id': 'HeroReveal', 'reason': 'GITHUB_TOKEN or GITHUB_REPO not configured'}
+2026-07-28 19:03:34 UTC | dispatch_render | dispatch_rejected | None | {'composition_id': 'HeroReveal', 'reason': 'GITHUB_TOKEN or GITHUB_REPO not configured'}
+2026-07-28 19:05:29 UTC | dispatch_render | dispatch_rejected | None | {'composition_id': 'HeroReveal', 'reason': 'GITHUB_TOKEN or GITHUB_REPO not configured'}
+2026-07-28 19:06:45 UTC | dispatch_render | dispatch_rejected | None | {'composition_id': 'HeroReveal', 'reason': 'GITHUB_TOKEN or GITHUB_REPO not configured'}
+2026-07-28 19:07:01 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
+2026-07-28 19:07:04 UTC | dispatch_render | dispatch_rejected | None | {'composition_id': 'HeroReveal', 'reason': 'GITHUB_TOKEN or GITHUB_REPO not configured'}
+2026-07-28 19:14:05 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
+2026-07-28 19:18:02 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}

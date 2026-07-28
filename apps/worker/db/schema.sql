@@ -26,8 +26,12 @@ CREATE TABLE templates (
 -- processed since nothing needs to happen to them.
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE assets (
-  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  r2_key         TEXT NOT NULL,
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  r2_key            TEXT NOT NULL,
+  original_filename TEXT,             -- the uploader's own filename, e.g. "pink-velvet-storage-bench.jpg" —
+                                       -- passed to the vision model as a hint (brain/vision.py); r2_key itself
+                                       -- is always a random UUID, so this is the only place any operator-supplied
+                                       -- naming (color, product line, etc.) survives the upload at all
   kind           TEXT NOT NULL DEFAULT 'photo',  -- 'photo' | 'clip'
   processed      BOOLEAN NOT NULL DEFAULT true,  -- false for a newly-uploaded 'clip' until process_footage.py finishes
   sync_ok        BOOLEAN,                 -- A/V drift check result (verify_cut.py); null until checked, only set for 'clip'

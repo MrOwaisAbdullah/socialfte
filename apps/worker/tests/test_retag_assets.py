@@ -105,7 +105,7 @@ async def test_retag_assets_continues_after_one_failure(mock_deps):
     mock_analysis = MagicMock(piece="table", tier="tier1", variant="standard",
                                quality_score=90, lighting_ok=True, composition_ok=True)
 
-    async def analyze_side_effect(image_url):
+    async def analyze_side_effect(image_url, original_filename=None):
         if "a.png" in image_url:
             raise RuntimeError("vision API timeout")
         return mock_analysis

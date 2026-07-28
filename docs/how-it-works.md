@@ -367,6 +367,64 @@ compositions (video, `packages/remotion/src/lib/kit.tsx`'s `BrandBadge`,
 sourced from `brand.ts`'s static `logoUrl`/`socialHandle`/`showMark` fields
 since that pipeline renders on GitHub Actions, not per-request).
 
+**Vision tagging ignored the uploader's own filename.** Confirmed live: 7+
+assets that were visually distinct (different colors/fabrics of the same
+storage bench) all got tagged with the same generic `variant`, because
+`_analyze_asset()` only ever saw the image itself — meanwhile the uploaded
+filenames already named the color/material/product line by hand. Fixed by
+threading `asset.original_filename` (new `assets` column, populated at
+upload time in both `apps/dashboard/app/api/assets/upload/route.ts` and its
+internal equivalent) into `_analyze_asset(image_url, original_filename)`,
+which appends it to the vision prompt as an explicit **hint, not ground
+truth** — the model is told the filename may name the color/material but
+could also be wrong or generic, so it still has to look at the photo.
+`tag_asset`, `quality_gate`, and `retag_assets.py`'s retag path all pass it
+through. Run `drizzle-kit push` again from `apps/dashboard` to pick up the
+new `original_filename` column if you haven't already.
+
+**Captions had markdown asterisks, too many emoji, and duplicated
+hashtags.** Confirmed live: a real published caption had
+`**Yousuf Living Storage Bench**` with the literal asterisks intact
+(Facebook/Instagram/TikTok don't render markdown), 6+ emoji, and a 30-item
+hashtag list with the same tags repeated twice. `skills/caption-writer.md`
+now states these rules explicitly (no markdown, 1-3 emoji, exactly 3-8
+unique hashtags, no "quote card" structure), but a prompt instruction alone
+doesn't guarantee compliance — `brain/composer.py` gained
+`clean_caption_output()` (deterministically strips `**`/`*` markers,
+de-dupes hashtags case-insensitively, caps at `MAX_HASHTAGS=8`, safe to fix
+outright rather than spend a retry on) and `check_formatting()` (flags
+`< MIN_HASHTAGS=3` hashtags or `> MAX_EMOJI=4` emoji — not safely
+auto-fixable, so these do trigger a regeneration, same pattern as
+`check_humanizer`).
+
+**Captions still read as AI-written even with the banned-phrase list
+enforced.** Removing "elevate your space" doesn't make a caption sound
+human if the sentence shape underneath is still doing the same inflating
+move. `brain/composer.py` now runs a second agent after the writer:
+`caption_reviewer_agent` (judgement-tier model, `skills/caption-reviewer.md`)
+reads the mechanically-clean draft as a skeptical real Pakistani Instagram
+scroller and either approves it or rewrites it — catching rhythm, structure,
+and "does this sound like a real person" issues the mechanical checks can't
+express as a rule. `_review_caption()` never blocks the pipeline: if the
+reviewer call itself fails, or its own rewrite fails `check_humanizer`/
+`check_formatting`, the original writer draft is kept rather than losing an
+otherwise-good caption to a review-step outage.
+
+**Image/video overlay text was a truncated caption fragment, not a
+headline.** `_build_image_props`/`_build_video_props` in `compose_batch.py`
+used to do `caption_text.splitlines()[0][:80]` — the first line of the full
+caption, hard-truncated at 80 characters (potentially mid-word), because
+there was no dedicated generation step for the overlay text at all. The
+caption agent now writes a distinct `headline` field (2-5 words, e.g.
+"Solid Sheesham, Not Veneer") alongside the caption and hashtags, per
+`skills/caption-writer.md`'s new Headline section — it must relate to the
+same piece and the same hook as the caption, not be an unrelated tagline.
+`write_caption()` returns `(caption, headline, hashtags)`; the reviewer
+agent checks and can rewrite the headline too. `check_headline()` enforces
+the 2-5 word count in code (same retry pattern as
+`check_humanizer`/`check_formatting`); `clean_headline()` strips markdown
+the same way `clean_caption_output()` does for the caption.
+
 **compose_batch drafted zero posts with no connected platform credentials.**
 `_get_connected_platforms()` returning empty made the whole job return
 immediately — but drafting doesn't need real publish credentials, only
