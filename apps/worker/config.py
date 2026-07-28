@@ -155,10 +155,10 @@ class Settings(BaseSettings):
     # one for this dry-run-only round-trip check is a judgment call, not
     # swapped automatically.
     #
-    # Free-tier embedding/rerank models (not chat — candidates for MODEL_EMBED
+    # Free-tier embedding models (not chat — candidates for MODEL_EMBED
     # instead, if OpenAI's paid embedding model ever needs a free fallback):
     #   nvidia/nemotron-3-embed-1b:free
-    #   nvidia/llama-nemotron-rerank-vl-1b-v2:free
+    #   nvidia/llama-nemotron-embed-vl-1b-v2:free
     MODEL_FREE: str = Field(default="deepseek/deepseek-v4-flash:free")
 
     LLM_MAX_RETRIES: int = Field(default=3)
