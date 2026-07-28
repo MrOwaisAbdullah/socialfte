@@ -195,14 +195,15 @@ own services/database/bucket.
 
 ```
 push to master ──► .github/workflows/deploy.yml
-                      build job: docker build (infra/Dockerfile.dashboard)
-                                 → push to ghcr.io
-                      deploy job: POST /api/application.deploy → Dokploy
+                      build job: docker build (infra/Dockerfile.dashboard, infra/Dockerfile.worker)
+                                 → push both to ghcr.io
+                      deploy job: POST /api/application.deploy → Dokploy (dashboard)
+                                  POST /api/application.deploy → Dokploy (worker)
                                          │
                                          ▼
                           Hetzner VPS (Dokploy + Traefik)
-                          pulls the new image, restarts the container
-                          Traefik terminates TLS, routes by domain
+                          pulls the new images, restarts both containers
+                          Traefik terminates TLS, routes the dashboard by domain
                                          │
                           Cloudflare (orange-clouded) ──► your domain
 ```
@@ -213,13 +214,10 @@ ffmpeg spike — starve whatever else is running on that VPS) and a healthcheck.
 has **no exposed port** — it's internal-only, reached by the dashboard over the Docker
 network via `WORKER_INTERNAL_URL`, and reaches the dashboard back via `RENDER_INTERNAL_URL`.
 
-**Current gap, stated plainly**: `.github/workflows/deploy.yml` builds and deploys the
-*dashboard* image only (`infra/Dockerfile.dashboard`, one `DOKPLOY_APP_ID`). There's no
-equivalent automated step for `yl-worker` yet — redeploy it by triggering a rebuild from
-Dokploy's own panel (if it's set up as a git-based "Docker Compose" app pointed at
-`infra/docker-compose.yml`) or manually via `docker compose up -d --build yl-worker` on the
-VPS. Extending `deploy.yml` to also build/push/deploy the worker image is a reasonable next
-step if this becomes a recurring manual step.
+`deploy.yml` builds and deploys **both** images: `build` pushes `socialfte-dashboard` and
+`socialfte-worker` to GHCR, then `deploy` triggers a Dokploy redeploy for each application in
+turn (`DOKPLOY_APP_ID_DASHBOARD`, `DOKPLOY_APP_ID_WORKER` — two separate app IDs, one shared
+URL/API key).
 
 ### One-time Dokploy setup
 
@@ -232,15 +230,25 @@ step if this becomes a recurring manual step.
    record in Cloudflare first, then orange-cloud it once the cert is live).
 4. Set resource limits matching `docker-compose.yml`'s `mem_limit` if Dokploy manages that
    separately from the compose file.
-5. Repeat for `yl-worker`, minus the domain/TLS step (it has no public port).
+5. Repeat for `yl-worker`, minus the domain/TLS step (it has no public port) — pointed at
+   `ghcr.io/<you>/socialfte-worker`.
+6. Note each application's ID from its Dokploy URL/settings — you'll need both for the repo
+   secrets below.
 
 ### GitHub repository secrets required for `deploy.yml`
 
 | Secret | Purpose |
 |---|---|
-| `DOKPLOY_URL` | Your Dokploy panel's base URL |
+| `DOKPLOY_URL` | Your Dokploy panel's base URL, e.g. `https://dokploy.yourdomain.com` |
 | `DOKPLOY_API_KEY` | Dokploy → API keys (scope it, set an expiry) |
-| `DOKPLOY_APP_ID` | The dashboard application's ID in Dokploy |
+| `DOKPLOY_APP_ID_DASHBOARD` | The `yl-dashboard` application's ID in Dokploy |
+| `DOKPLOY_APP_ID_WORKER` | The `yl-worker` application's ID in Dokploy |
+
+Set them with `gh secret set <NAME> --repo <you>/socialfte` or via GitHub → repo Settings →
+Secrets and variables → Actions. All four are required — if any is missing, the `deploy`
+job's `curl` calls resolve to an empty/malformed URL and fail with `curl: (3) URL rejected:
+No host part in the URL` (the API key and applicationId end up empty too, but curl fails on
+the URL first).
 
 `GITHUB_TOKEN` for the GHCR push is automatic — no extra secret needed, just
 `packages: write` permission (already set in the workflow).
