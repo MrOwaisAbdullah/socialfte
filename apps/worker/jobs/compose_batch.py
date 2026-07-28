@@ -50,6 +50,53 @@ VIDEO_COMPOSITION_MAP = {
 }
 
 
+def _build_brand_tokens() -> dict:
+    """Brand payload sent as `/api/internal/render`'s `brand` field — was
+    hardcoded to `{}` (every color/font/wordmark undefined). Sourced from
+    config.py's BRAND_* env vars until the /setup wizard actually persists
+    them (apps/dashboard/app/api/internal/bootstrap/verify's known gap)."""
+    return {
+        "colors": {
+            "primary": settings.BRAND_PRIMARY_COLOR,
+            "accent": settings.BRAND_ACCENT_COLOR,
+            "light": settings.BRAND_LIGHT_COLOR,
+            "dark": settings.BRAND_DARK_COLOR,
+            "muted": settings.BRAND_MUTED_COLOR,
+        },
+        "fonts": {
+            "heading": settings.BRAND_FONT_HEADING,
+            "body": settings.BRAND_FONT_BODY,
+        },
+        "wordmark": settings.BRAND_NAME,
+        "logoUrl": settings.BRAND_LOGO_URL or None,
+        "socialHandle": settings.BRAND_SOCIAL_HANDLE or None,
+        "showBrandMark": settings.BRAND_SHOW_MARK,
+    }
+
+
+def _build_image_props(template_slug: str, image_url: str, caption_text: str) -> dict:
+    """Mirrors _build_video_props below — was sending {"caption": ..., "assetImageUrl": ...}
+    unconditionally, which matches none of registry.ts's actual requiredProps for any
+    template, so every still-image render 400'd on validateTemplateProps before this fix.
+    Maps to each template's real required props (registry.ts); templates needing
+    structured data this single-asset pipeline doesn't have (price-card's tier/price,
+    set-breakdown's per-piece prices, before-after's second image) get an honest
+    best-effort value rather than crashing — same acknowledged gap as SetReveal's
+    bundlePrice below."""
+    headline = caption_text.splitlines()[0][:80] if caption_text else ""
+    if template_slug == "price-card":
+        return {"productName": headline, "tierLabel": "", "price": ""}
+    if template_slug == "set-breakdown":
+        return {"setName": headline, "pieces": [], "bundlePrice": ""}
+    if template_slug == "quote":
+        return {"quote": caption_text, "thumbnailUrl": image_url}
+    if template_slug == "before-after":
+        return {"beforeImageUrl": image_url, "afterImageUrl": image_url}
+    # hero, carousel-slide, and any unregistered slug (render route itself
+    # rejects unknown templateIds, so this is just the sane default shape).
+    return {"imageUrl": image_url, "headline": headline}
+
+
 def _build_video_props(composition_id: str, image_url: str, caption_text: str) -> dict:
     """Minimal, functional prop set per composition — derives text props from
     the generated caption rather than requiring a separate structured-content
@@ -227,9 +274,9 @@ async def compose_batch():
                         headers={"x-render-secret": settings.RENDER_INTERNAL_SECRET},
                         json={
                             "templateId": tmpl.slug,
-                            "props": {"caption": caption_text, "assetImageUrl": asset_image_url},
+                            "props": _build_image_props(tmpl.slug, asset_image_url or "", caption_text),
                             "aspect": "square",
-                            "brand": {},
+                            "brand": _build_brand_tokens(),
                         },
                     )
                     resp.raise_for_status()

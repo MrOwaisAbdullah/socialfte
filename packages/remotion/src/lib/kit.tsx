@@ -10,11 +10,51 @@ import {
   Files, Search, GitBranch, Play, LayoutGrid, Folder, Settings, FileText, Braces,
   Image as ImageIcon, Info, MoreHorizontal, Lock, SplitSquareHorizontal, Clock, X,
 } from 'lucide-react';
-import { COLORS, EASINGS, RADIUS, SHADOW } from '../brand';
+import { BRAND, COLORS, EASINGS, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY, FONT_MONO, FONT_SERIF } from '../fonts';
 
 export const CLAMP = { extrapolateLeft: 'clamp' as const, extrapolateRight: 'clamp' as const };
 export const lib = (name: string) => staticFile(`${name}`);
+
+// ---- brand corner mark: logo + social handle, toggled by BRAND.showMark --
+// Real SocialFTE compositions (HeroReveal, PriceReveal, FabricDetail,
+// SetReveal, BrandProof) place this last, inside an AbsoluteFill, so it
+// always renders on top in the bottom-right corner. Mirrors
+// apps/dashboard/components/templates/brand-badge.tsx's role for still
+// images — same toggle concept, sourced from brand.ts instead of a prop
+// since this pipeline renders on GitHub Actions, not per-request.
+export const BrandBadge: React.FC<{ width?: number }> = ({ width = 1080 }) => {
+  if (!BRAND.showMark) return null;
+  if (!BRAND.logoUrl && !BRAND.socialHandle) return null;
+  const logoSize = Math.round(width * 0.09);
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        right: Math.round(width * 0.04),
+        bottom: Math.round(width * 0.04),
+        display: 'flex',
+        alignItems: 'center',
+        gap: Math.round(width * 0.015),
+        padding: `${Math.round(width * 0.012)}px ${Math.round(width * 0.02)}px`,
+        borderRadius: 999,
+        background: `${COLORS.d900}66`,
+      }}
+    >
+      {BRAND.logoUrl && (
+        <Img
+          src={BRAND.logoUrl}
+          style={{ width: logoSize, height: logoSize, borderRadius: '50%', objectFit: 'cover' }}
+        />
+      )}
+      {BRAND.socialHandle && (
+        <span style={{ fontFamily: FONT_BODY, fontWeight: 600, fontSize: Math.round(width * 0.024), color: COLORS.paper }}>
+          {BRAND.socialHandle}
+        </span>
+      )}
+    </div>
+  );
+};
 
 // ---- brand backdrop: paper + soft color glow + faint dotted grid -------------
 export const BrandBg: React.FC<{ glow?: string }> = ({ glow = COLORS.accent }) => (

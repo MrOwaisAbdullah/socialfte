@@ -1,4 +1,5 @@
 import { resolveAspect, type Aspect, type BrandTokens } from './aspect';
+import BrandBadge from './brand-badge';
 
 export type BeforeAfterProps = {
   beforeImageUrl: string;
@@ -24,6 +25,7 @@ export default function BeforeAfter({
       style={{
         width,
         height,
+        position: 'relative',
         background: brand.colors.dark,
         fontFamily: brand.fonts.body,
         display: 'flex',
@@ -77,6 +79,7 @@ export default function BeforeAfter({
           {label}
         </div>
       )}
+      <BrandBadge brand={brand} width={width} />
     </div>
   );
 }

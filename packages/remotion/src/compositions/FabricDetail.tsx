@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from 'remotion';
 import { COLORS, EASINGS } from '../brand';
 import { FONT_BODY } from '../fonts';
-import { CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP } from '../lib/kit';
 
 // =============================================================================
 // FabricDetail — a slow pan across a close-up (fabric, stitching, hardware).
@@ -57,6 +57,7 @@ const FabricDetail: React.FC<Props> = ({ imageUrl, qualityClaim }) => {
           {qualityClaim}
         </div>
       </AbsoluteFill>
+      <BrandBadge width={1080} />
     </AbsoluteFill>
   );
 };

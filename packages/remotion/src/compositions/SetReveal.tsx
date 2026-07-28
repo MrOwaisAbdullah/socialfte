@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from 'remotion';
 import { BRAND, COLORS, EASINGS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP } from '../lib/kit';
 
 // =============================================================================
 // SetReveal — two "wardrobe door" panels slide open (CSS transform) to reveal
@@ -94,6 +94,7 @@ const SetReveal: React.FC<Props> = ({ imageUrl, setName, bundlePrice }) => {
           {BRAND.wordmark[2]}
         </div>
       </AbsoluteFill>
+      <BrandBadge width={1080} />
     </AbsoluteFill>
   );
 };

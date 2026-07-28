@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP } from '../lib/kit';
 
 // =============================================================================
 // PriceReveal — builds anticipation on a hook line, then wipes in the price.
@@ -85,6 +85,7 @@ const PriceReveal: React.FC<Props> = ({ imageUrl, price, hookText = 'Ye kitne ka
         </div>
         <div style={{ fontFamily: FONT_BODY, fontSize: 24, color: COLORS.d400, marginTop: 8 }}>{BRAND.signoff}</div>
       </AbsoluteFill>
+      <BrandBadge width={1080} />
     </AbsoluteFill>
   );
 };

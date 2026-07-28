@@ -161,11 +161,15 @@ async def test_render_props_include_asset_image_url(mock_deps):
 
         await compose_batch()
 
-        # Verify render was called with assetImageUrl in props
+        # Verify render was called with the asset's R2 image URL in props, under
+        # the key the actual template registry requires (registry.ts) — the
+        # unregistered "story" slug falls back to hero/carousel-slide's shape.
         post_call = mock_httpx_instance.post
         call_kwargs = post_call.call_args
         json_data = call_kwargs.kwargs["json"]
         assert "props" in json_data, f"Expected 'props' in json data, got keys: {list(json_data.keys())}"
         props = json_data["props"]
-        assert "assetImageUrl" in props
-        assert props["assetImageUrl"] == "https://pub-9482aec63df7420bb53018258d2b14ef.r2.dev/photos/chair.jpg"
+        assert "imageUrl" in props
+        assert props["imageUrl"] == "https://pub-9482aec63df7420bb53018258d2b14ef.r2.dev/photos/chair.jpg"
+        assert "brand" in json_data
+        assert json_data["brand"]["colors"]["primary"]

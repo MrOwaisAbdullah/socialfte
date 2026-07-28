@@ -1,4 +1,5 @@
 import { resolveAspect, type Aspect, type BrandTokens } from './aspect';
+import BrandBadge from './brand-badge';
 
 export type QuoteProps = {
   quote: string;
@@ -20,6 +21,7 @@ export default function Quote({
       style={{
         width,
         height,
+        position: 'relative',
         background: brand.colors.light,
         fontFamily: brand.fonts.body,
         display: 'flex',
@@ -63,6 +65,7 @@ export default function Quote({
       >
         {brand.wordmark}
       </span>
+      <BrandBadge brand={brand} width={width} />
     </div>
   );
 }

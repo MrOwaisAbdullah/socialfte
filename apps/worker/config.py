@@ -100,6 +100,25 @@ class Settings(BaseSettings):
     RENDER_INTERNAL_URL: str = Field(default="http://yl-dashboard:3000")
     RENDER_INTERNAL_SECRET: str = Field(default="")
 
+    # Brand tokens sent as the `brand` payload to /api/internal/render
+    # (compose_batch.py) — mirrors apps/dashboard/tailwind.config.ts and
+    # packages/remotion/src/brand.ts's hardcoded values so still images,
+    # videos, and the dashboard shell stay visually consistent. Defaults are
+    # this client's real brand (BRAND.md); override per-deployment via env
+    # vars. Not yet writable from the /setup wizard (apps/dashboard/app/api/
+    # internal/bootstrap/verify's known gap) — env vars are the only way to
+    # change these until that's built.
+    BRAND_PRIMARY_COLOR: str = Field(default="#1B4332")
+    BRAND_ACCENT_COLOR: str = Field(default="#C9A227")
+    BRAND_LIGHT_COLOR: str = Field(default="#F5F0E8")
+    BRAND_DARK_COLOR: str = Field(default="#1A1A1A")
+    BRAND_MUTED_COLOR: str = Field(default="#6b6b6b")
+    BRAND_FONT_HEADING: str = Field(default="Georgia, serif")
+    BRAND_FONT_BODY: str = Field(default="Helvetica, Arial, sans-serif")
+    BRAND_LOGO_URL: str = Field(default="")          # empty = no logo mark rendered
+    BRAND_SOCIAL_HANDLE: str = Field(default="")     # e.g. "@yousufliving" — empty = not shown
+    BRAND_SHOW_MARK: bool = Field(default=True)      # toggle: logo + handle on posts/reels
+
     # ─────────────────────────────────────────────
     # PUBLISHING RULES
     # ─────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import { resolveAspect, type Aspect, type BrandTokens } from './aspect';
+import BrandBadge from './brand-badge';
 
 export type CarouselSlideProps = {
   imageUrl: string;
@@ -95,6 +96,7 @@ export default function CarouselSlide({
           </p>
         )}
       </div>
+      <BrandBadge brand={brand} width={width} />
     </div>
   );
 }

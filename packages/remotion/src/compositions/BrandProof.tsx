@@ -2,7 +2,7 @@ import React from 'react';
 import { useCurrentFrame, interpolate, AbsoluteFill } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_DISPLAY_ITALIC, FONT_BODY, FONT_SUPPORT, FONT_MONO } from '../fonts';
-import { BrandBg, useRise, CLAMP } from '../lib/kit';
+import { BrandBadge, BrandBg, useRise, CLAMP } from '../lib/kit';
 
 // =============================================================================
 // BrandProof — NOT a video beat. A utility shot that renders the CURRENT brand
@@ -112,6 +112,7 @@ const BrandProof: React.FC = () => {
         </div>
 
       </AbsoluteFill>
+      <BrandBadge width={1080} />
     </AbsoluteFill>
   );
 };

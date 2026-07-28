@@ -1,4 +1,5 @@
 import { resolveAspect, type Aspect, type BrandTokens } from './aspect';
+import BrandBadge from './brand-badge';
 
 export type SetBreakdownProps = {
   setName: string;
@@ -22,6 +23,7 @@ export default function SetBreakdown({
       style={{
         width,
         height,
+        position: 'relative',
         background: brand.colors.light,
         fontFamily: brand.fonts.body,
         display: 'flex',
@@ -98,6 +100,7 @@ export default function SetBreakdown({
           </span>
         )}
       </div>
+      <BrandBadge brand={brand} width={width} />
     </div>
   );
 }

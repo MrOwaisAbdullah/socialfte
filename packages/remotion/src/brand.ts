@@ -16,6 +16,15 @@ export const BRAND = {
   // treating "accent-colored middle word" as the closest supported approximation.
   wordmark: ['Yousuf', 'Living', ''] as readonly string[],
   signoff: 'Workshop Price. Showroom Quality.',
+  // Corner logo + social handle mark, shown via <BrandBadge> (lib/kit.tsx) on
+  // every composition. logoUrl empty = no logo image; socialHandle empty = no
+  // handle text; showMark = false hides the badge entirely regardless of the
+  // other two. Static like the rest of this file (this pipeline renders on
+  // GitHub Actions, not per-request) — see apps/worker/config.py's BRAND_*
+  // vars for the dashboard-side (still image) equivalent.
+  logoUrl: '',
+  socialHandle: '',
+  showMark: true,
 } as const;
 
 export const COLORS = {

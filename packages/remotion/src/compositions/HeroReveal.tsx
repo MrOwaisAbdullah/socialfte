@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from 'remotion';
 import { BRAND, COLORS, EASINGS } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP } from '../lib/kit';
 
 // =============================================================================
 // HeroReveal — a still room render turned into motion: slow Ken Burns zoom,
@@ -89,6 +89,7 @@ const HeroReveal: React.FC<Props> = ({ imageUrl, headline, subline }) => {
           {BRAND.wordmark[2]}
         </div>
       </AbsoluteFill>
+      <BrandBadge width={1080} />
     </AbsoluteFill>
   );
 };

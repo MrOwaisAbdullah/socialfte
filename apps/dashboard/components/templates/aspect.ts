@@ -28,4 +28,10 @@ export type BrandTokens = {
     body: string;
   };
   wordmark: string;
+  // Optional — a render can omit these and get no badge at all (see
+  // brand-badge.tsx). showBrandMark defaults to true when undefined so
+  // existing callers that don't pass it keep their current behavior.
+  logoUrl?: string;
+  socialHandle?: string;
+  showBrandMark?: boolean;
 };

@@ -1,4 +1,5 @@
 import { resolveAspect, type Aspect, type BrandTokens } from './aspect';
+import BrandBadge from './brand-badge';
 
 export type PriceCardProps = {
   productName: string;
@@ -22,6 +23,7 @@ export default function PriceCard({
       style={{
         width,
         height,
+        position: 'relative',
         background: brand.colors.primary,
         fontFamily: brand.fonts.body,
         display: 'flex',
@@ -79,6 +81,7 @@ export default function PriceCard({
       >
         {ctaLabel}
       </span>
+      <BrandBadge brand={brand} width={width} />
     </div>
   );
 }
