@@ -16,9 +16,3 @@ This file grows without bound — rotate/truncate it periodically in production 
 too large to be useful (it is not the source of truth; the `audit_log` table is).
 
 ---
-2026-07-27 20:37:25 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
-2026-07-28 07:02:33 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
-2026-07-28 07:02:38 UTC | dispatch_render | dispatch_sent | None | {'composition_id': 'HeroReveal', 'output_key': 'renders/None.mp4', 'run_id': None}
-2026-07-28 07:03:55 UTC | dispatch_render | dispatch_sent | None | {'composition_id': 'HeroReveal', 'output_key': 'renders/None.mp4', 'run_id': None}
-2026-07-28 07:04:31 UTC | dispatch_render | dispatch_sent | None | {'composition_id': 'HeroReveal', 'output_key': 'renders/None.mp4', 'run_id': None}
-2026-07-28 07:06:34 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
