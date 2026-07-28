@@ -24,17 +24,46 @@ interface QueueItem {
   error?: string;
 }
 
+// Manual per-asset delete (broken R2 file cleanup) needs its own status per
+// card — separate from the upload queue's status, and keyed by asset id
+// rather than array index since deletions can happen in any order.
+type DeleteStatus = "idle" | "deleting" | "error";
+
 const R2_PUBLIC = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "https://pub-9482aec63df7420bb53018258d2b14ef.r2.dev";
 
 export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [brokenIds, setBrokenIds] = useState<Set<string>>(new Set());
+  const [deleteStatus, setDeleteStatus] = useState<Record<string, DeleteStatus>>({});
   const fileRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
 
   useEffect(() => {
     fetch("/api/assets").then((r) => r.json()).then(setAssets).catch(() => {});
+  }, []);
+
+  const deleteAsset = useCallback(async (id: string) => {
+    setDeleteStatus((prev) => ({ ...prev, [id]: "deleting" }));
+    try {
+      const res = await fetch(`/api/assets/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Delete failed" }));
+        setDeleteStatus((prev) => ({ ...prev, [id]: "error" }));
+        alert(err.error || "Delete failed");
+        return;
+      }
+      setAssets((prev) => prev.filter((a) => a.id !== id));
+      setDeleteStatus((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } catch {
+      setDeleteStatus((prev) => ({ ...prev, [id]: "error" }));
+      alert("Network error while deleting");
+    }
   }, []);
 
   const processQueue = useCallback(async (items: QueueItem[]) => {
@@ -177,26 +206,47 @@ export default function AssetsPage() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {assets.map((asset) => (
-          <div key={asset.id} className="rounded-lg border border-dark/10 bg-light p-4">
-            <img
-              src={asset.r2Key.startsWith("http") ? asset.r2Key : `${R2_PUBLIC}/${asset.r2Key}`}
-              alt={asset.piece || "Asset"}
-              className="mb-2 aspect-square w-full rounded object-cover"
-            />
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-body text-dark">{asset.piece || "Untagged"}</span>
-              <span className={`rounded px-2 py-0.5 text-xs ${
-                asset.rejectReason ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
-              }`}>
-                {asset.rejectReason ? "Rejected" : "Active"}
-              </span>
+        {assets.map((asset) => {
+          const broken = brokenIds.has(asset.id);
+          const status = deleteStatus[asset.id] ?? "idle";
+          return (
+            <div key={asset.id} className="rounded-lg border border-dark/10 bg-light p-4">
+              {broken ? (
+                <div className="mb-2 flex aspect-square w-full flex-col items-center justify-center gap-1 rounded bg-red-50 text-center">
+                  <span className="font-body text-xs text-red-700">Image unavailable</span>
+                  <span className="font-body text-[10px] text-red-500">File may have been deleted from R2</span>
+                </div>
+              ) : (
+                <img
+                  src={asset.r2Key.startsWith("http") ? asset.r2Key : `${R2_PUBLIC}/${asset.r2Key}`}
+                  alt={asset.piece || "Asset"}
+                  className="mb-2 aspect-square w-full rounded object-cover"
+                  onError={() => setBrokenIds((prev) => new Set(prev).add(asset.id))}
+                />
+              )}
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-body text-dark">{asset.piece || "Untagged"}</span>
+                <span className={`rounded px-2 py-0.5 text-xs ${
+                  asset.rejectReason ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+                }`}>
+                  {asset.rejectReason ? "Rejected" : "Active"}
+                </span>
+              </div>
+              <p className="mt-1 font-body text-xs text-muted">
+                Used {asset.timesUsed}x · {asset.tier || "?"} · {asset.variant || "?"}
+              </p>
+              {broken && (
+                <button
+                  onClick={() => deleteAsset(asset.id)}
+                  disabled={status === "deleting"}
+                  className="mt-2 w-full rounded bg-red-600 py-1 font-body text-xs text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {status === "deleting" ? "Deleting..." : "Delete asset"}
+                </button>
+              )}
             </div>
-            <p className="mt-1 font-body text-xs text-muted">
-              Used {asset.timesUsed}x · {asset.tier || "?"} · {asset.variant || "?"}
-            </p>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {assets.length === 0 && (

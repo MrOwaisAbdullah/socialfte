@@ -28,6 +28,24 @@ logger = logging.getLogger("worker.retag_assets")
 
 BATCH_LIMIT = 20  # cap per run — a large backlog gets caught over several runs, not one huge burst of LLM calls
 
+# Confirmed live: a user deleted files directly from the R2 dashboard
+# (bypassing the app entirely), leaving `assets` rows whose r2_key 404s
+# permanently. Before this fix, a failed vision call just logged an error
+# and left quality_score untouched — since this job selects on
+# `quality_score IS NULL`, a permanently-dead asset got retried forever,
+# every RETAG_ASSETS_CRON run, spamming the log and burning an LLM call for
+# an image that will never come back. This substring match is how OpenRouter/
+# LiteLLM's error actually reads when the vision model can't fetch the image
+# URL at all ("Received 404 status code when fetching image from URL: ...") —
+# distinct from a transient failure (rate limit, timeout, malformed response),
+# which should still be retried on the next run.
+_MISSING_IMAGE_MARKERS = ("404 status code when fetching image", "fetching image from url")
+
+
+def _is_missing_image_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return any(marker.lower() in text for marker in _MISSING_IMAGE_MARKERS)
+
 
 async def _write_audit(action: str, subject_id: str, payload: dict):
     await write_audit("vision_agent", action, subject_id, payload)
@@ -59,6 +77,24 @@ async def retag_assets():
         except Exception as e:
             failed += 1
             logger.error("Retag failed for asset %s: %s", asset.id, e)
+            if _is_missing_image_error(e):
+                # Stop retrying a file that's actually gone — mark it
+                # rejected instead of leaving quality_score NULL (the exact
+                # condition this job selects on), which would otherwise
+                # retry this same dead URL every run, forever.
+                async with SessionLocal() as session:
+                    row = await session.get(Asset, asset.id)
+                    if row:
+                        row.quality_score = 0
+                        row.lighting_ok = False
+                        row.composition_ok = False
+                        row.reject_reason = "R2 object not found (404) — file appears to have been deleted from storage"
+                        await session.commit()
+                await _write_audit(
+                    "asset_marked_missing",
+                    str(asset.id),
+                    {"image_url": image_url, "error": str(e)},
+                )
             continue
 
         reject_reason = None

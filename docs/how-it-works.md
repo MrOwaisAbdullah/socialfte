@@ -410,6 +410,36 @@ reviewer call itself fails, or its own rewrite fails `check_humanizer`/
 `check_formatting`, the original writer draft is kept rather than losing an
 otherwise-good caption to a review-step outage.
 
+**Deleting a file directly from R2 left the dashboard and worker with no
+way to know.** Confirmed live: a user deleted image files from the R2
+dashboard directly (outside the app entirely), leaving `assets` rows whose
+`r2_key` 404s permanently. Two symptoms: the assets page rendered a raw
+broken-image icon with no fallback (`<img>` had no `onError` handler), and
+`retag_assets.py` retried the same dead vision-tag call every
+`RETAG_ASSETS_CRON` run forever, since a failed vision call just logged and
+left `quality_score` untouched — the exact `IS NULL` condition the job
+selects on. There was also no delete-asset feature anywhere in the app at
+all (no DELETE route, no R2 delete client method, no UI button) — the only
+way an asset row could previously go away was via a fresh `drizzle-kit push`
+or a manual DB edit.
+
+Fixed on both ends:
+- `retag_assets.py` now recognizes OpenRouter/LiteLLM's specific "404 status
+  code when fetching image" error and marks the row `quality_score=0` +
+  `reject_reason="R2 object not found..."` on that specific failure only —
+  a transient failure (rate limit, timeout) still leaves it untouched for
+  the next run's retry, only a confirmed-dead image stops being retried.
+- The assets page's `<img>` now has an `onError` handler that swaps in an
+  "Image unavailable" placeholder card instead of a raw broken-image icon,
+  with a **Delete asset** button that appears only once an image is
+  confirmed broken.
+- New `DELETE /api/assets/[id]` (dashboard) removes the R2 object
+  (best-effort — a 404 there is already the goal, not a failure) and the
+  `assets` row together. Refuses with a 409 if any `posts` row still
+  references the asset (`posts.asset_id` has no `ON DELETE` clause in
+  `schema.sql`, so an unchecked delete would 500 on the FK constraint
+  instead of explaining why).
+
 **Image/video overlay text was a truncated caption fragment, not a
 headline.** `_build_image_props`/`_build_video_props` in `compose_batch.py`
 used to do `caption_text.splitlines()[0][:80]` — the first line of the full
