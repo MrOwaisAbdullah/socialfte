@@ -10,7 +10,9 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def mock_deps():
-    with patch("jobs.dispatch_render.write_audit", new_callable=AsyncMock) as mock_write_audit:
+    with patch("jobs.dispatch_render.write_audit", new_callable=AsyncMock) as mock_write_audit, \
+         patch("jobs.dispatch_render.settings.GITHUB_TOKEN", "fake-token"), \
+         patch("jobs.dispatch_render.settings.GITHUB_REPO", "owner/repo"):
         yield {"write_audit": mock_write_audit}
 
 
@@ -75,3 +77,29 @@ async def test_dispatch_handles_204_response_without_run_id(mock_deps):
 
         assert run_id is None
         mock_create_task.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_rejects_missing_github_token(mock_deps):
+    """An empty GITHUB_TOKEN must fail clearly before the network call, not
+    bubble up httpx's "Illegal header value b'Bearer '" (confirmed live)."""
+    from jobs.dispatch_render import dispatch_video_render
+
+    with patch("jobs.dispatch_render.settings.GITHUB_TOKEN", ""), \
+         patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        with pytest.raises(ValueError, match="GITHUB_TOKEN and GITHUB_REPO"):
+            await dispatch_video_render("post-1", "HeroReveal", {})
+
+        mock_post.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_rejects_missing_github_repo(mock_deps):
+    from jobs.dispatch_render import dispatch_video_render
+
+    with patch("jobs.dispatch_render.settings.GITHUB_REPO", ""), \
+         patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        with pytest.raises(ValueError, match="GITHUB_TOKEN and GITHUB_REPO"):
+            await dispatch_video_render("post-1", "HeroReveal", {})
+
+        mock_post.assert_not_called()

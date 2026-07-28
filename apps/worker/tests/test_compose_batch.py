@@ -137,6 +137,71 @@ async def test_compose_batch_drafts_without_connected_platforms(mock_deps):
 
 
 @pytest.mark.asyncio
+async def test_platform_rotation_advances_on_failed_attempts_not_successes(mock_deps):
+    """Platform selection must rotate per candidate attempted, not per
+    successful composition — indexing by `composed` meant a failing first
+    platform kept `composed` at 0, so every attempt retried the SAME
+    platform and the loop never reached the others at all (confirmed live:
+    only Facebook was ever attempted, Instagram never once)."""
+    from jobs.compose_batch import compose_batch
+
+    mock_asset_1 = MagicMock(id="asset-a", r2_key="photos/a.jpg", piece="chair", tier="tier1",
+                             variant="standard", times_used=0, reject_reason=None,
+                             created_at=MagicMock())
+    mock_asset_2 = MagicMock(id="asset-b", r2_key="photos/b.jpg", piece="table", tier="tier1",
+                             variant="standard", times_used=0, reject_reason=None,
+                             created_at=MagicMock())
+    mock_template = MagicMock(id="tmpl-5", slug="hero", display_name="Hero", created_at=MagicMock())
+
+    mock_session = mock_deps["session"]
+    call_count = 0
+
+    async def execute_side_effect(stmt, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return _make_scalar_result([mock_asset_1, mock_asset_2])
+        return _make_scalar_result([mock_template])
+
+    mock_session.execute = execute_side_effect
+
+    async def check_asset_side_effect(asset_id):
+        # First asset always fails anti-repeat — attempt 0 must not succeed,
+        # so composed stays 0 while attempt advances to 1.
+        return asset_id != "asset-a"
+
+    with patch("jobs.compose_batch.write_caption", new_callable=AsyncMock) as mock_write, \
+         patch("jobs.compose_batch.embed", new_callable=AsyncMock) as mock_embed, \
+         patch("jobs.compose_batch.anti_repeat.check_asset", new_callable=AsyncMock, side_effect=check_asset_side_effect), \
+         patch("jobs.compose_batch.anti_repeat.check_template", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.anti_repeat.check_caption", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.httpx.AsyncClient") as mock_httpx, \
+         patch("jobs.compose_batch._get_connected_platforms", new_callable=AsyncMock, return_value=["facebook", "instagram"]):
+        mock_write.return_value = ("Solid chair.", ["#chair"])
+        mock_embed.return_value = [0.1] * 10
+
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {"url": "https://media.test.com/render.jpg"}
+        mock_httpx_instance = AsyncMock()
+        mock_httpx_instance.__aenter__ = AsyncMock(return_value=mock_httpx_instance)
+        mock_httpx_instance.__aexit__ = AsyncMock(return_value=False)
+        mock_httpx_instance.post = AsyncMock(return_value=mock_resp)
+        mock_httpx.return_value = mock_httpx_instance
+
+        await compose_batch()
+
+        # asset-a (attempt 0) was rejected by anti-repeat before a platform
+        # even gets used for rendering; asset-b (attempt 1) must have used
+        # platforms[1 % 2] == "instagram", not platforms[0] == "facebook"
+        # again (which the old `composed`-indexed bug would have picked).
+        assert mock_session.add.called
+        post_call = mock_session.add.call_args_list[0]
+        created_post = post_call[0][0]
+        assert created_post.platform == "instagram"
+
+
+@pytest.mark.asyncio
 async def test_anti_repeat_violation_retries(mock_deps):
     """Forced anti-repeat violation causes retry (not a published duplicate)."""
     from jobs.compose_batch import compose_batch

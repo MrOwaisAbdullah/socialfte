@@ -52,6 +52,23 @@ async def dispatch_video_render(post_id: str, composition_id: str, props: dict) 
         )
         raise ValueError(f"Unknown composition_id {composition_id!r}; known: {sorted(KNOWN_COMPOSITIONS)}")
 
+    # Without this, an empty GITHUB_TOKEN builds "Bearer " (trailing space,
+    # no token) — httpx's header validation rejects that with a genuinely
+    # confusing "Illegal header value b'Bearer '" that gives no hint what's
+    # actually wrong (confirmed live). Fail with an actionable message
+    # instead, before ever making the network call — same reasoning as the
+    # unknown-composition check above.
+    if not settings.GITHUB_TOKEN or not settings.GITHUB_REPO:
+        await _write_audit(
+            "dispatch_rejected",
+            post_id,
+            {"composition_id": composition_id, "reason": "GITHUB_TOKEN or GITHUB_REPO not configured"},
+        )
+        raise ValueError(
+            "GITHUB_TOKEN and GITHUB_REPO must be set to dispatch a video render — "
+            "a GitHub PAT with repo + workflow scope on the worker's env config"
+        )
+
     output_key = f"renders/{post_id}.mp4"
     headers = {
         "Accept": "application/vnd.github+json",

@@ -201,12 +201,19 @@ async def compose_batch():
     composed = 0
     shortfall_reasons: list[str] = []
 
-    for asset, tmpl in candidates:
+    # Indexed by attempt (enumerate), not by `composed` (successes) — using
+    # `composed` here meant a failing first platform (e.g. Facebook's video
+    # dispatch erroring on every attempt) kept `composed` stuck at 0, so
+    # platforms[0 % len(platforms)] picked the SAME failing platform for
+    # every single candidate and the loop never rotated to Instagram/
+    # YouTube/TikTok at all — confirmed live: only Facebook posts were ever
+    # attempted, all failing the same way, zero image posts ever tried.
+    for attempt, (asset, tmpl) in enumerate(candidates):
         if composed >= TARGET_BATCH_SIZE:
             break
 
         asset_id_str = str(asset.id)
-        platform = platforms[composed % len(platforms)]
+        platform = platforms[attempt % len(platforms)]
         fmt = PLATFORM_FORMAT_MAP.get(platform, "image")
 
         if not await anti_repeat.check_asset(asset.id):
