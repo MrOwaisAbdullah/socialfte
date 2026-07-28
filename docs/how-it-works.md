@@ -468,7 +468,24 @@ the Jobs page) finds every asset with `quality_score IS NULL` and retags it.
 `dispatch_render.py` sent `"ref": "main"` to GitHub's `workflow_dispatch`
 API — this repo's actual default branch is `master` (confirmed via
 `gh repo view`), so every video render dispatch failed with a 422. Now
-configurable (`RENDER_WORKFLOW_REF`, default `"master"`).
+configurable (`RENDER_WORKFLOW_REF`, default `"master"`). Verified live
+after the fix deployed — 3 fresh video dispatches succeeded with no 422.
+
+**Puppeteer's Chrome crash-handler couldn't launch — every still-image
+render 500'd.** Confirmed live: `Failed to launch the browser process...
+chrome_crashpad_handler: --database is required`. `Dockerfile.dashboard`'s
+non-root user is created with `useradd --system`, which gives it no real
+home directory, so Chrome's crash-reporting subprocess has nowhere to write
+its crash database and the whole browser launch fails before rendering
+anything — a documented Puppeteer failure mode for restricted/read-only
+containers with no writable profile directory. Two-layer fix:
+`XDG_CONFIG_HOME`/`XDG_CACHE_HOME` point at a writable `/tmp/.chromium` in
+the Dockerfile (created and chowned to the app user before `USER` switches),
+and `render/route.ts`'s `puppeteer.launch()` call gets an explicit
+`userDataDir` (`/tmp/.puppeteer-profile`) plus `--disable-crash-reporter` to
+skip the crash-handler subprocess outright as a second layer. Not
+live-verified — no Chromium binary was available to launch-test against in
+the sandbox this was fixed in; needs confirmation on the next real deploy.
 
 **Vision quality scores were on the wrong scale.** Confirmed live: 7 real
 assets all scored `quality_score: 9` while *also* marked
