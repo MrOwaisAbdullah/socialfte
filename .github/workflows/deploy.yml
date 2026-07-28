@@ -1,5 +1,5 @@
-# Build and deploy SocialFTE to VPS via Dokploy.
-# Two jobs: build (Docker → GHCR) → deploy (trigger Dokploy).
+# Build and deploy SocialFTE to existing VPS via Dokploy.
+# Two apps (dashboard + worker) on the same Dokploy instance as Octively.
 # Every master push builds; deploy runs on master + manual dispatch.
 
 name: Build and deploy
@@ -10,19 +10,16 @@ on:
   workflow_dispatch:
 
 env:
-  # GHCR requires lowercase — github.repository_owner preserves case, so hardcode.
-  # Replace <your-username> with your GitHub username (lowercase).
-  IMAGE_DASHBOARD: ghcr.io/<your-username>/socialfte-dashboard
-  IMAGE_WORKER: ghcr.io/<your-username>/socialfte-worker
+  # GHCR requires lowercase — replace <your-username> with your GitHub username.
+  IMAGE_DASHBOARD: ghcr.io/mrowaisabdullah/socialfte-dashboard
+  IMAGE_WORKER: ghcr.io/mrowaisabdullah/socialfte-worker
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write       # allows pushing to GHCR with GITHUB_TOKEN
-    outputs:
-      sha: ${{ github.sha }}
+      packages: write
     steps:
       - uses: actions/checkout@v4
 
