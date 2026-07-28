@@ -23,9 +23,10 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # Copy dependency files first (Docker layer caching)
 COPY apps/worker/pyproject.toml apps/worker/uv.lock ./
 
-# --system: no venv in a container — install straight into site-packages.
-# --frozen: don't update the lockfile, use what's committed.
-RUN uv sync --frozen --no-dev --system
+# Install dependencies into system site-packages (no venv in container)
+RUN uv pip compile pyproject.toml --no-header -o /tmp/requirements.txt && \
+    uv pip install --system --no-cache -r /tmp/requirements.txt && \
+    rm /tmp/requirements.txt
 
 # Copy worker code — every module uses bare absolute imports
 # (`from config import settings`), so /app is the import root.
