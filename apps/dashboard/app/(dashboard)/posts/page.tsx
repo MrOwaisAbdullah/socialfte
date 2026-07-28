@@ -16,7 +16,7 @@ interface Post {
 }
 
 const STATES = ["draft", "render", "review", "approved", "publish", "failed"];
-const PLATFORMS = ["facebook", "instagram", "youtube_shorts", "tiktok"];
+const VIDEO_FORMATS = new Set(["reel", "short", "video"]);
 
 function stateColor(state: string): string {
   const map: Record<string, string> = {
@@ -33,17 +33,97 @@ function stateColor(state: string): string {
 function platformIcon(p: string): string {
   const map: Record<string, string> = {
     facebook: "f",
-    instagram: "\u25cf",
-    youtube_shorts: "\u25b6",
-    tiktok: "\u266b",
+    instagram: "●",
+    youtube_shorts: "▶",
+    tiktok: "♫",
   };
   return map[p] || "?";
+}
+
+function isVideo(post: Post): boolean {
+  return VIDEO_FORMATS.has(post.format) || (post.renderUrl?.endsWith(".mp4") ?? false);
+}
+
+function PostMedia({ post, className }: { post: Post; className: string }) {
+  if (!post.renderUrl) {
+    return (
+      <div className={`${className} flex items-center justify-center bg-dark/5 text-2xl text-dark/30`}>
+        {platformIcon(post.platform)}
+      </div>
+    );
+  }
+  return isVideo(post) ? (
+    <video src={post.renderUrl} className={className} muted playsInline preload="metadata" />
+  ) : (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={post.renderUrl} alt="" className={className} />
+  );
+}
+
+function PostDetailModal({ post, onClose }: { post: Post; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-dark/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-4 overflow-y-auto rounded-lg bg-light p-6 sm:flex-row"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sm:w-1/2">
+          {post.renderUrl ? (
+            isVideo(post) ? (
+              <video src={post.renderUrl} className="w-full rounded" controls autoPlay muted playsInline />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={post.renderUrl} alt="" className="w-full rounded" />
+            )
+          ) : (
+            <div className="flex aspect-square w-full items-center justify-center rounded bg-dark/5 font-body text-sm text-muted">
+              No render yet ({post.state})
+            </div>
+          )}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-body text-sm font-medium capitalize">{post.platform.replace("_", " ")}</span>
+              <span className={`rounded px-2 py-0.5 text-xs font-medium ${stateColor(post.state)}`}>{post.state}</span>
+            </div>
+            <button onClick={onClose} className="font-body text-sm text-muted hover:text-dark">
+              Close
+            </button>
+          </div>
+          {post.caption && (
+            <p className="whitespace-pre-wrap font-body text-sm text-dark">{post.caption}</p>
+          )}
+          <div className="flex flex-col gap-1 font-body text-xs text-muted">
+            {post.scheduledAt && <span>Scheduled: {new Date(post.scheduledAt).toLocaleString()}</span>}
+            {post.externalId && <span>Platform ID: {post.externalId}</span>}
+            {post.createdAt && <span>Created: {new Date(post.createdAt).toLocaleString()}</span>}
+          </div>
+          {post.error && <p className="font-body text-xs text-red-600">{post.error}</p>}
+          {post.renderUrl && (
+            <a
+              href={post.renderUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-body text-xs text-primary underline"
+            >
+              Open original file
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function PostsPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [filter, setFilter] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -90,11 +170,10 @@ export default function PostsPage() {
           {posts.map((post) => (
             <div
               key={post.id}
-              className="flex items-start gap-4 rounded-lg border border-dark/10 bg-light p-4"
+              onClick={() => setSelectedPost(post)}
+              className="flex cursor-pointer items-start gap-4 rounded-lg border border-dark/10 bg-light p-4 transition-colors hover:border-primary/40"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded bg-dark/5 font-heading text-lg text-primary">
-                {platformIcon(post.platform)}
-              </div>
+              <PostMedia post={post} className="h-14 w-14 shrink-0 rounded object-cover" />
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
@@ -102,16 +181,6 @@ export default function PostsPage() {
                   <span className={`rounded px-2 py-0.5 text-xs font-medium ${stateColor(post.state)}`}>
                     {post.state}
                   </span>
-                  {post.renderUrl && (
-                    <a
-                      href={post.renderUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary underline"
-                    >
-                      View
-                    </a>
-                  )}
                 </div>
                 {post.caption && (
                   <p className="mt-1 font-body text-sm text-dark line-clamp-2">{post.caption}</p>
@@ -122,13 +191,15 @@ export default function PostsPage() {
                   {post.createdAt && <span>Created: {new Date(post.createdAt).toLocaleDateString()}</span>}
                 </div>
                 {post.error && (
-                  <p className="mt-1 font-body text-xs text-red-500">{post.error}</p>
+                  <p className="mt-1 font-body text-xs text-red-500 line-clamp-1">{post.error}</p>
                 )}
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {selectedPost && <PostDetailModal post={selectedPost} onClose={() => setSelectedPost(null)} />}
     </div>
   );
 }
