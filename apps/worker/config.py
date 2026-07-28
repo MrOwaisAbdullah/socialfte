@@ -149,10 +149,16 @@ class Settings(BaseSettings):
     #   nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
     #   google/gemma-4-31b-it:free
     #   nvidia/nemotron-3-super-120b-a12b:free
+    #   poolside/laguna-s-2.1:free
     # Not swapped in here yet — several of these are size/task-specialized
     # (code, safety, reasoning) rather than general chat, so picking the right
     # one for this dry-run-only round-trip check is a judgment call, not
     # swapped automatically.
+    #
+    # Free-tier embedding/rerank models (not chat — candidates for MODEL_EMBED
+    # instead, if OpenAI's paid embedding model ever needs a free fallback):
+    #   nvidia/nemotron-3-embed-1b:free
+    #   nvidia/llama-nemotron-rerank-vl-1b-v2:free
     MODEL_FREE: str = Field(default="deepseek/deepseek-v4-flash:free")
 
     LLM_MAX_RETRIES: int = Field(default=3)
