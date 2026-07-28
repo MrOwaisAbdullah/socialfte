@@ -16,3 +16,5 @@ This file grows without bound — rotate/truncate it periodically in production 
 too large to be useful (it is not the source of truth; the `audit_log` table is).
 
 ---
+2026-07-28 09:41:16 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
+2026-07-28 09:45:27 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
