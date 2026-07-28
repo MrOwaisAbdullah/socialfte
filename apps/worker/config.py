@@ -133,6 +133,26 @@ class Settings(BaseSettings):
     MODEL_JUDGEMENT: str = Field(default="deepseek/deepseek-v4-pro")
     MODEL_VISION: str = Field(default="google/gemini-2.5-flash")
     MODEL_EMBED: str = Field(default="openai/text-embedding-3-small")
+    # MODEL_FREE is what test_free_tier_round_trip and BOOTSTRAP's Step 6 LLM
+    # check hit — OpenRouter has deprecated deepseek/deepseek-v4-flash:free
+    # ("use this slug instead: deepseek/deepseek-v4-flash", a paid model, per
+    # its own 404 response), so the current default fails for real whenever a
+    # real API key is present. Other free-tier slugs confirmed available on
+    # OpenRouter as of this writing (2026-07-28), any of which could replace
+    # the default below:
+    #   openai/gpt-oss-20b:free
+    #   inclusionai/ling-3.0-flash:free
+    #   cohere/north-mini-code:free
+    #   nvidia/nemotron-3.5-content-safety:free
+    #   google/gemma-4-26b-a4b-it:free
+    #   nvidia/nemotron-3-ultra-550b-a55b:free
+    #   nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+    #   google/gemma-4-31b-it:free
+    #   nvidia/nemotron-3-super-120b-a12b:free
+    # Not swapped in here yet — several of these are size/task-specialized
+    # (code, safety, reasoning) rather than general chat, so picking the right
+    # one for this dry-run-only round-trip check is a judgment call, not
+    # swapped automatically.
     MODEL_FREE: str = Field(default="deepseek/deepseek-v4-flash:free")
 
     LLM_MAX_RETRIES: int = Field(default=3)

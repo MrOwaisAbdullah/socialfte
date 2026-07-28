@@ -1,17 +1,14 @@
-# SocialFTE worker — Week 3, Step 1.
-# Python 3.11-slim + ffmpeg + faster-whisper.
+# SocialFTE worker — Python 3.13 + ffmpeg + uv.
 # Build from the repo root: docker build -f infra/Dockerfile.worker .
 
-FROM python:3.11-slim AS base
+FROM python:3.13-slim AS base
 
-# Prevent Python from buffering stdout/stderr (Docker-friendly)
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
 WORKDIR /app
 
-# Install system dependencies: ffmpeg for video processing, 
-# libsndfile for audio processing (faster-whisper dependency)
+# System deps: ffmpeg for video, libsndfile for audio processing
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     ffmpeg \
@@ -20,27 +17,30 @@ RUN apt-get update \
     curl \
  && rm -rf /var/lib/apt/lists/*
 
-# uv: fast pip-compatible installer — copy the static binary rather than
-# pip-installing it into the image we're about to strip pip from.
+# uv: copy static binary from official image
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy requirements first (Docker layer caching)
-COPY apps/worker/requirements.txt ./requirements.txt
-# --system: no venv in a container — install straight into the image's site-packages.
-RUN uv pip install --system --no-cache -r requirements.txt
+# Copy dependency files first (Docker layer caching)
+COPY apps/worker/pyproject.toml apps/worker/uv.lock ./
 
-# Copy worker code directly into /app — every module uses bare absolute
-# imports (`from config import settings`, `from db.session import ...`), so
-# /app itself must be the import root, not a `worker/` package subdirectory.
+# --system: no venv in a container — install straight into site-packages.
+# --frozen: don't update the lockfile, use what's committed.
+RUN uv sync --frozen --no-dev --system
+
+# Copy worker code — every module uses bare absolute imports
+# (`from config import settings`), so /app is the import root.
 COPY apps/worker/ .
 
-# Create non-root user
+# Non-root user
 RUN groupadd --system --gid 1001 worker \
  && useradd --system --uid 1001 --gid worker worker \
  && chown -R worker:worker /app
 
 USER worker
 
-# Worker is internal-only: no public port, docker network only
-# Memory limit set in docker-compose.yml (1g hard)
+# Worker is internal-only: no public port, docker network only.
+# Health check for Docker/Dokploy.
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=10s \
+  CMD curl -f http://localhost:8000/health || exit 1
+
 CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,10 +1,9 @@
-# SocialFTE dashboard — Week 2, Story 7 (FR-017).
-# Multi-stage, standalone-output pattern (vps-dokploy-nextjs skill,
-# dockerfile-patterns.md) — battle-tested against this exact Dokploy/Traefik
-# deployment shape. Build from the repo root: docker build -f infra/Dockerfile.dashboard .
+# SocialFTE dashboard — Multi-stage, standalone-output pattern
+# (vps-dokploy-nextjs skill, dockerfile-patterns.md).
+# Build from the repo root: docker build -f infra/Dockerfile.dashboard .
 
 # ── deps ─────────────────────────────────────────────────────────────────
-FROM node:20-slim AS deps
+FROM node:22-slim AS deps
 WORKDIR /app
 # Puppeteer must not download its own Chromium — the runner stage installs a
 # real one via apt (research.md Decision 5/9).
@@ -13,7 +12,7 @@ COPY apps/dashboard/package.json apps/dashboard/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 # ── builder ──────────────────────────────────────────────────────────────
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY apps/dashboard/ .
@@ -25,7 +24,7 @@ ENV NODE_ENV=production DOCKER_BUILD=1
 RUN npm run build
 
 # ── runner ───────────────────────────────────────────────────────────────
-FROM node:20-slim AS runner
+FROM node:22-slim AS runner
 WORKDIR /app
 
 # Chromium via apt — the only correct way to get a headless browser in a
