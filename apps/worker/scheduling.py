@@ -45,6 +45,9 @@ def humanize_cron(cron: str) -> str:
     if hour == "*" and minute.isdigit() and day == month == dow == "*":
         return f"Hourly at :{int(minute):02d}"
 
+    if day.startswith("*/") and hour.isdigit() and minute.isdigit() and month == dow == "*":
+        return f"Every {day[2:]} days at {_clock(hour, minute)}"
+
     if dow.isdigit() and hour.isdigit() and minute.isdigit() and day == month == "*":
         return f"Weekly on {WEEKDAYS[int(dow) % 7]} at {_clock(hour, minute)}"
 
@@ -55,3 +58,54 @@ def humanize_cron(cron: str) -> str:
         return f"Daily at {_clock(hour, minute)}"
 
     return cron
+
+
+class InvalidSchedule(ValueError):
+    pass
+
+
+def build_cron(shape: str, n: int | None = None, hour: int = 0, minute: int = 0,
+                day_of_week: int | None = None, day: int | None = None) -> str:
+    """Inverse of humanize_cron — builds a cron string from a structured
+    schedule shape chosen in the UI (POST /jobs/{id}/schedule). Raises
+    InvalidSchedule for out-of-range input rather than silently producing a
+    cron expression that doesn't mean what the operator picked."""
+    if shape == "every_n_minutes":
+        if n is None or not (1 <= n <= 59):
+            raise InvalidSchedule("n must be 1-59 for every_n_minutes")
+        return f"*/{n} * * * *"
+    if shape == "every_n_hours":
+        if n is None or not (1 <= n <= 23):
+            raise InvalidSchedule("n must be 1-23 for every_n_hours")
+        if not (0 <= minute <= 59):
+            raise InvalidSchedule("minute must be 0-59")
+        return f"{minute} */{n} * * *"
+    if shape == "every_n_days":
+        if n is None or not (1 <= n <= 27):
+            raise InvalidSchedule("n must be 1-27 for every_n_days")
+        if not (0 <= hour <= 23) or not (0 <= minute <= 59):
+            raise InvalidSchedule("hour must be 0-23 and minute 0-59")
+        return f"{minute} {hour} */{n} * *"
+    if shape == "hourly":
+        if not (0 <= minute <= 59):
+            raise InvalidSchedule("minute must be 0-59")
+        return f"{minute} * * * *"
+    if shape == "daily":
+        if not (0 <= hour <= 23) or not (0 <= minute <= 59):
+            raise InvalidSchedule("hour must be 0-23 and minute 0-59")
+        return f"{minute} {hour} * * *"
+    if shape == "weekly":
+        if day_of_week is None or not (0 <= day_of_week <= 6):
+            raise InvalidSchedule("day_of_week must be 0 (Sunday) - 6 (Saturday) for weekly")
+        if not (0 <= hour <= 23) or not (0 <= minute <= 59):
+            raise InvalidSchedule("hour must be 0-23 and minute 0-59")
+        return f"{minute} {hour} * * {day_of_week}"
+    if shape == "monthly":
+        # 29-31 don't exist in every month — capping at 28 keeps "monthly"
+        # actually meaning every month, not skipping February most years.
+        if day is None or not (1 <= day <= 28):
+            raise InvalidSchedule("day must be 1-28 for monthly")
+        if not (0 <= hour <= 23) or not (0 <= minute <= 59):
+            raise InvalidSchedule("hour must be 0-23 and minute 0-59")
+        return f"{minute} {hour} {day} * *"
+    raise InvalidSchedule(f"unknown schedule shape: {shape}")

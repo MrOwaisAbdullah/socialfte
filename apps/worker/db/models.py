@@ -127,6 +127,14 @@ class JobRun(Base):
     finished_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
 
 
+class JobSchedule(Base):
+    __tablename__ = "job_schedules"
+
+    job_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    cron_expression: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+
+
 class BrandConfig(Base):
     __tablename__ = "brand_config"
 

@@ -125,6 +125,12 @@ export const jobRuns = pgTable(
   (table) => [index('idx_job_runs_job_id_started_at').on(table.jobId, table.startedAt)]
 );
 
+export const jobSchedules = pgTable('job_schedules', {
+  jobId: text('job_id').primaryKey(),
+  cronExpression: text('cron_expression').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const brandConfig = pgTable('brand_config', {
   key: text().primaryKey().default('default'),
   brandName: text('brand_name'),

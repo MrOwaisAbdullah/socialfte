@@ -145,6 +145,18 @@ CREATE TABLE job_runs (
 );
 CREATE INDEX idx_job_runs_job_id_started_at ON job_runs (job_id, started_at DESC);
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- job_schedules — persisted cron overrides, set via the dashboard's Jobs page
+-- schedule editor (POST /jobs/{id}/schedule). Checked at worker startup
+-- (falls back to the corresponding *_CRON env var when no row exists) and
+-- applied live via APScheduler's reschedule_job when changed, no redeploy.
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE job_schedules (
+  job_id          TEXT PRIMARY KEY,       -- APScheduler job id, e.g. 'compose_batch'
+  cron_expression TEXT NOT NULL,
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE brand_config (
   key             TEXT PRIMARY KEY DEFAULT 'default',
   brand_name      TEXT,

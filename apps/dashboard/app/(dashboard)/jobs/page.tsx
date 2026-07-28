@@ -19,6 +19,20 @@ interface Job {
   last_run: LastRun | null;
 }
 
+type Shape = "every_n_minutes" | "every_n_hours" | "every_n_days" | "hourly" | "daily" | "weekly" | "monthly";
+
+const SHAPE_LABELS: Record<Shape, string> = {
+  every_n_minutes: "Every N minutes",
+  every_n_hours: "Every N hours",
+  every_n_days: "Every N days",
+  hourly: "Hourly (at :MM)",
+  daily: "Daily",
+  weekly: "Weekly",
+  monthly: "Monthly",
+};
+
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 function statusBadge(lastRun: LastRun | null) {
   if (!lastRun) {
     return <span className="rounded px-2 py-0.5 text-xs font-medium bg-dark/10 text-dark">Never run</span>;
@@ -40,10 +54,169 @@ function statusBadge(lastRun: LastRun | null) {
   );
 }
 
+interface ScheduleForm {
+  shape: Shape;
+  n: number;
+  hour: number;
+  minute: number;
+  dayOfWeek: number;
+  day: number;
+}
+
+const DEFAULT_FORM: ScheduleForm = { shape: "daily", n: 15, hour: 4, minute: 0, dayOfWeek: 0, day: 1 };
+
+function ScheduleEditor({
+  job,
+  onCancel,
+  onSaved,
+}: {
+  job: Job;
+  onCancel: () => void;
+  onSaved: (updated: { cron: string; schedule_text: string; next_run: string | null }) => void;
+}) {
+  const [form, setForm] = useState<ScheduleForm>(DEFAULT_FORM);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const update = <K extends keyof ScheduleForm>(key: K, value: ScheduleForm[K]) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
+  const save = async () => {
+    setSaving(true);
+    setErr(null);
+    const payload: Record<string, unknown> = { shape: form.shape };
+    if (["every_n_minutes", "every_n_hours", "every_n_days"].includes(form.shape)) payload.n = form.n;
+    if (["every_n_hours", "every_n_days", "hourly", "daily", "weekly", "monthly"].includes(form.shape)) {
+      payload.hour = form.hour;
+      payload.minute = form.minute;
+    }
+    if (form.shape === "weekly") payload.day_of_week = form.dayOfWeek;
+    if (form.shape === "monthly") payload.day = form.day;
+
+    try {
+      const res = await fetch(`/api/jobs/${job.id}/schedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErr(data.detail || "Failed to update schedule");
+        return;
+      }
+      onSaved(data);
+    } catch {
+      setErr("Could not reach worker");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 flex flex-col gap-3 rounded-md border border-dark/10 bg-dark/5 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={form.shape}
+          onChange={(e) => update("shape", e.target.value as Shape)}
+          className="rounded border border-dark/20 bg-light px-2 py-1 font-body text-sm text-dark"
+        >
+          {(Object.keys(SHAPE_LABELS) as Shape[]).map((s) => (
+            <option key={s} value={s}>
+              {SHAPE_LABELS[s]}
+            </option>
+          ))}
+        </select>
+
+        {["every_n_minutes", "every_n_hours", "every_n_days"].includes(form.shape) && (
+          <input
+            type="number"
+            min={1}
+            max={form.shape === "every_n_minutes" ? 59 : form.shape === "every_n_hours" ? 23 : 27}
+            value={form.n}
+            onChange={(e) => update("n", Number(e.target.value))}
+            className="w-20 rounded border border-dark/20 bg-light px-2 py-1 font-body text-sm text-dark"
+          />
+        )}
+
+        {["every_n_hours", "every_n_days", "hourly", "daily", "weekly", "monthly"].includes(form.shape) &&
+          form.shape !== "hourly" && (
+            <input
+              type="time"
+              value={`${String(form.hour).padStart(2, "0")}:${String(form.minute).padStart(2, "0")}`}
+              onChange={(e) => {
+                const [h, m] = e.target.value.split(":").map(Number);
+                update("hour", h);
+                update("minute", m);
+              }}
+              className="rounded border border-dark/20 bg-light px-2 py-1 font-body text-sm text-dark"
+            />
+          )}
+
+        {form.shape === "hourly" && (
+          <input
+            type="number"
+            min={0}
+            max={59}
+            value={form.minute}
+            onChange={(e) => update("minute", Number(e.target.value))}
+            className="w-20 rounded border border-dark/20 bg-light px-2 py-1 font-body text-sm text-dark"
+            placeholder="minute"
+          />
+        )}
+
+        {form.shape === "weekly" && (
+          <select
+            value={form.dayOfWeek}
+            onChange={(e) => update("dayOfWeek", Number(e.target.value))}
+            className="rounded border border-dark/20 bg-light px-2 py-1 font-body text-sm text-dark"
+          >
+            {WEEKDAYS.map((d, i) => (
+              <option key={d} value={i}>
+                {d}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {form.shape === "monthly" && (
+          <input
+            type="number"
+            min={1}
+            max={28}
+            value={form.day}
+            onChange={(e) => update("day", Number(e.target.value))}
+            className="w-20 rounded border border-dark/20 bg-light px-2 py-1 font-body text-sm text-dark"
+            placeholder="day"
+          />
+        )}
+      </div>
+
+      {err && <p className="font-body text-xs text-red-600">{err}</p>}
+
+      <div className="flex gap-2">
+        <button
+          onClick={save}
+          disabled={saving}
+          className="rounded bg-primary px-3 py-1.5 font-body text-xs text-white hover:bg-primary/90 disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save schedule"}
+        </button>
+        <button
+          onClick={onCancel}
+          className="rounded bg-dark/10 px-3 py-1.5 font-body text-xs text-dark hover:bg-dark/20"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState<string | null>(null);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchJobs = useCallback(async () => {
@@ -112,36 +285,56 @@ export default function JobsPage() {
       ) : (
         <div className="grid gap-3">
           {jobs.map((job) => (
-            <div
-              key={job.id}
-              className="flex items-start justify-between gap-4 rounded-lg border border-dark/10 bg-light p-4"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-body text-sm font-medium text-dark">{job.name}</span>
-                  {statusBadge(job.last_run)}
-                </div>
-                <div className="mt-1 font-body text-xs text-muted">
-                  {job.schedule_text} · Next: {job.next_run ? new Date(job.next_run).toLocaleString() : "N/A"}
-                </div>
-                {job.last_run && (
-                  <div className="mt-1 font-body text-xs text-muted">
-                    Last run: {new Date(job.last_run.started_at).toLocaleString()}
-                    {" "}({job.last_run.trigger})
-                    {job.last_run.status === "running" && " · still running"}
+            <div key={job.id} className="rounded-lg border border-dark/10 bg-light p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-body text-sm font-medium text-dark">{job.name}</span>
+                    {statusBadge(job.last_run)}
                   </div>
-                )}
-                {job.last_run?.error && (
-                  <p className="mt-1 font-body text-xs text-red-600">{job.last_run.error}</p>
-                )}
+                  <div className="mt-1 font-body text-xs text-muted">
+                    {job.schedule_text} · Next: {job.next_run ? new Date(job.next_run).toLocaleString() : "N/A"}
+                  </div>
+                  {job.last_run && (
+                    <div className="mt-1 font-body text-xs text-muted">
+                      Last run: {new Date(job.last_run.started_at).toLocaleString()}
+                      {" "}({job.last_run.trigger})
+                      {job.last_run.status === "running" && " · still running"}
+                    </div>
+                  )}
+                  {job.last_run?.error && (
+                    <p className="mt-1 font-body text-xs text-red-600">{job.last_run.error}</p>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    onClick={() => setEditingJobId(editingJobId === job.id ? null : job.id)}
+                    className="rounded bg-dark/10 px-3 py-1.5 font-body text-sm text-dark hover:bg-dark/20"
+                  >
+                    {editingJobId === job.id ? "Close" : "Edit schedule"}
+                  </button>
+                  <button
+                    onClick={() => runJob(job.id)}
+                    disabled={running === job.id}
+                    className="rounded bg-primary px-3 py-1.5 font-body text-sm text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {running === job.id ? "Running..." : "Run Now"}
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => runJob(job.id)}
-                disabled={running === job.id}
-                className="shrink-0 rounded bg-primary px-3 py-1.5 font-body text-sm text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
-              >
-                {running === job.id ? "Running..." : "Run Now"}
-              </button>
+
+              {editingJobId === job.id && (
+                <ScheduleEditor
+                  job={job}
+                  onCancel={() => setEditingJobId(null)}
+                  onSaved={(updated) => {
+                    setJobs((prev) =>
+                      prev.map((j) => (j.id === job.id ? { ...j, ...updated } : j))
+                    );
+                    setEditingJobId(null);
+                  }}
+                />
+              )}
             </div>
           ))}
         </div>

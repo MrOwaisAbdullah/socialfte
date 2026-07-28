@@ -17,8 +17,9 @@ from audit import write_audit
 from config import settings
 from db.session import engine, SessionLocal
 from db.models import Base, Asset, Post
-from scheduling import trigger_to_cron, humanize_cron
+from scheduling import trigger_to_cron, humanize_cron, build_cron, InvalidSchedule
 from job_runs import tracked, current_trigger, last_runs
+from job_schedules import get_overrides, save_override
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper()),
@@ -27,6 +28,11 @@ logging.basicConfig(
 logger = logging.getLogger("worker")
 
 scheduler = AsyncIOScheduler(timezone=settings.SCHEDULER_TIMEZONE)
+
+# Populated inside lifespan (needs settings + the lazily-imported job funcs),
+# read by /jobs/{id}/schedule to validate a job_id exists. Filled before the
+# app starts accepting requests (lifespan startup runs before yield).
+JOB_DEFAULT_CRONS: dict[str, str] = {}
 
 
 @asynccontextmanager
@@ -46,59 +52,36 @@ async def lifespan(app: FastAPI):
     from jobs.weekly_digest import weekly_digest
     from jobs.process_footage import process_footage
 
-    # Wrapped with tracked() so every execution — cron-triggered or manually
-    # run from the dashboard's Jobs page — records a job_runs row (status,
-    # timing, error). The manual endpoint calls job.func(), which after
-    # registration IS this wrapped version, so one wrapper covers both paths.
-    scheduler.add_job(
-        tracked("refresh_tokens", refresh_tokens),
-        CronTrigger.from_crontab(settings.TOKEN_REFRESH_CRON),
-        id="refresh_tokens",
-        name="Refresh platform tokens",
-        replace_existing=True,
-    )
-    scheduler.add_job(
-        tracked("publish_due", publish_due),
-        CronTrigger.from_crontab(settings.PUBLISH_DUE_CRON),
-        id="publish_due",
-        name="Publish approved posts",
-        replace_existing=True,
-    )
-    scheduler.add_job(
-        tracked("notify_review", notify_review),
-        CronTrigger.from_crontab(settings.NOTIFY_REVIEW_CRON),
-        id="notify_review",
-        name="Send approval cards to Discord",
-        replace_existing=True,
-    )
-    scheduler.add_job(
-        tracked("compose_batch", compose_batch),
-        CronTrigger.from_crontab(settings.COMPOSE_BATCH_CRON),
-        id="compose_batch",
-        name="Compose daily draft batch",
-        replace_existing=True,
-    )
-    scheduler.add_job(
-        tracked("collect_metrics", collect_metrics),
-        CronTrigger.from_crontab(settings.COLLECT_METRICS_CRON),
-        id="collect_metrics",
-        name="Collect post performance metrics",
-        replace_existing=True,
-    )
-    scheduler.add_job(
-        tracked("weekly_digest", weekly_digest),
-        CronTrigger.from_crontab(settings.WEEKLY_DIGEST_CRON),
-        id="weekly_digest",
-        name="Generate weekly performance digest",
-        replace_existing=True,
-    )
-    scheduler.add_job(
-        tracked("process_footage", process_footage),
-        CronTrigger.from_crontab(settings.PROCESS_FOOTAGE_CRON),
-        id="process_footage",
-        name="Process uploaded video clips (audio + cover-frames)",
-        replace_existing=True,
-    )
+    job_definitions = [
+        ("refresh_tokens", refresh_tokens, settings.TOKEN_REFRESH_CRON, "Refresh platform tokens"),
+        ("publish_due", publish_due, settings.PUBLISH_DUE_CRON, "Publish approved posts"),
+        ("notify_review", notify_review, settings.NOTIFY_REVIEW_CRON, "Send approval cards to Discord"),
+        ("compose_batch", compose_batch, settings.COMPOSE_BATCH_CRON, "Compose daily draft batch"),
+        ("collect_metrics", collect_metrics, settings.COLLECT_METRICS_CRON, "Collect post performance metrics"),
+        ("weekly_digest", weekly_digest, settings.WEEKLY_DIGEST_CRON, "Generate weekly performance digest"),
+        ("process_footage", process_footage, settings.PROCESS_FOOTAGE_CRON, "Process uploaded video clips (audio + cover-frames)"),
+    ]
+
+    # job_schedules holds any cron the dashboard's schedule editor has set,
+    # overriding the *_CRON env var default for that job — checked once here
+    # so an override made before a restart survives it.
+    overrides = await get_overrides()
+
+    for job_id, func, default_cron, name in job_definitions:
+        JOB_DEFAULT_CRONS[job_id] = default_cron
+        cron = overrides.get(job_id, default_cron)
+        # Wrapped with tracked() so every execution — cron-triggered or
+        # manually run from the dashboard's Jobs page — records a job_runs
+        # row (status, timing, error). The manual endpoint calls job.func(),
+        # which after registration IS this wrapped version, so one wrapper
+        # covers both paths.
+        scheduler.add_job(
+            tracked(job_id, func),
+            CronTrigger.from_crontab(cron),
+            id=job_id,
+            name=name,
+            replace_existing=True,
+        )
 
     scheduler.start()
     logger.info("APScheduler started with %d jobs", len(scheduler.get_jobs()))
@@ -169,6 +152,54 @@ async def run_job(job_id: str, request: Request):
     await write_audit("manual_trigger", job_id, job_id, {"triggered_by": "dashboard"})
     logger.info("Manually triggered job: %s", job_id)
     return {"ok": True, "job_id": job_id, "name": job.name}
+
+
+class ScheduleRequest(BaseModel):
+    shape: str  # every_n_minutes | every_n_hours | every_n_days | hourly | daily | weekly | monthly
+    n: int | None = None
+    hour: int = 0
+    minute: int = 0
+    day_of_week: int | None = None  # 0=Sunday..6=Saturday, required for "weekly"
+    day: int | None = None  # 1-28, required for "monthly"
+
+
+@app.post("/jobs/{job_id}/schedule")
+async def update_schedule(job_id: str, request: Request, payload: ScheduleRequest):
+    """Change a job's cron schedule at runtime — persisted to job_schedules
+    (survives a restart) and applied immediately via reschedule_job (no
+    restart needed either). Requires x-internal-secret header."""
+    secret = request.headers.get("x-internal-secret")
+    if settings.RENDER_INTERNAL_SECRET and secret != settings.RENDER_INTERNAL_SECRET:
+        raise HTTPException(status_code=401, detail="unauthorized")
+
+    if job_id not in JOB_DEFAULT_CRONS:
+        raise HTTPException(status_code=404, detail=f"job '{job_id}' not found")
+
+    try:
+        cron = build_cron(
+            payload.shape,
+            n=payload.n,
+            hour=payload.hour,
+            minute=payload.minute,
+            day_of_week=payload.day_of_week,
+            day=payload.day,
+        )
+    except InvalidSchedule as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    await save_override(job_id, cron)
+    scheduler.reschedule_job(job_id, trigger=CronTrigger.from_crontab(cron))
+    await write_audit("schedule_updated", job_id, job_id, {"cron": cron})
+    logger.info("Rescheduled job %s to %s", job_id, cron)
+
+    job = scheduler.get_job(job_id)
+    return {
+        "ok": True,
+        "job_id": job_id,
+        "cron": cron,
+        "schedule_text": humanize_cron(cron),
+        "next_run": str(job.next_run_time) if job and job.next_run_time else None,
+    }
 
 
 class RenderCompleteRequest(BaseModel):
