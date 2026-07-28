@@ -111,6 +111,18 @@ export default function SetupPage() {
           <input className="rounded border border-dark/10 px-4 py-2 font-body" defaultValue="#1B5E20" onChange={(e) => update("primaryColor", e.target.value)} />
           <label className="font-body text-sm text-muted">Accent color (hex)</label>
           <input className="rounded border border-dark/10 px-4 py-2 font-body" defaultValue="#C5A55A" onChange={(e) => update("accentColor", e.target.value)} />
+          <label className="font-body text-sm text-muted">Logo URL (optional)</label>
+          <input className="rounded border border-dark/10 px-4 py-2 font-body" placeholder="https://..." onChange={(e) => update("logoUrl", e.target.value)} />
+          <label className="font-body text-sm text-muted">Social handle (optional)</label>
+          <input className="rounded border border-dark/10 px-4 py-2 font-body" placeholder="@yourbrand" onChange={(e) => update("socialHandle", e.target.value)} />
+          <label className="flex items-center gap-2 font-body text-sm text-muted">
+            <input
+              type="checkbox"
+              defaultChecked
+              onChange={(e) => update("showBrandMark", e.target.checked ? "true" : "false")}
+            />
+            Show logo + handle on posts and reels
+          </label>
         </div>
       )}
 

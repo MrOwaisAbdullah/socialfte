@@ -117,3 +117,32 @@ CREATE TABLE credentials (
   meta          JSONB,
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- brand_config — single-row brand identity + render tokens, written by the
+-- /setup wizard (apps/dashboard/app/api/internal/bootstrap/verify) and read by
+-- compose_batch.py's _build_brand_tokens() for both still-image and video
+-- render payloads. `key` is always 'default' — one deployment, one brand, one
+-- row, upserted via ON CONFLICT (key). setup_complete replaces the old
+-- BOOTSTRAP.md file-existence check (bootstrap/status), which never worked in
+-- Docker since the dashboard and worker containers share no filesystem.
+-- config.py's BRAND_* env vars remain the fallback for a fresh deployment
+-- before this row exists.
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE brand_config (
+  key             TEXT PRIMARY KEY DEFAULT 'default',
+  brand_name      TEXT,
+  tagline         TEXT,
+  primary_color   TEXT,
+  accent_color    TEXT,
+  light_color     TEXT,
+  dark_color      TEXT,
+  muted_color     TEXT,
+  font_heading    TEXT,
+  font_body       TEXT,
+  logo_url        TEXT,
+  social_handle   TEXT,
+  show_brand_mark BOOLEAN NOT NULL DEFAULT true,
+  setup_complete  BOOLEAN NOT NULL DEFAULT false,
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);

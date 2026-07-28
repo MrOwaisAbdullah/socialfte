@@ -18,7 +18,7 @@ from brain.base import embed
 from brain.composer import write_caption
 from composer import anti_repeat
 from config import settings
-from db.models import Asset, Credential, Post, Template
+from db.models import Asset, BrandConfig, Credential, Post, Template
 from db.session import SessionLocal
 from jobs.dispatch_render import dispatch_video_render
 
@@ -50,27 +50,36 @@ VIDEO_COMPOSITION_MAP = {
 }
 
 
-def _build_brand_tokens() -> dict:
+async def _build_brand_tokens() -> dict:
     """Brand payload sent as `/api/internal/render`'s `brand` field — was
-    hardcoded to `{}` (every color/font/wordmark undefined). Sourced from
-    config.py's BRAND_* env vars until the /setup wizard actually persists
-    them (apps/dashboard/app/api/internal/bootstrap/verify's known gap)."""
+    hardcoded to `{}` (every color/font/wordmark undefined). Reads the
+    brand_config row the /setup wizard writes (apps/dashboard/app/api/
+    internal/bootstrap/verify), falling back to config.py's BRAND_* env vars
+    field-by-field for a fresh deployment with no row yet, or fields the
+    wizard doesn't collect (fonts)."""
+    row = None
+    async with SessionLocal() as session:
+        row = await session.get(BrandConfig, "default")
+
+    def field(db_value, env_value):
+        return db_value if db_value not in (None, "") else env_value
+
     return {
         "colors": {
-            "primary": settings.BRAND_PRIMARY_COLOR,
-            "accent": settings.BRAND_ACCENT_COLOR,
-            "light": settings.BRAND_LIGHT_COLOR,
-            "dark": settings.BRAND_DARK_COLOR,
-            "muted": settings.BRAND_MUTED_COLOR,
+            "primary": field(row and row.primary_color, settings.BRAND_PRIMARY_COLOR),
+            "accent": field(row and row.accent_color, settings.BRAND_ACCENT_COLOR),
+            "light": field(row and row.light_color, settings.BRAND_LIGHT_COLOR),
+            "dark": field(row and row.dark_color, settings.BRAND_DARK_COLOR),
+            "muted": field(row and row.muted_color, settings.BRAND_MUTED_COLOR),
         },
         "fonts": {
-            "heading": settings.BRAND_FONT_HEADING,
-            "body": settings.BRAND_FONT_BODY,
+            "heading": field(row and row.font_heading, settings.BRAND_FONT_HEADING),
+            "body": field(row and row.font_body, settings.BRAND_FONT_BODY),
         },
-        "wordmark": settings.BRAND_NAME,
-        "logoUrl": settings.BRAND_LOGO_URL or None,
-        "socialHandle": settings.BRAND_SOCIAL_HANDLE or None,
-        "showBrandMark": settings.BRAND_SHOW_MARK,
+        "wordmark": field(row and row.brand_name, settings.BRAND_NAME),
+        "logoUrl": field(row and row.logo_url, settings.BRAND_LOGO_URL) or None,
+        "socialHandle": field(row and row.social_handle, settings.BRAND_SOCIAL_HANDLE) or None,
+        "showBrandMark": row.show_brand_mark if row else settings.BRAND_SHOW_MARK,
     }
 
 
@@ -268,6 +277,7 @@ async def compose_batch():
         else:
             render_url = None
             try:
+                brand_tokens = await _build_brand_tokens()
                 async with httpx.AsyncClient(timeout=120.0) as client:
                     resp = await client.post(
                         f"{settings.RENDER_INTERNAL_URL}/api/internal/render",
@@ -276,7 +286,7 @@ async def compose_batch():
                             "templateId": tmpl.slug,
                             "props": _build_image_props(tmpl.slug, asset_image_url or "", caption_text),
                             "aspect": "square",
-                            "brand": _build_brand_tokens(),
+                            "brand": brand_tokens,
                         },
                     )
                     resp.raise_for_status()

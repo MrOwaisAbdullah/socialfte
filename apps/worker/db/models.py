@@ -113,3 +113,23 @@ class Credential(Base):
     expires_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
     meta: Mapped[dict | None] = mapped_column(JSONB)
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+
+
+class BrandConfig(Base):
+    __tablename__ = "brand_config"
+
+    key: Mapped[str] = mapped_column(Text, primary_key=True, server_default="default")
+    brand_name: Mapped[str | None] = mapped_column(Text)
+    tagline: Mapped[str | None] = mapped_column(Text)
+    primary_color: Mapped[str | None] = mapped_column(Text)
+    accent_color: Mapped[str | None] = mapped_column(Text)
+    light_color: Mapped[str | None] = mapped_column(Text)
+    dark_color: Mapped[str | None] = mapped_column(Text)
+    muted_color: Mapped[str | None] = mapped_column(Text)
+    font_heading: Mapped[str | None] = mapped_column(Text)
+    font_body: Mapped[str | None] = mapped_column(Text)
+    logo_url: Mapped[str | None] = mapped_column(Text)
+    social_handle: Mapped[str | None] = mapped_column(Text)
+    show_brand_mark: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    setup_complete: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())

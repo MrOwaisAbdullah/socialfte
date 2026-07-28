@@ -110,3 +110,21 @@ export const credentials = pgTable('credentials', {
   meta: jsonb(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const brandConfig = pgTable('brand_config', {
+  key: text().primaryKey().default('default'),
+  brandName: text('brand_name'),
+  tagline: text(),
+  primaryColor: text('primary_color'),
+  accentColor: text('accent_color'),
+  lightColor: text('light_color'),
+  darkColor: text('dark_color'),
+  mutedColor: text('muted_color'),
+  fontHeading: text('font_heading'),
+  fontBody: text('font_body'),
+  logoUrl: text('logo_url'),
+  socialHandle: text('social_handle'),
+  showBrandMark: boolean('show_brand_mark').notNull().default(true),
+  setupComplete: boolean('setup_complete').notNull().default(false),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
