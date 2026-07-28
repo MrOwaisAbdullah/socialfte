@@ -23,10 +23,17 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # Copy dependency files first (Docker layer caching)
 COPY apps/worker/pyproject.toml apps/worker/uv.lock ./
 
-# Install dependencies into system site-packages (no venv in container)
-RUN uv pip compile pyproject.toml --no-header -o /tmp/requirements.txt && \
-    uv pip install --system --no-cache -r /tmp/requirements.txt && \
-    rm /tmp/requirements.txt
+# `uv sync` (not `uv pip install`/`uv pip compile`) is what actually honors
+# uv.lock's pinned versions — `uv pip compile pyproject.toml` re-resolves from
+# pyproject.toml's loose version ranges at build time instead, silently
+# defeating the whole point of committing a lockfile (the image could get
+# different dependency versions than whatever was tested locally). `uv sync`
+# has no `--system` flag (it always manages its own venv, by design) — so the
+# venv lands at /app/.venv and gets put on PATH below instead.
+# --frozen: fail rather than update the lock if it's out of sync with pyproject.toml.
+# --no-dev: skip the dev-only dependency group (pytest, etc.) in the image.
+RUN uv sync --frozen --no-dev
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy worker code — every module uses bare absolute imports
 # (`from config import settings`), so /app is the import root.
