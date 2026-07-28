@@ -14,42 +14,96 @@ interface Asset {
   created_at: string;
 }
 
+interface QueueItem {
+  file: File;
+  status: "pending" | "uploading" | "done" | "error";
+  id?: string;
+  error?: string;
+}
+
 const R2_PUBLIC = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "https://pub-9482aec63df7420bb53018258d2b14ef.r2.dev";
 
 export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [uploading, setUploading] = useState(false);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const processingRef = useRef(false);
 
   useEffect(() => {
     fetch("/api/assets").then((r) => r.json()).then(setAssets).catch(() => {});
   }, []);
 
-  const upload = useCallback(async (file: File) => {
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/assets/upload", { method: "POST", body: form });
-      if (res.ok) {
-        const data = await res.json();
-        setAssets((prev) => [
-          { id: data.id, r2_key: "", piece: null, tier: null, variant: null, quality_score: null, reject_reason: null, times_used: 0, created_at: new Date().toISOString() },
-          ...prev,
-        ]);
+  const processQueue = useCallback(async (items: QueueItem[]) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].status !== "pending") continue;
+
+      setQueue((prev) =>
+        prev.map((q, idx) => (idx === i ? { ...q, status: "uploading" } : q))
+      );
+
+      try {
+        const form = new FormData();
+        form.append("file", items[i].file);
+        const res = await fetch("/api/assets/upload", { method: "POST", body: form });
+        if (res.ok) {
+          const data = await res.json();
+          setAssets((prev) => [
+            { id: data.id, r2_key: "", piece: null, tier: null, variant: null, quality_score: null, reject_reason: null, times_used: 0, created_at: new Date().toISOString() },
+            ...prev,
+          ]);
+          setQueue((prev) =>
+            prev.map((q, idx) => (idx === i ? { ...q, status: "done", id: data.id } : q))
+          );
+        } else {
+          const err = await res.json().catch(() => ({ error: "Upload failed" }));
+          setQueue((prev) =>
+            prev.map((q, idx) => (idx === i ? { ...q, status: "error", error: err.error || "Upload failed" } : q))
+          );
+        }
+      } catch {
+        setQueue((prev) =>
+          prev.map((q, idx) => (idx === i ? { ...q, status: "error", error: "Network error" } : q))
+        );
       }
-    } finally {
-      setUploading(false);
     }
+
+    processingRef.current = false;
   }, []);
 
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) upload(file);
-  }, [upload]);
+  const addFiles = useCallback(
+    (files: FileList | File[]) => {
+      const newItems: QueueItem[] = Array.from(files).map((file) => ({
+        file,
+        status: "pending" as const,
+      }));
+      setQueue((prev) => {
+        const next = [...prev, ...newItems];
+        // kick off processing on next tick so state is settled
+        setTimeout(() => processQueue(next), 0);
+        return next;
+      });
+    },
+    [processQueue]
+  );
+
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
+    },
+    [addFiles]
+  );
+
+  const clearDone = () => setQueue((prev) => prev.filter((q) => q.status !== "done" && q.status !== "error"));
+
+  const pendingCount = queue.filter((q) => q.status === "pending" || q.status === "uploading").length;
+  const doneCount = queue.filter((q) => q.status === "done").length;
+  const errorCount = queue.filter((q) => q.status === "error").length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -68,16 +122,56 @@ export default function AssetsPage() {
           ref={fileRef}
           type="file"
           accept="image/*,video/*"
+          multiple
           className="hidden"
           onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) upload(file);
+            if (e.target.files?.length) addFiles(e.target.files);
+            e.target.value = "";
           }}
         />
         <p className="font-body text-muted">
-          {uploading ? "Uploading..." : "Drag & drop an image or video here, or click to browse"}
+          {pendingCount > 0
+            ? `Uploading ${queue.length - pendingCount + 1} of ${queue.length}...`
+            : "Drag & drop images or videos here, or click to browse (multiple files supported)"}
         </p>
       </div>
+
+      {queue.length > 0 && (
+        <div className="rounded-lg border border-dark/10 bg-light p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="font-body text-sm text-dark">
+              Queue: {doneCount} done, {pendingCount} uploading, {errorCount} failed
+            </span>
+            <button onClick={clearDone} className="font-body text-xs text-primary hover:underline">
+              Clear completed
+            </button>
+          </div>
+          <div className="max-h-48 space-y-1 overflow-y-auto">
+            {queue.map((item, i) => (
+              <div key={i} className="flex items-center gap-2 font-body text-xs">
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    item.status === "done"
+                      ? "bg-green-500"
+                      : item.status === "error"
+                      ? "bg-red-500"
+                      : item.status === "uploading"
+                      ? "bg-yellow-500 animate-pulse"
+                      : "bg-dark/20"
+                  }`}
+                />
+                <span className="truncate text-dark">{item.file.name}</span>
+                <span className="ml-auto text-muted">
+                  {item.status === "done" && "Done"}
+                  {item.status === "error" && item.error}
+                  {item.status === "uploading" && "Uploading..."}
+                  {item.status === "pending" && "Queued"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {assets.map((asset) => (
