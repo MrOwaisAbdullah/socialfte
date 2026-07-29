@@ -30,7 +30,7 @@ export async function GET() {
     recentActivity: recentActivity.rows.map((r) => ({
       action: r.action,
       subjectId: r.subject_id,
-      createdAt: r.created_at?.toISOString?.() ?? r.created_at,
+      createdAt: String(r.created_at),
       payload: r.payload,
     })),
   });
