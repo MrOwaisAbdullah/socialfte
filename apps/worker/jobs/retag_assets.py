@@ -19,7 +19,7 @@ import logging
 from sqlalchemy import select
 
 from audit import write_audit
-from brain.vision import _analyze_asset, QUALITY_SCORE_REJECT_THRESHOLD
+from brain.vision import _analyze_asset, QUALITY_SCORE_REJECT_THRESHOLD, _filename_to_piece
 from config import settings
 from db.models import Asset
 from db.session import SessionLocal
@@ -77,7 +77,53 @@ async def retag_assets():
         except Exception as e:
             failed += 1
             logger.error("Retag failed for asset %s: %s", asset.id, e)
+
+            # Fallback: try to extract piece from filename
+            filename_piece = _filename_to_piece(asset.original_filename)
+
             if _is_missing_image_error(e):
+                # Stop retrying a file that's actually gone — mark it
+                # rejected instead of leaving quality_score NULL (the exact
+                # condition this job selects on), which would otherwise
+                # retry this same dead URL every run, forever.
+                async with SessionLocal() as session:
+                    row = await session.get(Asset, asset.id)
+                    if row:
+                        row.quality_score = 0
+                        row.lighting_ok = False
+                        row.composition_ok = False
+                        row.reject_reason = "R2 object not found (404) — file appears to have been deleted from storage"
+                        # Use filename piece as fallback
+                        if filename_piece and not row.piece:
+                            row.piece = filename_piece
+                            row.tier = "unknown"  # Can't determine from filename
+                        await session.commit()
+                await _write_audit(
+                    "asset_marked_missing",
+                    str(asset.id),
+                    {"image_url": image_url, "error": str(e), "filename_piece": filename_piece},
+                )
+            elif filename_piece:
+                # Vision failed but file exists — use filename piece as fallback
+                async with SessionLocal() as session:
+                    row = await session.get(Asset, asset.id)
+                    if row:
+                        if not row.piece:
+                            row.piece = filename_piece
+                            row.tier = "unknown"  # Can't determine from filename
+                            # Mark with low quality score so it can still be used
+                            # but gets lower priority vs vision-tagged assets
+                            row.quality_score = 50  # Middle of the road
+                            row.lighting_ok = True  # Assume OK if file exists
+                            row.composition_ok = True
+                            row.reject_reason = f"Vision tagging failed, using filename-based piece: {filename_piece}"
+                        await session.commit()
+                await _write_audit(
+                    "asset_tagged_from_filename",
+                    str(asset.id),
+                    {"piece": filename_piece, "error": str(e)},
+                )
+            continue
                 # Stop retrying a file that's actually gone — mark it
                 # rejected instead of leaving quality_score NULL (the exact
                 # condition this job selects on), which would otherwise

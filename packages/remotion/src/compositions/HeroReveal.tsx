@@ -25,21 +25,29 @@ type Props = {
 const HeroReveal: React.FC<Props> = ({ imageUrl, headline, subline }) => {
   const frame = useCurrentFrame();
 
-  // Ken Burns: slow zoom 0.95 -> 1.05 across the whole composition duration.
-  const scale = interpolate(frame, [0, ZOOM_DURATION_FRAMES], [0.95, 1.05], {
+  // Enhanced Ken Burns with subtle pan for more dynamic feel
+  const scale = interpolate(frame, [0, ZOOM_DURATION_FRAMES], [1.0, 1.15], {
     ...CLAMP,
     easing: EASINGS.easeInOut,
   });
 
-  const headlineOp = interpolate(frame, [30, 44], [0, 1], { ...CLAMP, easing: EASINGS.easeOut });
-  const headlineY = interpolate(frame, [30, 44], [16, 0], { ...CLAMP, easing: EASINGS.easeOut });
-  const sublineOp = interpolate(frame, [44, 58], [0, 1], { ...CLAMP, easing: EASINGS.easeOut });
-  const sublineY = interpolate(frame, [44, 58], [16, 0], { ...CLAMP, easing: EASINGS.easeOut });
-  const brandOp = interpolate(frame, [90, 104], [0, 1], { ...CLAMP, easing: EASINGS.easeOut });
+  const panX = interpolate(frame, [0, ZOOM_DURATION_FRAMES], [-20, 20], {
+    ...CLAMP,
+    easing: EASINGS.easeInOut,
+  });
+
+  const headlineOp = interpolate(frame, [20, 40], [0, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
+  const headlineY = interpolate(frame, [20, 40], [20, 0], { ...CLAMP, easing: EASINGS.easeOutBack });
+  const headlineScale = interpolate(frame, [20, 30], [0.9, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
+
+  const sublineOp = interpolate(frame, [35, 55], [0, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
+  const sublineY = interpolate(frame, [35, 55], [20, 0], { ...CLAMP, easing: EASINGS.easeOutBack });
+
+  const brandOp = interpolate(frame, [80, 100], [0, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.d900 }}>
-      <AbsoluteFill style={{ transform: `scale(${scale})` }}>
+      <AbsoluteFill style={{ transform: `scale(${scale}) translateX(${panX}px)` }}>
         <Img
           src={imageUrl}
           maxRetries={3}
@@ -47,20 +55,31 @@ const HeroReveal: React.FC<Props> = ({ imageUrl, headline, subline }) => {
         />
       </AbsoluteFill>
 
-      {/* bottom scrim so text stays legible over any room render */}
+      {/* Enhanced vignette for better text legibility */}
       <AbsoluteFill
-        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.15) 45%, transparent 70%)' }}
+        style={{
+          background: 'radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.4) 70%, rgba(0,0,0,0.85) 100%)',
+        }}
       />
 
-      <AbsoluteFill style={{ justifyContent: 'flex-end', padding: '0 72px 140px' }}>
+      {/* Premium gradient overlay */}
+      <AbsoluteFill
+        style={{
+          background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.3) 40%, transparent 65%)',
+        }}
+      />
+
+      <AbsoluteFill style={{ justifyContent: 'flex-end', padding: '0 64px 120px' }}>
         <div
           style={{
             opacity: headlineOp,
-            transform: `translateY(${headlineY}px)`,
+            transform: `translateY(${headlineY}px) scale(${headlineScale})`,
             fontFamily: FONT_DISPLAY,
-            fontSize: 72,
-            lineHeight: 1.05,
+            fontSize: 68,
+            lineHeight: 1.1,
             color: '#fff',
+            textShadow: '0 2px 8px rgba(0,0,0,0.5)',
+            fontWeight: 700,
           }}
         >
           {headline}
@@ -71,10 +90,12 @@ const HeroReveal: React.FC<Props> = ({ imageUrl, headline, subline }) => {
               opacity: sublineOp,
               transform: `translateY(${sublineY}px)`,
               fontFamily: FONT_BODY,
-              fontWeight: 600,
-              fontSize: 44,
+              fontWeight: 700,
+              fontSize: 40,
               color: COLORS.accent,
-              marginTop: 18,
+              marginTop: 16,
+              textShadow: '0 2px 6px rgba(0,0,0,0.6)',
+              letterSpacing: 0.5,
             }}
           >
             {subline}
@@ -82,8 +103,8 @@ const HeroReveal: React.FC<Props> = ({ imageUrl, headline, subline }) => {
         )}
       </AbsoluteFill>
 
-      <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'flex-start', paddingTop: 80, opacity: brandOp }}>
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 40, color: '#fff', letterSpacing: -0.5 }}>
+      <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'flex-start', paddingTop: 72, opacity: brandOp }}>
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 36, color: '#fff', letterSpacing: -0.3, fontWeight: 700 }}>
           {BRAND.wordmark[0]}
           <span style={{ color: COLORS.accent }}>{BRAND.wordmark[1]}</span>
           {BRAND.wordmark[2]}

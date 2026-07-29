@@ -20,29 +20,42 @@ type Props = {
 const PriceReveal: React.FC<Props> = ({ imageUrl, price, hookText = 'Ye kitne ka hoga?' }) => {
   const frame = useCurrentFrame();
 
-  const hookOp = interpolate(frame, [0, 45], [0, 1], { ...CLAMP, easing: EASINGS.easeOut });
-  const hookExitOp = interpolate(frame, [55, 65], [1, 0], { ...CLAMP, easing: EASINGS.easeIn });
+  const hookOp = interpolate(frame, [0, 35], [0, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
+  const hookScale = interpolate(frame, [0, 35], [0.8, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
+  const hookExitOp = interpolate(frame, [50, 65], [1, 0], { ...CLAMP, easing: EASINGS.easeIn });
 
-  // Price wipes in at frame 60 via a growing bar behind the text.
-  const barWidth = interpolate(frame, [60, 78], [0, 1], { ...CLAMP, easing: EASINGS.easeOut });
-  const priceOp = interpolate(frame, [66, 80], [0, 1], { ...CLAMP, easing: EASINGS.easeOut });
+  // Enhanced price reveal with elastic animation
+  const barWidth = interpolate(frame, [55, 75], [0, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
+  const priceScale = interpolate(frame, [70, 90], [0.5, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
+  const priceOp = interpolate(frame, [65, 85], [0, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
 
-  const brandOp = interpolate(frame, [90, 104], [0, 1], { ...CLAMP, easing: EASINGS.easeOut });
+  const brandOp = interpolate(frame, [85, 105], [0, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.d900 }}>
       <Img src={imageUrl} maxRetries={3} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-      <AbsoluteFill style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.75) 100%)' }} />
+
+      {/* Enhanced vignette overlay */}
+      <AbsoluteFill
+        style={{
+          background: 'radial-gradient(circle at center, transparent 20%, rgba(0,0,0,0.6) 80%)',
+        }}
+      />
+
+      <AbsoluteFill style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.85) 100%)' }} />
 
       <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center', padding: '0 64px' }}>
         <div
           style={{
             position: 'absolute',
             opacity: hookOp * hookExitOp,
+            transform: `scale(${hookScale})`,
             fontFamily: FONT_DISPLAY,
-            fontSize: 58,
+            fontSize: 56,
             color: '#fff',
             textAlign: 'center',
+            textShadow: '0 2px 8px rgba(0,0,0,0.7)',
+            fontWeight: 600,
           }}
         >
           {hookText}
@@ -55,21 +68,25 @@ const PriceReveal: React.FC<Props> = ({ imageUrl, price, hookText = 'Ye kitne ka
               left: '50%',
               transform: `translateX(-50%) scaleX(${barWidth})`,
               transformOrigin: 'center',
-              width: '90%',
-              height: 160,
-              borderRadius: 20,
+              width: '85%',
+              height: 140,
+              borderRadius: 24,
               background: GRADIENT,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
             }}
           />
           <div
             style={{
               position: 'relative',
               opacity: priceOp,
+              transform: `scale(${priceScale})`,
               fontFamily: FONT_DISPLAY,
-              fontWeight: 700,
-              fontSize: 88,
+              fontWeight: 800,
+              fontSize: 84,
               color: '#fff',
-              padding: '0 24px',
+              padding: '0 20px',
+              textShadow: '0 2px 6px rgba(0,0,0,0.5)',
+              letterSpacing: -1,
             }}
           >
             {price}
@@ -77,13 +94,13 @@ const PriceReveal: React.FC<Props> = ({ imageUrl, price, hookText = 'Ye kitne ka
         </div>
       </AbsoluteFill>
 
-      <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 100, opacity: brandOp }}>
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 40, color: '#fff' }}>
+      <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 96, opacity: brandOp }}>
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 38, color: '#fff', fontWeight: 700 }}>
           {BRAND.wordmark[0]}
           <span style={{ color: COLORS.accent }}>{BRAND.wordmark[1]}</span>
           {BRAND.wordmark[2]}
         </div>
-        <div style={{ fontFamily: FONT_BODY, fontSize: 24, color: COLORS.d400, marginTop: 8 }}>{BRAND.signoff}</div>
+        <div style={{ fontFamily: FONT_BODY, fontSize: 22, color: COLORS.d400, marginTop: 8, fontWeight: 500 }}>{BRAND.signoff}</div>
       </AbsoluteFill>
       <BrandBadge width={1080} />
     </AbsoluteFill>

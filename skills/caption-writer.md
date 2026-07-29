@@ -10,23 +10,29 @@ readable overlay.
 
 ## Headline (image/video text overlay)
 
-**2-5 words. Not a sentence, not a fragment of the caption — its own short
-line**, written to be read in under a second overlaid on a photo, the way an
-actual product-photo headline works (think a price tag or a shelf label, not
-a caption). It must still be about the same piece and the same hook as the
-caption below — the material, the use case, the price if given, whatever
-you picked as the caption's core selling point — just compressed to its
-shortest form, not a random unrelated tagline. Someone should be able to
-read the headline, then read the caption, and recognize they're the same
-post about the same piece, not two different ideas. Roman Urdu + English
-mixing applies here too, same rules as the caption's language section
-below, but a headline this short is often clearest in whichever single
-language reads punchiest — don't force a code-switch into 2-5 words if it
-makes the phrase awkward.
+**EXACTLY 2-5 WORDS. NO EXCEPTIONS. NO SENTENCES, NO FRAGMENTS.**
+This is NOT a caption. This is NOT a truncated sentence. This is a standalone
+product label like you'd see on a price tag or shelf sticker. Count the words
+before returning — if you have 6, 7, 8, or 9 words, DELETE WORDS until you have
+2-5. This constraint is enforced in code — your output WILL be rejected if it's
+over 5 words.
 
-Examples (not templates to copy, just the length/shape to aim for):
-"Solid Sheesham, Not Veneer" · "Apka Sukoon, Nayi Jagah" · "Storage Bench —
-PKR 45,000" · "Velvet Finish, Everyday Use"
+The headline must be about the same core selling point as the caption (material,
+use case, price if mentioned), but written as its own ultra-short line, not
+a sentence fragment. Someone reading the headline then the caption should
+recognize they're the same post about the same piece.
+
+Examples (2-5 words ONLY, count them):
+"Solid Sheesham, Not Veneer" (4 words)
+"Apka Sukoon, Nayi Jagah" (4 words) 
+"Storage Bench — PKR 45,000" (4 words)
+"Velvet Finish, Everyday Use" (4 words)
+"Sheesham Dining Set" (3 words)
+"PKR 145,000 Only" (3 words)
+
+WRONG examples (will be rejected):
+"Elevate Your Home With This Beautiful Solid Sheesham Wood Dining Set" (9 words — DELETE this immediately)
+"Transform Your Space With Our Premium Quality Handcrafted Furniture Masterpiece" (9 words — DELETE this immediately)
 
 ## Language
 
@@ -59,7 +65,20 @@ Rules for the mix:
 5. If the asset has a quality concern flagged, downplay rather than over-promise.
 6. Do not mention specific prices or discounts unless they're in the brand context.
 7. **No markdown formatting at all — no `**bold**`, no `*italic*`.** Facebook, Instagram, and TikTok don't render markdown; the asterisks show up as literal characters in the published post (`**Yousuf Living**` posts exactly like that, asterisks and all). If a word needs emphasis, write it plainly or use a real capital-letter/punctuation cue instead.
-8. **Emoji: 1-3 total, used with restraint, or none.** Not one per line, not one per sentence, not bracketing the whole caption in decorative symbols (✨ at the start and end, a different emoji per paragraph). A caption with 6+ emoji reads as generated, not written by a person running a furniture page.
+8. **Emoji: MAXIMUM 4 total. This is enforced in code — 5, 6, 7+ emoji WILL cause rejection.**
+   - Ideal: 0-2 emoji, used sparingly for emphasis only
+   - Maximum allowed: 4 emoji (code will reject anything over 4)
+   - NOT one emoji per line, NOT one emoji per sentence
+   - NO emoji brackets around the entire caption (✨ at start/end)
+   - If you find yourself adding a 5th, 6th, or 7th emoji, STOP and delete them
+
+   Examples of WRONG usage that will be rejected:
+   - ✨ Premium Quality 💎 Solid Sheesham 🪑 Handcrafted Excellence 🏆 Transform Your Home 🏠
+   - Beautiful furniture 😍 Comfortable seating 🛋️ Elegant design ✨ Quality materials 💯
+
+   Examples of CORRECT usage:
+   - Solid sheesham, smooth finish. Quality you can see. 🪑
+   - PKR 145,000. Dining set for 6 people. Book now! 📞
 9. **Write this as a normal caption, not a "quote card."** Don't open with a stylized quote in quotation marks + sparkle emoji, don't end with a "." "." "." spacer line before the hashtags, don't structure it like an inspirational-content-creator post. It's a caption for a product photo — describe the piece and give a reason to want it, the way an actual furniture brand's social account writes, not a motivational-quote account that happens to be selling furniture.
 
 ## Sentence style

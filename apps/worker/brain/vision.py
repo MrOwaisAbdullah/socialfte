@@ -69,6 +69,44 @@ def _filename_hint(original_filename: str | None) -> str | None:
     return words or None
 
 
+def _filename_to_piece(original_filename: str | None) -> str | None:
+    """Extract a furniture piece type from filename when vision fails.
+
+    Maps common filename patterns to piece types:
+    - "bed", "bedroom", "cot" -> "bed"
+    - "sofa", "couch", "settee" -> "sofa"
+    - "table", "dining", "desk", "console" -> "table"
+    - "chair", "seat" -> "chair"
+    - "wardrobe", "closet", "almirah" -> "wardrobe"
+    - "bench", "stool" -> "bench"
+    - "shelf", "rack", "cabinet" -> "shelf"
+    - "recliner", "lounger" -> "recliner"
+    - "dressing", "vanity" -> "dressing table"
+    """
+    if not original_filename:
+        return None
+
+    lower = original_filename.lower()
+
+    piece_map = {
+        "bed": ["bed", "bedroom", "cot", "divan"],
+        "sofa": ["sofa", "couch", "settee"],
+        "table": ["table", "dining", "desk", "console", "center", "coffee"],
+        "chair": ["chair", "seat"],
+        "wardrobe": ["wardrobe", "closet", "almirah", "cupboard"],
+        "bench": ["bench", "stool", "ottoman"],
+        "shelf": ["shelf", "rack", "cabinet", "bookshelf"],
+        "recliner": ["recliner", "lounger"],
+        "dressing table": ["dressing", "vanity"],
+    }
+
+    for piece, keywords in piece_map.items():
+        if any(keyword in lower for keyword in keywords):
+            return piece
+
+    return None
+
+
 async def _analyze_asset(image_url: str, original_filename: str | None = None) -> AssetAnalysis:
     hint = _filename_hint(original_filename)
     text = (

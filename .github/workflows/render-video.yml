@@ -63,7 +63,7 @@ jobs:
         if: always()
         run: |
           STATUS="${{ job.status }}"
-          curl -sS -X POST "${{ secrets.CALLBACK_URL }}" \
+          curl -k -sS -X POST "${{ secrets.CALLBACK_URL }}" \
             -H "Content-Type: application/json" \
             -H "x-render-secret: ${{ secrets.RENDER_INTERNAL_SECRET }}" \
             -d "{\"output_key\": \"${{ inputs.output_key }}\", \"status\": \"$STATUS\"}"

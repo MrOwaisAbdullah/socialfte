@@ -189,10 +189,13 @@ class Settings(BaseSettings):
     # ─────────────────────────────────────────────
     # ANTI-REPEAT (Week 4)
     # ─────────────────────────────────────────────
-    ANTI_REPEAT_TEMPLATE_WINDOW: int = Field(default=4)
-    ANTI_REPEAT_ASSET_WINDOW: int = Field(default=10)
-    ANTI_REPEAT_CAPTION_WINDOW: int = Field(default=30)
-    ANTI_REPEAT_CAPTION_MAX_SIMILARITY: float = Field(default=0.85)
+    # Relaxed for smaller catalogs — original values (4/10/30) were too aggressive
+    # when only 15-20 assets exist. These windows allow better reuse while still
+    # preventing obvious repeats.
+    ANTI_REPEAT_TEMPLATE_WINDOW: int = Field(default=2)
+    ANTI_REPEAT_ASSET_WINDOW: int = Field(default=5)
+    ANTI_REPEAT_CAPTION_WINDOW: int = Field(default=20)
+    ANTI_REPEAT_CAPTION_MAX_SIMILARITY: float = Field(default=0.90)
     ANTI_REPEAT_MAX_RETRIES: int = Field(default=5)
 
     # Fraction of Facebook/Instagram posts that get the "image" format
