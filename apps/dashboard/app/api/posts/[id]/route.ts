@@ -1,6 +1,7 @@
 // PATCH /api/posts/[id] — Calendar drag-to-reschedule (Week 5, US4, T039).
+// DELETE /api/posts/[id] — Remove a post from the queue.
 // Session-gated by proxy.ts (this path isn't in its exclusion list), so only
-// a logged-in dashboard session can move a post's scheduled_at.
+// a logged-in dashboard session can move or delete a post.
 import { NextRequest, NextResponse } from 'next/server';
 import { and, eq, gte, lt } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
@@ -79,4 +80,28 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     scheduledAt: newScheduledAt.toISOString(),
     capStatus: { count, cap, overCap: count > cap },
   });
+}
+
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+
+  const [existing] = await db.select().from(posts).where(eq(posts.id, id)).limit(1);
+  if (!existing) {
+    return NextResponse.json({ error: "Post not found" }, { status: 404 });
+  }
+
+  await db.delete(posts).where(eq(posts.id, id));
+
+  await db.insert(auditLog).values({
+    actor: "dashboard",
+    action: "post_deleted",
+    subjectId: id,
+    payload: {
+      platform: existing.platform,
+      state: existing.state,
+      scheduledAt: existing.scheduledAt?.toISOString() ?? null,
+    },
+  });
+
+  return NextResponse.json({ ok: true });
 }

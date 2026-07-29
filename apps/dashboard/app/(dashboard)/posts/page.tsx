@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface Post {
   id: string;
@@ -33,9 +33,9 @@ function stateColor(state: string): string {
 function platformIcon(p: string): string {
   const map: Record<string, string> = {
     facebook: "f",
-    instagram: "●",
-    youtube_shorts: "▶",
-    tiktok: "♫",
+    instagram: "\u25cf",
+    youtube_shorts: "\u25b6",
+    tiktok: "\u266b",
   };
   return map[p] || "?";
 }
@@ -60,7 +60,7 @@ function PostMedia({ post, className }: { post: Post; className: string }) {
   );
 }
 
-function PostDetailModal({ post, onClose }: { post: Post; onClose: () => void }) {
+function PostDetailModal({ post, onClose, onDelete }: { post: Post; onClose: () => void; onDelete: (id: string) => void }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-dark/60 p-4"
@@ -103,16 +103,24 @@ function PostDetailModal({ post, onClose }: { post: Post; onClose: () => void })
             {post.createdAt && <span>Created: {new Date(post.createdAt).toLocaleString()}</span>}
           </div>
           {post.error && <p className="font-body text-xs text-red-600">{post.error}</p>}
-          {post.renderUrl && (
-            <a
-              href={post.renderUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-body text-xs text-primary underline"
+          <div className="flex items-center gap-3">
+            {post.renderUrl && (
+              <a
+                href={post.renderUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-body text-xs text-primary underline"
+              >
+                Open original file
+              </a>
+            )}
+            <button
+              onClick={() => { onDelete(post.id); onClose(); }}
+              className="ml-auto rounded bg-red-600 px-3 py-1 font-body text-xs text-white hover:bg-red-700"
             >
-              Open original file
-            </a>
-          )}
+              Delete
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -124,22 +132,102 @@ export default function PostsPage() {
   const [filter, setFilter] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
-    const url = filter ? `/api/posts?state=${filter}` : "/api/posts";
-    fetch(url)
-      .then((r) => r.json())
-      .then(setPosts)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    fetchPosts();
   }, [filter]);
+
+  const fetchPosts = async (showSpinner = false) => {
+    if (showSpinner) setRefreshing(true);
+    else setLoading(true);
+    const url = filter ? `/api/posts?state=${filter}` : "/api/posts";
+    try {
+      const res = await fetch(url);
+      if (res.ok) setPosts(await res.json());
+    } catch {}
+    setLoading(false);
+    setRefreshing(false);
+  };
+
+  const deletePost = useCallback(async (id: string) => {
+    if (!confirm("Delete this post? This cannot be undone.")) return;
+    try {
+      const res = await fetch(`/api/posts/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setPosts((prev) => prev.filter((p) => p.id !== id));
+        setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
+      } else {
+        const err = await res.json().catch(() => ({ error: "Delete failed" }));
+        alert(err.error || "Delete failed");
+      }
+    } catch {
+      alert("Network error while deleting");
+    }
+  }, []);
+
+  const bulkDelete = useCallback(async () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    if (!confirm(`Delete ${ids.length} post(s)? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      const res = await fetch("/api/posts/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (res.ok) {
+        setPosts((prev) => prev.filter((p) => !selected.has(p.id)));
+        setSelected(new Set());
+      } else {
+        const err = await res.json().catch(() => ({ error: "Bulk delete failed" }));
+        alert(err.error || "Bulk delete failed");
+      }
+    } catch {
+      alert("Network error while deleting");
+    } finally {
+      setBulkDeleting(false);
+    }
+  }, [selected]);
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === posts.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(posts.map((p) => p.id)));
+    }
+  };
+
+  const hasSelection = selected.size > 0;
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-heading text-3xl text-primary">Posts</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-heading text-3xl text-primary">Posts</h1>
+        <button
+          onClick={() => fetchPosts(true)}
+          className="flex items-center gap-1.5 rounded bg-dark/10 px-3 py-1.5 font-body text-sm text-dark hover:bg-dark/20"
+        >
+          <svg className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" /><polyline points="21 3 21 9 15 9" />
+          </svg>
+          Refresh
+        </button>
+      </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={() => setFilter("")}
           className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
@@ -159,6 +247,19 @@ export default function PostsPage() {
             {s}
           </button>
         ))}
+
+        {hasSelection && (
+          <div className="ml-auto flex items-center gap-2">
+            <span className="font-body text-sm text-muted">{selected.size} selected</span>
+            <button
+              onClick={bulkDelete}
+              disabled={bulkDeleting}
+              className="rounded bg-red-600 px-3 py-1 font-body text-sm text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {bulkDeleting ? "Deleting..." : "Delete selected"}
+            </button>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -167,15 +268,33 @@ export default function PostsPage() {
         <p className="font-body text-muted">No posts found.</p>
       ) : (
         <div className="grid gap-3">
+          <div className="flex items-center gap-3 rounded-lg border border-dark/10 bg-dark/5 px-4 py-2">
+            <input
+              type="checkbox"
+              checked={selected.size === posts.length && posts.length > 0}
+              onChange={toggleSelectAll}
+              className="h-4 w-4 rounded border-dark/30"
+            />
+            <span className="font-body text-xs text-muted">Select all</span>
+          </div>
           {posts.map((post) => (
             <div
               key={post.id}
-              onClick={() => setSelectedPost(post)}
-              className="flex cursor-pointer items-start gap-4 rounded-lg border border-dark/10 bg-light p-4 transition-colors hover:border-primary/40"
+              className={`flex items-start gap-4 rounded-lg border bg-light p-4 transition-colors ${
+                selected.has(post.id) ? "border-primary" : "border-dark/10 hover:border-primary/40"
+              }`}
             >
-              <PostMedia post={post} className="h-14 w-14 shrink-0 rounded object-cover" />
-
-              <div className="min-w-0 flex-1">
+              <input
+                type="checkbox"
+                checked={selected.has(post.id)}
+                onChange={() => toggleSelect(post.id)}
+                className="mt-1 h-4 w-4 rounded border-dark/30"
+              />
+              <div
+                className="min-w-0 flex-1 cursor-pointer"
+                onClick={() => setSelectedPost(post)}
+              >
+                <PostMedia post={post} className="mb-2 h-14 w-14 rounded object-cover" />
                 <div className="flex items-center gap-2">
                   <span className="font-body text-sm font-medium capitalize">{post.platform.replace("_", " ")}</span>
                   <span className={`rounded px-2 py-0.5 text-xs font-medium ${stateColor(post.state)}`}>
@@ -187,19 +306,30 @@ export default function PostsPage() {
                 )}
                 <div className="mt-1 flex items-center gap-3 font-body text-xs text-muted">
                   {post.scheduledAt && <span>Scheduled: {new Date(post.scheduledAt).toLocaleDateString()}</span>}
-                  {post.externalId && <span>ID: {post.externalId.slice(0, 8)}...</span>}
                   {post.createdAt && <span>Created: {new Date(post.createdAt).toLocaleDateString()}</span>}
                 </div>
                 {post.error && (
                   <p className="mt-1 font-body text-xs text-red-500 line-clamp-1">{post.error}</p>
                 )}
               </div>
+              <button
+                onClick={() => deletePost(post.id)}
+                className="mt-1 shrink-0 rounded bg-red-600 px-2 py-1 font-body text-xs text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
             </div>
           ))}
         </div>
       )}
 
-      {selectedPost && <PostDetailModal post={selectedPost} onClose={() => setSelectedPost(null)} />}
+      {selectedPost && (
+        <PostDetailModal
+          post={selectedPost}
+          onClose={() => setSelectedPost(null)}
+          onDelete={deletePost}
+        />
+      )}
     </div>
   );
 }

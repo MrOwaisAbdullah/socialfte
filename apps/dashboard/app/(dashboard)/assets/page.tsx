@@ -4,9 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 interface Asset {
   id: string;
-  // /api/assets returns Drizzle's .select() rows as-is, which serializes
-  // with the schema's camelCase JS property names (r2Key, not r2_key) — not
-  // the underlying snake_case DB column names. Matches /api/posts + its page.
   r2Key: string;
   piece: string | null;
   tier: string | null;
@@ -24,9 +21,6 @@ interface QueueItem {
   error?: string;
 }
 
-// Manual per-asset delete (broken R2 file cleanup) needs its own status per
-// card — separate from the upload queue's status, and keyed by asset id
-// rather than array index since deletions can happen in any order.
 type DeleteStatus = "idle" | "deleting" | "error";
 
 const R2_PUBLIC = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "https://pub-9482aec63df7420bb53018258d2b14ef.r2.dev";
@@ -37,14 +31,27 @@ export default function AssetsPage() {
   const [dragOver, setDragOver] = useState(false);
   const [brokenIds, setBrokenIds] = useState<Set<string>>(new Set());
   const [deleteStatus, setDeleteStatus] = useState<Record<string, DeleteStatus>>({});
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
 
   useEffect(() => {
-    fetch("/api/assets").then((r) => r.json()).then(setAssets).catch(() => {});
+    fetchAssets();
   }, []);
 
-  const deleteAsset = useCallback(async (id: string) => {
+  const fetchAssets = async (showSpinner = false) => {
+    if (showSpinner) setRefreshing(true);
+    try {
+      const res = await fetch("/api/assets");
+      if (res.ok) setAssets(await res.json());
+    } catch {}
+    setRefreshing(false);
+  };
+
+  const deleteAsset = useCallback(async (id: string, piece: string | null) => {
+    if (!confirm(`Delete ${piece || "this asset"}? This cannot be undone.`)) return;
     setDeleteStatus((prev) => ({ ...prev, [id]: "deleting" }));
     try {
       const res = await fetch(`/api/assets/${id}`, { method: "DELETE" });
@@ -55,6 +62,7 @@ export default function AssetsPage() {
         return;
       }
       setAssets((prev) => prev.filter((a) => a.id !== id));
+      setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
       setDeleteStatus((prev) => {
         const next = { ...prev };
         delete next[id];
@@ -65,6 +73,31 @@ export default function AssetsPage() {
       alert("Network error while deleting");
     }
   }, []);
+
+  const bulkDelete = useCallback(async () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    if (!confirm(`Delete ${ids.length} asset(s)? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      const res = await fetch("/api/assets/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (res.ok) {
+        setAssets((prev) => prev.filter((a) => !selected.has(a.id)));
+        setSelected(new Set());
+      } else {
+        const err = await res.json().catch(() => ({ error: "Bulk delete failed" }));
+        alert(err.error || "Bulk delete failed");
+      }
+    } catch {
+      alert("Network error while deleting");
+    } finally {
+      setBulkDeleting(false);
+    }
+  }, [selected]);
 
   const processQueue = useCallback(async (items: QueueItem[]) => {
     if (processingRef.current) return;
@@ -114,7 +147,6 @@ export default function AssetsPage() {
       }));
       setQueue((prev) => {
         const next = [...prev, ...newItems];
-        // kick off processing on next tick so state is settled
         setTimeout(() => processQueue(next), 0);
         return next;
       });
@@ -133,13 +165,42 @@ export default function AssetsPage() {
 
   const clearDone = () => setQueue((prev) => prev.filter((q) => q.status !== "done" && q.status !== "error"));
 
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === assets.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(assets.map((a) => a.id)));
+    }
+  };
+
   const pendingCount = queue.filter((q) => q.status === "pending" || q.status === "uploading").length;
   const doneCount = queue.filter((q) => q.status === "done").length;
   const errorCount = queue.filter((q) => q.status === "error").length;
+  const hasSelection = selected.size > 0;
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-heading text-3xl text-primary">Assets</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-heading text-3xl text-primary">Assets</h1>
+        <button
+          onClick={() => fetchAssets(true)}
+          className="flex items-center gap-1.5 rounded bg-dark/10 px-3 py-1.5 font-body text-sm text-dark hover:bg-dark/20"
+        >
+          <svg className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" /><polyline points="21 3 21 9 15 9" />
+          </svg>
+          Refresh
+        </button>
+      </div>
 
       <div
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -205,25 +266,61 @@ export default function AssetsPage() {
         </div>
       )}
 
+      {assets.length > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-dark/10 bg-dark/5 px-4 py-2">
+          <input
+            type="checkbox"
+            checked={selected.size === assets.length}
+            onChange={toggleSelectAll}
+            className="h-4 w-4 rounded border-dark/30"
+          />
+          <span className="font-body text-xs text-muted">Select all</span>
+          {hasSelection && (
+            <div className="ml-auto flex items-center gap-2">
+              <span className="font-body text-sm text-muted">{selected.size} selected</span>
+              <button
+                onClick={bulkDelete}
+                disabled={bulkDeleting}
+                className="rounded bg-red-600 px-3 py-1 font-body text-sm text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {bulkDeleting ? "Deleting..." : "Delete selected"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {assets.map((asset) => {
           const broken = brokenIds.has(asset.id);
           const status = deleteStatus[asset.id] ?? "idle";
           return (
-            <div key={asset.id} className="rounded-lg border border-dark/10 bg-light p-4">
-              {broken ? (
-                <div className="mb-2 flex aspect-square w-full flex-col items-center justify-center gap-1 rounded bg-red-50 text-center">
-                  <span className="font-body text-xs text-red-700">Image unavailable</span>
-                  <span className="font-body text-[10px] text-red-500">File may have been deleted from R2</span>
-                </div>
-              ) : (
-                <img
-                  src={asset.r2Key.startsWith("http") ? asset.r2Key : `${R2_PUBLIC}/${asset.r2Key}`}
-                  alt={asset.piece || "Asset"}
-                  className="mb-2 aspect-square w-full rounded object-cover"
-                  onError={() => setBrokenIds((prev) => new Set(prev).add(asset.id))}
+            <div
+              key={asset.id}
+              className={`rounded-lg border bg-light p-4 transition-colors ${
+                selected.has(asset.id) ? "border-primary" : "border-dark/10"
+              }`}
+            >
+              <div className="mb-2 flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={selected.has(asset.id)}
+                  onChange={() => toggleSelect(asset.id)}
+                  className="mt-1 h-4 w-4 rounded border-dark/30"
                 />
-              )}
+                {broken ? (
+                  <div className="flex aspect-square flex-1 flex-col items-center justify-center gap-1 rounded bg-red-50 text-center">
+                    <span className="font-body text-xs text-red-700">Image unavailable</span>
+                  </div>
+                ) : (
+                  <img
+                    src={asset.r2Key.startsWith("http") ? asset.r2Key : `${R2_PUBLIC}/${asset.r2Key}`}
+                    alt={asset.piece || "Asset"}
+                    className="aspect-square flex-1 rounded object-cover"
+                    onError={() => setBrokenIds((prev) => new Set(prev).add(asset.id))}
+                  />
+                )}
+              </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="font-body text-dark">{asset.piece || "Untagged"}</span>
                 <span className={`rounded px-2 py-0.5 text-xs ${
@@ -235,15 +332,13 @@ export default function AssetsPage() {
               <p className="mt-1 font-body text-xs text-muted">
                 Used {asset.timesUsed}x · {asset.tier || "?"} · {asset.variant || "?"}
               </p>
-              {broken && (
-                <button
-                  onClick={() => deleteAsset(asset.id)}
-                  disabled={status === "deleting"}
-                  className="mt-2 w-full rounded bg-red-600 py-1 font-body text-xs text-white hover:bg-red-700 disabled:opacity-50"
-                >
-                  {status === "deleting" ? "Deleting..." : "Delete asset"}
-                </button>
-              )}
+              <button
+                onClick={() => deleteAsset(asset.id, asset.piece)}
+                disabled={status === "deleting"}
+                className="mt-2 w-full rounded bg-red-600 py-1 font-body text-xs text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {status === "deleting" ? "Deleting..." : "Delete"}
+              </button>
             </div>
           );
         })}

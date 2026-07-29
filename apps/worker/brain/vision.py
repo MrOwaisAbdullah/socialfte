@@ -22,7 +22,9 @@ from config import settings
 
 logger = logging.getLogger("worker.vision")
 
-QUALITY_SCORE_REJECT_THRESHOLD = 60  # schema.sql's documented threshold
+QUALITY_SCORE_REJECT_THRESHOLD = 40  # lowered from 60 — Gemini consistently under-scores
+                                    # professional product photos (verified: multiple 70+ worthy
+                                    # furniture images scored 45-55, getting marked rejected)
 
 
 class AssetAnalysis(BaseModel):

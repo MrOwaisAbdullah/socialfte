@@ -212,15 +212,35 @@ function ScheduleEditor({
   );
 }
 
+// Spinner SVG for the refresh button
+function RefreshIcon({ spinning }: { spinning: boolean }) {
+  return (
+    <svg
+      className={`h-4 w-4 ${spinning ? "animate-spin" : ""}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+      <polyline points="21 3 21 9 15 9" />
+    </svg>
+  );
+}
+
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [running, setRunning] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchJobs = useCallback(async () => {
-    setLoading(true);
+  const fetchJobs = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setRefreshing(true);
+    else setLoading(true);
     try {
       const res = await fetch("/api/jobs");
       if (res.ok) setJobs(await res.json());
@@ -228,6 +248,7 @@ export default function JobsPage() {
       setError("Could not reach worker");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -249,9 +270,7 @@ export default function JobsPage() {
           const data = await res.json().catch(() => ({}));
           setError(data.detail || `Failed to run ${jobId}`);
         } else {
-          // The job runs in the background on the worker — refresh after a
-          // beat so "Running..." / the new job_runs row has a chance to show.
-          setTimeout(fetchJobs, 1500);
+          setTimeout(() => fetchJobs(true), 1500);
         }
       } catch {
         setError(`Could not reach worker for ${jobId}`);
@@ -267,9 +286,10 @@ export default function JobsPage() {
       <div className="flex items-center justify-between">
         <h1 className="font-heading text-3xl text-primary">Jobs</h1>
         <button
-          onClick={fetchJobs}
-          className="rounded bg-dark/10 px-3 py-1.5 font-body text-sm text-dark hover:bg-dark/20"
+          onClick={() => fetchJobs(true)}
+          className="flex items-center gap-1.5 rounded bg-dark/10 px-3 py-1.5 font-body text-sm text-dark hover:bg-dark/20"
         >
+          <RefreshIcon spinning={refreshing} />
           Refresh
         </button>
       </div>
@@ -314,6 +334,7 @@ export default function JobsPage() {
                     {editingJobId === job.id ? "Close" : "Edit schedule"}
                   </button>
                   <button
+                    type="button"
                     onClick={() => runJob(job.id)}
                     disabled={running === job.id}
                     className="rounded bg-primary px-3 py-1.5 font-body text-sm text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
