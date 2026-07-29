@@ -54,17 +54,21 @@ def _choose_format(platform: str) -> str:
         return formats[0]
     return "image" if random.random() < settings.IMAGE_POST_RATIO else "video"
 
-# Closest analog between the six Week 2 static templates and the four Week 5
-# video compositions (packages/remotion/src/compositions/) — there's no 1:1
-# mapping mandated anywhere, this is a reasonable starting default, not a
-# hard requirement.
+# Enhanced template mapping with new compositions
+# Provides better variety: glassmorphism, cinematic, grid layouts, etc.
 VIDEO_COMPOSITION_MAP = {
-    "hero": "HeroReveal",
-    "price-card": "PriceReveal",
-    "set-breakdown": "SetReveal",
-    "quote": "FabricDetail",
-    "before-after": "FabricDetail",
-    "carousel-slide": "HeroReveal",
+    "hero": "HeroReveal",              # Classic Ken Burns zoom
+    "premium-hero": "CinematicReveal",   # Film-inspired letterbox reveal
+    "price-card": "PriceReveal",        # Hook + growing bar reveal
+    "set-breakdown": "SetReveal",       # Wardrobe door reveal
+    "showcase": "ShowcaseCard",         # Glassmorphism premium card
+    "grid-layout": "DynamicGrid",       # Modern grid with animated cells
+    "quote": "FabricDetail",            # Slow pan across close-up
+    "before-after": "FabricDetail",     # Quality proof detail shot
+    "carousel-slide": "HeroReveal",     # Carousel format hero
+    "lifestyle": "LifestyleFrame",       # Warm room context frame
+    "detail-focus": "DetailFocus",       # Circular reveal detail shot
+    "product-split": "ProductSplit",     # Split-screen editorial layout
 }
 
 

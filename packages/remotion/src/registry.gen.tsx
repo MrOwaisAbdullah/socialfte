@@ -5,6 +5,12 @@ import Shot1, { compositionConfig as cfg1 } from './compositions/FabricDetail';
 import Shot2, { compositionConfig as cfg2 } from './compositions/HeroReveal';
 import Shot3, { compositionConfig as cfg3 } from './compositions/PriceReveal';
 import Shot4, { compositionConfig as cfg4 } from './compositions/SetReveal';
+import Shot5, { compositionConfig as cfg5 } from './compositions/ShowcaseCard';
+import Shot6, { compositionConfig as cfg6 } from './compositions/DynamicGrid';
+import Shot7, { compositionConfig as cfg7 } from './compositions/CinematicReveal';
+import Shot8, { compositionConfig as cfg8 } from './compositions/ProductSplit';
+import Shot9, { compositionConfig as cfg9 } from './compositions/LifestyleFrame';
+import Shot10, { compositionConfig as cfg10 } from './compositions/DetailFocus';
 
 export const shots: { Comp: React.FC; config: any }[] = [
   { Comp: Shot0 as React.FC, config: cfg0 },
@@ -12,4 +18,10 @@ export const shots: { Comp: React.FC; config: any }[] = [
   { Comp: Shot2 as React.FC, config: cfg2 },
   { Comp: Shot3 as React.FC, config: cfg3 },
   { Comp: Shot4 as React.FC, config: cfg4 },
+  { Comp: Shot5 as React.FC, config: cfg5 },
+  { Comp: Shot6 as React.FC, config: cfg6 },
+  { Comp: Shot7 as React.FC, config: cfg7 },
+  { Comp: Shot8 as React.FC, config: cfg8 },
+  { Comp: Shot9 as React.FC, config: cfg9 },
+  { Comp: Shot10 as React.FC, config: cfg10 },
 ];

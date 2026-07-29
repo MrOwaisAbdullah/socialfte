@@ -43,11 +43,17 @@ JOB_DEFAULT_CRONS: dict[str, str] = {}
 # compose regardless of how many assets existed).
 DEFAULT_TEMPLATES = [
     ("hero", "Hero"),
+    ("premium-hero", "Premium Hero"),
     ("price-card", "Price Card"),
     ("set-breakdown", "Set Breakdown"),
     ("quote", "Quote"),
     ("before-after", "Before / After"),
     ("carousel-slide", "Carousel Slide"),
+    ("showcase", "Showcase"),
+    ("grid-layout", "Grid Layout"),
+    ("lifestyle", "Lifestyle"),
+    ("detail-focus", "Detail Focus"),
+    ("product-split", "Product Split"),
 ]
 
 
