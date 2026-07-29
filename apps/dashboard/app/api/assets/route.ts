@@ -3,6 +3,8 @@ import { desc } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { assets } from "@/lib/db/schema";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const allAssets = await db
     .select()

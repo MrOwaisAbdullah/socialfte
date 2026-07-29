@@ -1,25 +1,23 @@
 // Bootstrap status API — returns whether setup has been completed.
-// Was existsSync(BOOTSTRAP.md), a file the worker's CLI wizard writes — the
-// dashboard and worker are separate Docker containers with no shared volume
-// (infra/docker-compose.yml), so this could never actually see it in
-// production and always reported incomplete. brand_config.setup_complete
-// (written by /api/internal/bootstrap/verify) is the real signal now.
 import { NextResponse } from 'next/server';
-import { sql } from 'drizzle-orm';
-import { db } from '@/lib/db/client';
+import { existsSync } from 'fs';
+import { join } from 'path';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  try {
-    const { rows } = await db.execute<{ setup_complete: boolean }>(
-      sql`SELECT setup_complete FROM brand_config WHERE key = 'default'`
-    );
-    return NextResponse.json({ completed: rows[0]?.setup_complete ?? false });
-  } catch {
-    // brand_config not migrated yet, or DB unreachable — treat as not set up
-    // rather than 500ing the setup page.
-    return NextResponse.json({ completed: false });
-  }
+  // In Docker process.cwd() is /app (the dashboard app directory).
+  // BOOTSTRAP.md lives at the workspace root, which could be several
+  // levels up depending on the deployment layout. Check the most
+  // likely locations and return completed=true if ANY of them exist.
+  const candidates = [
+    join(process.cwd(), 'BOOTSTRAP.md'),             // /app/BOOTSTRAP.md
+    join(process.cwd(), '..', 'BOOTSTRAP.md'),       // one level up
+    join(process.cwd(), '..', '..', 'BOOTSTRAP.md'), // two levels up (monorepo root)
+    '/app/BOOTSTRAP.md',
+    '/BOOTSTRAP.md',
+  ];
+  const completed = candidates.some((p) => existsSync(p));
+  return NextResponse.json({ completed });
 }

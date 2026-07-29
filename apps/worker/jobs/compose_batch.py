@@ -203,6 +203,18 @@ async def compose_batch():
     """Compose a batch of posts in state='review'. Runs on COMPOSE_BATCH_CRON."""
     logger.info("Starting batch composition — target: %d posts", TARGET_BATCH_SIZE)
 
+    # Fail-fast: RENDER_INTERNAL_URL must be reachable for image posts.
+    # The default (http://localhost:3000) only works for local dev; in Dokploy
+    # the dashboard has a generated service hostname. Surface this early
+    # instead of failing silently on every render call.
+    if not settings.RENDER_INTERNAL_URL or settings.RENDER_INTERNAL_URL == "http://localhost:3000":
+        logger.warning(
+            "RENDER_INTERNAL_URL is '%s' — this is likely wrong in Dokploy. "
+            "Set it to the dashboard app's internal service hostname (check its Dokploy panel). "
+            "Image posts will fail to render until this is corrected.",
+            settings.RENDER_INTERNAL_URL,
+        )
+
     # Drafting doesn't need real publish credentials — only publish_due does,
     # and it already fails safely (post -> state='failed', clear error) when
     # a platform has no real token. Blocking composition entirely here meant
@@ -219,7 +231,22 @@ async def compose_batch():
 
     candidates = await _pick_candidates()
     if not candidates:
-        logger.warning("No candidate asset+template pairs found for composition")
+        # Surface the most common reasons immediately rather than a
+        # silent "No candidate asset+template pairs" — the operator
+        # needs to know whether it's zero assets, zero templates, or
+        # all assets rejected.
+        async with SessionLocal() as session:
+            from sqlalchemy import func as sa_func, select as sa_select
+            asset_count = (await session.execute(sa_select(sa_func.count()).select_from(Asset))).scalar_one()
+            rejected_count = (await session.execute(
+                sa_select(sa_func.count()).select_from(Asset).where(Asset.reject_reason.isnot(None))
+            )).scalar_one()
+            template_count = (await session.execute(sa_select(sa_func.count()).select_from(Template))).scalar_one()
+        logger.warning(
+            "No candidate asset+template pairs found for composition "
+            "(assets=%d, rejected=%d, templates=%d) — nothing to compose",
+            asset_count, rejected_count, template_count,
+        )
         return
 
     composed = 0
