@@ -21,8 +21,6 @@ interface QueueItem {
   error?: string;
 }
 
-type DeleteStatus = "idle" | "deleting" | "error";
-
 const R2_PUBLIC = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "https://pub-9482aec63df7420bb53018258d2b14ef.r2.dev";
 
 export default function AssetsPage() {
@@ -30,7 +28,7 @@ export default function AssetsPage() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [brokenIds, setBrokenIds] = useState<Set<string>>(new Set());
-  const [deleteStatus, setDeleteStatus] = useState<Record<string, DeleteStatus>>({});
+  const [deleteStatus, setDeleteStatus] = useState<Record<string, "deleting" | "error">>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -57,19 +55,14 @@ export default function AssetsPage() {
       const res = await fetch(`/api/assets/${id}`, { method: "DELETE" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Delete failed" }));
-        setDeleteStatus((prev) => ({ ...prev, [id]: "error" }));
+        setDeleteStatus((prev) => { const next = { ...prev }; delete next[id]; return next; });
         alert(err.error || "Delete failed");
         return;
       }
       setAssets((prev) => prev.filter((a) => a.id !== id));
       setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
-      setDeleteStatus((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
     } catch {
-      setDeleteStatus((prev) => ({ ...prev, [id]: "error" }));
+      setDeleteStatus((prev) => { const next = { ...prev }; delete next[id]; return next; });
       alert("Network error while deleting");
     }
   }, []);
@@ -99,40 +92,53 @@ export default function AssetsPage() {
     }
   }, [selected]);
 
-  const processQueue = useCallback(async (items: QueueItem[]) => {
+  const processQueue = useCallback(async () => {
     if (processingRef.current) return;
     processingRef.current = true;
 
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].status !== "pending") continue;
+    let continueLoop = true;
+    while (continueLoop) {
+      continueLoop = false;
 
-      setQueue((prev) =>
-        prev.map((q, idx) => (idx === i ? { ...q, status: "uploading" } : q))
-      );
+      const snapshot = await new Promise<QueueItem[]>((resolve) => {
+        setQueue((prev) => {
+          resolve(prev);
+          return prev;
+        });
+      });
 
-      try {
-        const form = new FormData();
-        form.append("file", items[i].file);
-        const res = await fetch("/api/assets/upload", { method: "POST", body: form });
-        if (res.ok) {
-          const data = await res.json();
-          setAssets((prev) => [
-            { id: data.id, r2Key: data.url || "", piece: null, tier: null, variant: null, qualityScore: null, rejectReason: null, timesUsed: 0, createdAt: new Date().toISOString() },
-            ...prev,
-          ]);
+      for (let i = 0; i < snapshot.length; i++) {
+        if (snapshot[i].status !== "pending") continue;
+        continueLoop = true;
+
+        setQueue((prev) =>
+          prev.map((q, idx) => (idx === i ? { ...q, status: "uploading" } : q))
+        );
+
+        try {
+          const form = new FormData();
+          form.append("file", snapshot[i].file);
+          const res = await fetch("/api/assets/upload", { method: "POST", body: form });
+          if (res.ok) {
+            const data = await res.json();
+            setAssets((prev) => [
+              { id: data.id, r2Key: data.url || "", piece: null, tier: null, variant: null, qualityScore: null, rejectReason: null, timesUsed: 0, createdAt: new Date().toISOString() },
+              ...prev,
+            ]);
+            setQueue((prev) =>
+              prev.map((q, idx) => (idx === i ? { ...q, status: "done", id: data.id } : q))
+            );
+          } else {
+            const err = await res.json().catch(() => ({ error: "Upload failed" }));
+            setQueue((prev) =>
+              prev.map((q, idx) => (idx === i ? { ...q, status: "error", error: err.error || "Upload failed" } : q))
+            );
+          }
+        } catch {
           setQueue((prev) =>
-            prev.map((q, idx) => (idx === i ? { ...q, status: "done", id: data.id } : q))
-          );
-        } else {
-          const err = await res.json().catch(() => ({ error: "Upload failed" }));
-          setQueue((prev) =>
-            prev.map((q, idx) => (idx === i ? { ...q, status: "error", error: err.error || "Upload failed" } : q))
+            prev.map((q, idx) => (idx === i ? { ...q, status: "error", error: "Network error" } : q))
           );
         }
-      } catch {
-        setQueue((prev) =>
-          prev.map((q, idx) => (idx === i ? { ...q, status: "error", error: "Network error" } : q))
-        );
       }
     }
 
@@ -145,11 +151,8 @@ export default function AssetsPage() {
         file,
         status: "pending" as const,
       }));
-      setQueue((prev) => {
-        const next = [...prev, ...newItems];
-        setTimeout(() => processQueue(next), 0);
-        return next;
-      });
+      setQueue((prev) => [...prev, ...newItems]);
+      setTimeout(() => processQueue(), 0);
     },
     [processQueue]
   );
@@ -281,8 +284,13 @@ export default function AssetsPage() {
               <button
                 onClick={bulkDelete}
                 disabled={bulkDeleting}
-                className="rounded bg-red-600 px-3 py-1 font-body text-sm text-white hover:bg-red-700 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded bg-red-600 px-3 py-1 font-body text-sm text-white hover:bg-red-700 disabled:opacity-50"
               >
+                {bulkDeleting && (
+                  <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                )}
                 {bulkDeleting ? "Deleting..." : "Delete selected"}
               </button>
             </div>
@@ -293,7 +301,7 @@ export default function AssetsPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {assets.map((asset) => {
           const broken = brokenIds.has(asset.id);
-          const status = deleteStatus[asset.id] ?? "idle";
+          const status = deleteStatus[asset.id];
           return (
             <div
               key={asset.id}
@@ -301,22 +309,22 @@ export default function AssetsPage() {
                 selected.has(asset.id) ? "border-primary" : "border-dark/10"
               }`}
             >
-              <div className="mb-2 flex items-start gap-2">
+              <div className="relative mb-2">
                 <input
                   type="checkbox"
                   checked={selected.has(asset.id)}
                   onChange={() => toggleSelect(asset.id)}
-                  className="mt-1 h-4 w-4 rounded border-dark/30"
+                  className="absolute left-1 top-1 z-10 h-4 w-4 rounded border-dark/30 bg-white/80"
                 />
                 {broken ? (
-                  <div className="flex aspect-square flex-1 flex-col items-center justify-center gap-1 rounded bg-red-50 text-center">
+                  <div className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded bg-red-50 text-center">
                     <span className="font-body text-xs text-red-700">Image unavailable</span>
                   </div>
                 ) : (
                   <img
                     src={asset.r2Key.startsWith("http") ? asset.r2Key : `${R2_PUBLIC}/${asset.r2Key}`}
                     alt={asset.piece || "Asset"}
-                    className="aspect-square flex-1 rounded object-cover"
+                    className="aspect-square w-full rounded object-cover"
                     onError={() => setBrokenIds((prev) => new Set(prev).add(asset.id))}
                   />
                 )}
@@ -335,8 +343,13 @@ export default function AssetsPage() {
               <button
                 onClick={() => deleteAsset(asset.id, asset.piece)}
                 disabled={status === "deleting"}
-                className="mt-2 w-full rounded bg-red-600 py-1 font-body text-xs text-white hover:bg-red-700 disabled:opacity-50"
+                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded bg-red-600 py-1 font-body text-xs text-white hover:bg-red-700 disabled:opacity-50"
               >
+                {status === "deleting" && (
+                  <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                )}
                 {status === "deleting" ? "Deleting..." : "Delete"}
               </button>
             </div>
