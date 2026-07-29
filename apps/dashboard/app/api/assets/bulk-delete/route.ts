@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, inArray } from "drizzle-orm";
+import { count, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { assets, posts } from "@/lib/db/schema";
 import { deleteObject } from "@/lib/r2";
@@ -11,9 +11,11 @@ export async function POST(request: NextRequest) {
   }
 
   // Check for assets referenced by posts (can't delete)
-  const [{ value: refCount }] = await db
-    .select({ value: db.$count(posts, inArray(posts.assetId, ids)) })
+  const [row] = await db
+    .select({ value: count() })
+    .from(posts)
     .where(inArray(posts.assetId, ids));
+  const refCount = row?.value ?? 0;
   if (refCount > 0) {
     return NextResponse.json(
       { error: `${refCount} asset(s) are referenced by posts and can't be deleted` },
