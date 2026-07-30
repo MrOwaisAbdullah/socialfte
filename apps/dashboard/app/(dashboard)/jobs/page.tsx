@@ -241,11 +241,26 @@ export default function JobsPage() {
   const fetchJobs = useCallback(async (showSpinner = false) => {
     if (showSpinner) setRefreshing(true);
     else setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/jobs");
-      if (res.ok) setJobs(await res.json());
-    } catch {
-      setError("Could not reach worker");
+      if (res.ok) {
+        const data = await res.json();
+        // Check if data has error or is actually job list
+        if (data.error && !Array.isArray(data)) {
+          setError(data.error);
+          setJobs([]);
+        } else {
+          setJobs(Array.isArray(data) ? data : []);
+        }
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        setError(`Worker returned ${res.status}: ${errorData.error || res.statusText}`);
+        setJobs([]);
+      }
+    } catch (err) {
+      setError("Could not reach worker - make sure WORKER_INTERNAL_URL is configured");
+      setJobs([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -270,7 +285,11 @@ export default function JobsPage() {
           const data = await res.json().catch(() => ({}));
           setError(data.detail || `Failed to run ${jobId}`);
         } else {
-          setTimeout(() => fetchJobs(true), 1500);
+          // Only refresh if we successfully reached the worker AND got valid data
+          // This prevents infinite retry loops when worker is down or returns errors
+          if (jobs.length > 0) {
+            setTimeout(() => fetchJobs(true), 1500);
+          }
         }
       } catch {
         setError(`Could not reach worker for ${jobId}`);
@@ -295,13 +314,40 @@ export default function JobsPage() {
       </div>
 
       {error && (
-        <div className="rounded bg-red-50 p-3 font-body text-sm text-red-700">{error}</div>
+        <div className="rounded bg-red-50 p-4 font-body text-sm text-red-700 border border-red-200">
+          <strong>Worker Connection Error:</strong> {error}
+          <div className="mt-2 text-xs">
+            Please check that WORKER_INTERNAL_URL is set correctly and the worker service is running.
+          </div>
+        </div>
       )}
 
       {loading ? (
         <p className="font-body text-muted">Loading...</p>
+      ) : error ? (
+        <div className="rounded bg-blue-50 p-6 font-body text-sm text-blue-700 border border-blue-200">
+          <div className="flex items-center gap-2 mb-2">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001-1h-1a1 1 0 01-1-1V9a1 1 0 011-1H8z" clipRule="evenodd" />
+            </svg>
+            <strong>Worker Unavailable</strong>
+          </div>
+          <div className="text-sm">
+            The dashboard cannot reach the worker service. This is expected in local development if the worker isn't running.
+          </div>
+          <div className="mt-3 text-xs">
+            <strong>To fix:</strong>
+            <ul className="list-disc ml-4 mt-1">
+              <li>Local: Start the worker with <code>cd apps/worker && uv run python main.py</code></li>
+              <li>VPS: Set <code>WORKER_INTERNAL_URL</code> to the worker's internal hostname in Dokploy</li>
+              <li>Both services must be on the same Docker network</li>
+            </ul>
+          </div>
+        </div>
       ) : jobs.length === 0 ? (
-        <p className="font-body text-muted">No jobs registered.</p>
+        <div className="rounded bg-gray-50 p-6 font-body text-sm text-gray-600 border border-gray-200">
+          No jobs registered. Start the worker to see scheduled jobs here.
+        </div>
       ) : (
         <div className="grid gap-3">
           {jobs.map((job) => (

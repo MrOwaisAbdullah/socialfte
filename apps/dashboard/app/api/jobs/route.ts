@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// No safe hardcoded fallback for a real deployment: Dokploy runs each app as
-// a Swarm service and generates its own internal hostname per app, with a
-// random per-deployment suffix (e.g. socialfte-worker-2s66t5, not
-// socialfte-worker and not docker-compose.yml's yl-worker) — check that
-// app's Dokploy panel for its real name. WORKER_INTERNAL_URL MUST be set
-// explicitly in the dashboard app's Dokploy env config. localhost is only
-// correct for local dev (both processes on the same machine).
-const WORKER_URL = process.env.WORKER_INTERNAL_URL || "http://localhost:8000";
+// Dashboard needs to reach the worker - use WORKER_SERVICE_URL to avoid confusion
+// with the worker's own WORKER_INTERNAL_URL (which points to the dashboard).
+// In Dokploy: set WORKER_SERVICE_URL to the worker's internal service hostname.
+const WORKER_URL = process.env.WORKER_SERVICE_URL || "http://socialfte-worker-2s66t5:8000";
 
 export async function GET() {
   try {
