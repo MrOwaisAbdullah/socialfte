@@ -16,10 +16,9 @@ import { FONT_DISPLAY, FONT_BODY, FONT_MONO, FONT_SERIF } from '../fonts';
 export const CLAMP = { extrapolateLeft: 'clamp' as const, extrapolateRight: 'clamp' as const };
 export const lib = (name: string) => staticFile(`${name}`);
 
-// Strip emoji and other non-BMP characters that video fonts can't render.
-// Keeps basic Latin, extended Latin, common punctuation, and CJK.
+// Strip emoji, box characters, and other non-BMP characters that video fonts can't render.
 export const stripEmoji = (text: string): string =>
-  text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '').trim();
+  text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{25A0}-\u{25FF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '').trim();
 
 // ---- brand corner mark: logo + social handle, toggled by BRAND.showMark --
 // Real SocialFTE compositions (HeroReveal, PriceReveal, FabricDetail,

@@ -16,7 +16,7 @@ import { BrandBadge, BrandBg, useRise, CLAMP } from '../lib/kit';
 //
 //   cd packages/remotion && npx remotion still src/index.ts BrandProof out/brand.png --frame=95
 // =============================================================================
-export const compositionConfig = { id: 'BrandProof', durationInSeconds: 5, fps: 30, width: 1080, height: 1920 };
+export const compositionConfig = { id: 'BrandProof', durationInSeconds: 8, fps: 30, width: 1080, height: 1920 };
 
 // Every role in brand.ts, in the order BRAND.md §4 documents them.
 const SWATCHES: readonly [string, string][] = [

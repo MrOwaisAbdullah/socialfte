@@ -6,7 +6,7 @@ import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
 
 export const compositionConfig = {
   id: 'DetailFocus',
-  durationInSeconds: 5,
+  durationInSeconds: 10,
   fps: 30,
   width: 1080,
   height: 1080
@@ -90,7 +90,7 @@ const DetailFocus: React.FC<Props> = ({
       {/* Content overlay */}
       <AbsoluteFill
         style={{
-          justifyContent: 'flex-end',
+          justifyContent: 'center',
           alignItems: 'flex-start',
           padding: 80,
           pointerEvents: 'none',
@@ -99,7 +99,7 @@ const DetailFocus: React.FC<Props> = ({
         <div style={{ transform: `scale(${detailScale})`, marginBottom: 20 }}>
           <div style={{
             fontFamily: FONT_DISPLAY,
-            fontSize: 52,
+            fontSize: 64,
             fontWeight: 700,
             color: '#fff',
             lineHeight: 1.1,

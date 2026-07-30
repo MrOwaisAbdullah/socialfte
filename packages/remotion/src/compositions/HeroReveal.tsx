@@ -12,7 +12,7 @@ import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
 //   cd packages/remotion && npx remotion still src/index.ts HeroReveal out/hero.png --frame=60 \
 //     --props='{"imageUrl":"https://picsum.photos/1080/1920","headline":"Solid Sheesham Dining Set","subline":"PKR 245,000"}'
 // =============================================================================
-export const compositionConfig = { id: 'HeroReveal', durationInSeconds: 5, fps: 30, width: 1080, height: 1920 };
+export const compositionConfig = { id: 'HeroReveal', durationInSeconds: 10, fps: 30, width: 1080, height: 1920 };
 
 const ZOOM_DURATION_FRAMES = 150; // 5s @ 30fps, per the kickoff's spec
 
@@ -69,13 +69,13 @@ const HeroReveal: React.FC<Props> = ({ imageUrl, headline, subline }) => {
         }}
       />
 
-      <AbsoluteFill style={{ justifyContent: 'flex-end', padding: '0 64px 120px' }}>
+      <AbsoluteFill style={{ justifyContent: 'center', padding: '0 64px' }}>
         <div
           style={{
             opacity: headlineOp,
             transform: `translateY(${headlineY}px) scale(${headlineScale})`,
             fontFamily: FONT_DISPLAY,
-            fontSize: 68,
+            fontSize: 84,
             lineHeight: 1.1,
             color: '#fff',
             textShadow: '0 2px 8px rgba(0,0,0,0.5)',
@@ -91,7 +91,7 @@ const HeroReveal: React.FC<Props> = ({ imageUrl, headline, subline }) => {
               transform: `translateY(${sublineY}px)`,
               fontFamily: FONT_BODY,
               fontWeight: 700,
-              fontSize: 40,
+              fontSize: 48,
               color: COLORS.accent,
               marginTop: 16,
               textShadow: '0 2px 6px rgba(0,0,0,0.6)',

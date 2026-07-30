@@ -202,7 +202,7 @@ class Settings(BaseSettings):
     # rather than "video" (compose_batch.py's _choose_format) — those two
     # platforms accept either; TikTok/YouTube Shorts are always video
     # regardless of this setting.
-    IMAGE_POST_RATIO: float = Field(default=0.7)
+    IMAGE_POST_RATIO: float = Field(default=0.9)
 
     # Cron schedules (Week 4, from §9)
     COMPOSE_BATCH_CRON: str = Field(default="0 4 * * *")  # daily at 04:00

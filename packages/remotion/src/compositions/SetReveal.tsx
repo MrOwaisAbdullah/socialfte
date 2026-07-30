@@ -9,7 +9,7 @@ import { BrandBadge, CLAMP } from '../lib/kit';
 // the full set image underneath, then the set name + bundle price appear.
 // Week 5, User Story 1.
 // =============================================================================
-export const compositionConfig = { id: 'SetReveal', durationInSeconds: 6, fps: 30, width: 1080, height: 1920 };
+export const compositionConfig = { id: 'SetReveal', durationInSeconds: 10, fps: 30, width: 1080, height: 1920 };
 
 const DOOR_OPEN_START = 20;
 const DOOR_OPEN_END = 65;
@@ -64,13 +64,13 @@ const SetReveal: React.FC<Props> = ({ imageUrl, setName, bundlePrice }) => {
         style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 45%)' }}
       />
 
-      <AbsoluteFill style={{ justifyContent: 'flex-end', alignItems: 'center', padding: '0 64px 130px', textAlign: 'center' }}>
+      <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', padding: '0 64px', textAlign: 'center' }}>
         <div
           style={{
             opacity: nameOp,
             transform: `translateY(${nameY}px)`,
             fontFamily: FONT_DISPLAY,
-            fontSize: 64,
+            fontSize: 72,
             color: '#fff',
           }}
         >

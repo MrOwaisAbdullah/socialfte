@@ -9,7 +9,7 @@ import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
 // Week 5, User Story 1. `hookText` is a prop (with a sensible default), not a
 // hardcoded string — every post can supply its own hook.
 // =============================================================================
-export const compositionConfig = { id: 'PriceReveal', durationInSeconds: 5, fps: 30, width: 1080, height: 1920 };
+export const compositionConfig = { id: 'PriceReveal', durationInSeconds: 8, fps: 30, width: 1080, height: 1920 };
 
 type Props = {
   imageUrl: string;

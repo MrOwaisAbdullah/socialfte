@@ -11,7 +11,7 @@ import { BrandBadge, CLAMP } from '../lib/kit';
 // =============================================================================
 export const compositionConfig = {
   id: 'LifestyleFrame',
-  durationInSeconds: 6,
+  durationInSeconds: 8,
   fps: 30,
   width: 1080,
   height: 1080

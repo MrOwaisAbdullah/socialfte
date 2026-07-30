@@ -11,7 +11,7 @@ import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
 // =============================================================================
 export const compositionConfig = {
   id: 'CinematicReveal',
-  durationInSeconds: 7,
+  durationInSeconds: 10,
   fps: 30,
   width: 1080,
   height: 1920

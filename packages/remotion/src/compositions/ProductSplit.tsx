@@ -11,7 +11,7 @@ import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
 // =============================================================================
 export const compositionConfig = {
   id: 'ProductSplit',
-  durationInSeconds: 5,
+  durationInSeconds: 8,
   fps: 30,
   width: 1080,
   height: 1080

@@ -22,8 +22,8 @@ export const BRAND = {
   // other two. Static like the rest of this file (this pipeline renders on
   // GitHub Actions, not per-request) — see apps/worker/config.py's BRAND_*
   // vars for the dashboard-side (still image) equivalent.
-  logoUrl: '',
-  socialHandle: '',
+  logoUrl: 'https://pub-9482aec63df7420bb53018258d2b14ef.r2.dev/logo.png',
+  socialHandle: '@yousufliving',
   showMark: true,
 } as const;
 

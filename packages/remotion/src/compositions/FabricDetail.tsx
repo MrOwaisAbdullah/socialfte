@@ -9,9 +9,9 @@ import { BrandBadge, CLAMP } from '../lib/kit';
 // Pure quality proof: no price, no CTA, per spec.md's User Story 1 scenario 3.
 // Week 5, User Story 1.
 // =============================================================================
-export const compositionConfig = { id: 'FabricDetail', durationInSeconds: 4, fps: 30, width: 1080, height: 1920 };
+export const compositionConfig = { id: 'FabricDetail', durationInSeconds: 8, fps: 30, width: 1080, height: 1920 };
 
-const PAN_DURATION_FRAMES = 120; // 4s @ 30fps
+const PAN_DURATION_FRAMES = 240; // 8s @ 30fps
 
 type Props = {
   imageUrl: string;
