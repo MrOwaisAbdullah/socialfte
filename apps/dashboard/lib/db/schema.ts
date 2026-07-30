@@ -2,6 +2,7 @@
 // Mirrors apps/worker/db/schema.sql exactly. That SQL file is the source of
 // truth (see its own header comment) — this file, and Python's models.py,
 // must never diverge from it.
+import { sql } from 'drizzle-orm';
 import {
   pgTable,
   uuid,
@@ -147,6 +148,14 @@ export const brandConfig = pgTable('brand_config', {
   socialHandle: text('social_handle'),
   showBrandMark: boolean('show_brand_mark').notNull().default(true),
   captionLanguage: text('caption_language'),
+  // Mirrors schema.sql's target_platforms exactly — was missing here entirely
+  // (added to schema.sql/models.py by an earlier commit but never mirrored
+  // into this file), so app/api/settings/route.ts's brandConfig.targetPlatforms
+  // read didn't exist on the inferred row type and failed `next build`'s
+  // typecheck step.
+  targetPlatforms: text('target_platforms')
+    .array()
+    .default(sql`ARRAY['facebook', 'instagram', 'youtube_shorts', 'tiktok']::text[]`),
   setupComplete: boolean('setup_complete').notNull().default(false),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
