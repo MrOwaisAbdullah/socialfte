@@ -53,9 +53,10 @@ export default function CarouselSlide({
             fontWeight: 600,
             fontSize: Math.round(width * 0.026),
             color: brand.colors.light,
-            background: `${brand.colors.dark}99`,
+            background: '#d62828',
             padding: '4px 12px',
-            borderRadius: 999,
+            borderRadius: '12px',
+            boxShadow: '0 8px 24px rgba(26, 26, 26, 0.12)',
           }}
         >
           {slideIndex}/{slideCount}
@@ -67,6 +68,10 @@ export default function CarouselSlide({
           left: 0,
           right: 0,
           bottom: 0,
+          background: 'rgba(255, 255, 255, 0.08)',
+          backdropFilter: 'blur(12px)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.15)',
+          boxShadow: '0 8px 24px rgba(26, 26, 26, 0.12)',
           padding: Math.round(width * 0.06),
           display: 'flex',
           flexDirection: 'column',

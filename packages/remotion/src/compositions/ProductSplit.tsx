@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji, MusicBed } from '../lib/kit';
 
 // =============================================================================
 // ProductSplit — Split-screen layout with dynamic content balance
@@ -66,6 +66,7 @@ const ProductSplit: React.FC<Props> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.paper }}>
+      <MusicBed trackId="ProductSplit" />
       {/* Dynamic split layout */}
       <div style={{
         display: 'flex',

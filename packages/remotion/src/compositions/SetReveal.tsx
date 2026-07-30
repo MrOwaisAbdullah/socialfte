@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from 'remotion';
 import { BRAND, COLORS, EASINGS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP, MusicBed } from '../lib/kit';
 
 // =============================================================================
 // SetReveal — two "wardrobe door" panels slide open (CSS transform) to reveal
@@ -36,6 +36,7 @@ const SetReveal: React.FC<Props> = ({ imageUrl, setName, bundlePrice }) => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.d900 }}>
+      <MusicBed trackId="SetReveal" />
       <Img src={imageUrl} maxRetries={3} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 
       {/* the two door panels, styled from brand tokens, sliding fully off-screen */}

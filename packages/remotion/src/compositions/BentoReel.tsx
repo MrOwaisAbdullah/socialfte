@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji, MusicBed } from '../lib/kit';
 
 // =============================================================================
 // BentoReel — Vertical bento grid for video reels with animated cells
@@ -48,69 +48,71 @@ const BentoReel: React.FC<Props> = ({
 }) => {
   const frame = useCurrentFrame();
 
-  // Define enhanced vertical bento grid layout (4x3 grid for more content)
+  // Define enhanced vertical bento grid layout — content in upper rows 0-3,
+  // reserve bottom area for social media native UI (caption, like/comment icons).
+  // Uses 5 rows with most content in rows 0-3, minimal content in row 4 (bottom-safe).
   const bentoLayout: BentoCell[] = [
-    // Large hero image cell (2x2) - top left
+    // Large hero image cell (2x2) - top left, rows 0-1
     {
       type: 'image',
       content: imageUrl,
       position: { row: 0, col: 0, rowSpan: 2, colSpan: 2 }
     },
-    // Large gradient tagline cell (1x1) - top right
+    // Large gradient tagline cell (1x1) - top right, row 0
     {
       type: 'gradient',
       content: tagline,
       position: { row: 0, col: 2, rowSpan: 1, colSpan: 1 }
     },
-    // Secondary image cell (1x1) - middle right
+    // Secondary image cell (1x1) - upper middle right, row 1
     {
       type: 'image',
       content: secondaryImage || imageUrl,
       position: { row: 1, col: 2, rowSpan: 1, colSpan: 1 }
     },
-    // Product name cell (1x2) - large text below hero
+    // Product name cell (1x2) - large text below hero, row 2
     {
       type: 'text',
       content: productName,
       position: { row: 2, col: 0, rowSpan: 1, colSpan: 2 }
     },
-    // Price cell (1x1) - bottom left
+    // Info cell (1x1) - middle row 2, col 2
     {
-      type: 'gradient',
-      content: price || '★',
+      type: 'color',
+      color: COLORS.accent,
+      content: 'NEW',
       position: { row: 2, col: 2, rowSpan: 1, colSpan: 1 }
     },
-    // Brand cell (1x1) - bottom middle
+    // Brand cell (1x1) - row 2, col 3
     {
       type: 'color',
       color: COLORS.accent2,
       content: BRAND.wordmark[0] + '\n' + BRAND.wordmark[1],
       position: { row: 2, col: 3, rowSpan: 1, colSpan: 1 }
     },
-    // Third image cell (1x2) - middle section
+    // Third image cell (1x2) - middle section, row 3
     {
       type: 'image',
       content: thirdImage || secondaryImage || imageUrl,
       position: { row: 3, col: 0, rowSpan: 1, colSpan: 2 }
     },
-    // Info cell (1x1) - middle right
-    {
-      type: 'color',
-      color: COLORS.accent,
-      content: 'NEW',
-      position: { row: 3, col: 2, rowSpan: 1, colSpan: 1 }
-    },
-    // Fourth image cell (1x1) - bottom right
+    // Fourth image cell (1x1) - row 3, col 2
     {
       type: 'image',
       content: fourthImage || thirdImage || imageUrl,
-      position: { row: 3, col: 3, rowSpan: 1, colSpan: 1 }
+      position: { row: 3, col: 2, rowSpan: 1, colSpan: 1 }
     },
-    // Fifth image cell (1x3) - bottom row full width
+    // Fifth image cell (1x1) - row 3, col 3
     {
       type: 'image',
       content: fifthImage || fourthImage || imageUrl,
-      position: { row: 4, col: 0, rowSpan: 1, colSpan: 3 }
+      position: { row: 3, col: 3, rowSpan: 1, colSpan: 1 }
+    },
+    // Price cell (1x4) - row 4 (bottom-safe, avoids social UI), full width
+    {
+      type: 'gradient',
+      content: price || '★',
+      position: { row: 4, col: 0, rowSpan: 1, colSpan: 4 }
     },
   ];
 
@@ -150,12 +152,26 @@ const BentoReel: React.FC<Props> = ({
     easing: EASINGS.easeOut
   });
 
-  // Floating animation for image cells
-  const floatY = Math.sin(frame * 0.02) * 3;
-  const floatRot = Math.sin(frame * 0.015) * 0.3;
+  // Floating animation for image cells — extended across full duration
+  // Use slow sine waves that complete ~1.5 cycles over 360 frames (12s)
+  const floatY = Math.sin(frame * 0.04) * 6 + Math.sin(frame * 0.015) * 4;
+  const floatRot = Math.sin(frame * 0.025) * 0.5 + Math.cos(frame * 0.018) * 0.3;
+
+  // Late-stage accent sweep — subtle color pulse on non-image cells around frame 240-300
+  const accentPulse = interpolate(frame, [240, 270, 300], [0, 1, 0], {
+    ...CLAMP,
+    easing: EASINGS.easeInOut,
+  });
+
+  // Extended gentle zoom-out effect on the whole grid for depth
+  const gridScale = interpolate(frame, [200, 360], [1, 0.98], {
+    ...CLAMP,
+    easing: EASINGS.easeOut,
+  });
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.paper }}>
+      <MusicBed trackId="BentoReel" />
       {/* Main bento grid container - enhanced for 4x3 grid */}
       <div
         style={{
@@ -167,6 +183,7 @@ const BentoReel: React.FC<Props> = ({
           gridTemplateRows: 'repeat(5, 1fr)',
           gap: 8,
           padding: 16,
+          transform: `scale(${gridScale})`,
         }}
       >
         {bentoLayout.map((cell, index) => {
@@ -222,8 +239,8 @@ const BentoReel: React.FC<Props> = ({
                     width: '100%',
                     height: '100%',
                     backgroundColor: cell.color,
-                    borderRadius: RADIUS.panel,
-                    boxShadow: SHADOW.soft,
+                    borderRadius: RADIUS.popup,
+                    boxShadow: SHADOW.popup,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -242,6 +259,14 @@ const BentoReel: React.FC<Props> = ({
                   }}>
                     {stripEmoji(String(cell.content))}
                   </div>
+                  {/* Late-stage accent pulse overlay */}
+                  {accentPulse > 0 && (
+                    <AbsoluteFill style={{
+                      background: `rgba(201, 162, 39, ${accentPulse * 0.15})`,
+                      borderRadius: RADIUS.popup,
+                      pointerEvents: 'none',
+                    }} />
+                  )}
                 </div>
               )}
 
@@ -251,8 +276,8 @@ const BentoReel: React.FC<Props> = ({
                     width: '100%',
                     height: '100%',
                     background: cell.color || GRADIENT,
-                    borderRadius: RADIUS.panel,
-                    boxShadow: SHADOW.soft,
+                    borderRadius: RADIUS.popup,
+                    boxShadow: SHADOW.popup,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -272,6 +297,14 @@ const BentoReel: React.FC<Props> = ({
                   }}>
                     {stripEmoji(String(cell.content))}
                   </div>
+                  {/* Late-stage accent pulse overlay */}
+                  {accentPulse > 0 && (
+                    <AbsoluteFill style={{
+                      background: `rgba(201, 162, 39, ${accentPulse * 0.15})`,
+                      borderRadius: RADIUS.popup,
+                      pointerEvents: 'none',
+                    }} />
+                  )}
                 </div>
               )}
 
@@ -281,14 +314,14 @@ const BentoReel: React.FC<Props> = ({
                     width: '100%',
                     height: '100%',
                     backgroundColor: '#fff',
-                    borderRadius: RADIUS.panel,
-                    boxShadow: SHADOW.card,
+                    borderRadius: RADIUS.popup,
+                    boxShadow: SHADOW.popup,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     padding: 12,
                     transform: `scale(${contentScale})`,
-                    border: `3px solid ${COLORS.accent}`,
+                    border: `3px solid ${COLORS.offer}`,
                   }}
                 >
                   <div style={{
@@ -303,6 +336,14 @@ const BentoReel: React.FC<Props> = ({
                   }}>
                     {stripEmoji(String(cell.content))}
                   </div>
+                  {/* Late-stage accent pulse overlay */}
+                  {accentPulse > 0 && (
+                    <AbsoluteFill style={{
+                      background: `rgba(201, 162, 39, ${accentPulse * 0.12})`,
+                      borderRadius: RADIUS.popup,
+                      pointerEvents: 'none',
+                    }} />
+                  )}
                 </div>
               )}
 

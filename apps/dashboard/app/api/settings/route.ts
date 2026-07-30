@@ -1,16 +1,15 @@
-import { NextResponse } from "next/server";
-import { sql } from "@vercel/postgres";
+import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db/client";
+import { brandConfig } from "@/lib/db/schema";
 
 export async function GET() {
   try {
-    const result = await sql`
-      SELECT 
-        COALESCE(target_platforms, ARRAY['facebook', 'instagram', 'youtube_shorts', 'tiktok']) as target_platforms
-      FROM brand_config 
-      WHERE key = 'default'
-    `;
+    const config = await db.query.brandConfig.findFirst({
+      where: (brandConfig, { eq }) => eq(brandConfig.key, "default"),
+    });
 
-    const targetPlatforms = result.rows[0]?.target_platforms || ["facebook", "instagram", "youtube_shorts", "tiktok"];
+    const targetPlatforms = config?.targetPlatforms || ["facebook", "instagram", "youtube_shorts", "tiktok"];
 
     return NextResponse.json({
       targetPlatforms,
@@ -36,17 +35,14 @@ export async function POST(request: Request) {
       );
     }
 
-    await sql`
-      UPDATE brand_config 
-      SET target_platforms = ${targetPlatforms},
-          updated_at = NOW()
-      WHERE key = 'default'
-    `;
+    await db.update(brandConfig)
+      .set({ targetPlatforms })
+      .where(eq(brandConfig.key, "default"));
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to save settings:", error);
-    return NextResponse.json(
+    return NextResponse.json.json(
       { error: "Failed to save settings" },
       { status: 500 }
     );

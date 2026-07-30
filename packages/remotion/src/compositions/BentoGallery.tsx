@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji, MusicBed } from '../lib/kit';
 
 // =============================================================================
 // BentoGallery — Modern bento grid with mixed content cells
@@ -104,6 +104,7 @@ const BentoGallery: React.FC<Props> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.paper }}>
+      <MusicBed trackId="BentoGallery" />
       {/* Main bento grid container */}
       <div
         style={{
@@ -138,9 +139,9 @@ const BentoGallery: React.FC<Props> = ({
                   position: 'relative',
                   width: '100%',
                   height: '100%',
-                  borderRadius: RADIUS.panel,
+                  borderRadius: RADIUS.popup,
                   overflow: 'hidden',
-                  boxShadow: SHADOW.card,
+                  boxShadow: SHADOW.popup,
                 }}>
                   <AbsoluteFill style={{ transform: `scale(${contentScale})` }}>
                     <Img
@@ -163,8 +164,8 @@ const BentoGallery: React.FC<Props> = ({
                     width: '100%',
                     height: '100%',
                     backgroundColor: cell.color,
-                    borderRadius: RADIUS.panel,
-                    boxShadow: SHADOW.soft,
+                    borderRadius: RADIUS.popup,
+                    boxShadow: SHADOW.popup,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -191,8 +192,8 @@ const BentoGallery: React.FC<Props> = ({
                     width: '100%',
                     height: '100%',
                     background: cell.color || GRADIENT,
-                    borderRadius: RADIUS.panel,
-                    boxShadow: SHADOW.soft,
+                    borderRadius: RADIUS.popup,
+                    boxShadow: SHADOW.popup,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -221,8 +222,8 @@ const BentoGallery: React.FC<Props> = ({
                     width: '100%',
                     height: '100%',
                     backgroundColor: COLORS.paper,
-                    borderRadius: RADIUS.panel,
-                    boxShadow: SHADOW.soft,
+                    borderRadius: RADIUS.popup,
+                    boxShadow: SHADOW.popup,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',

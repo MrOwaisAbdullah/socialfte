@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
 import { BRAND, COLORS, EASINGS, RADIUS } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji, MusicBed } from '../lib/kit';
 
 export const compositionConfig = {
   id: 'DetailFocus',
@@ -60,6 +60,7 @@ const DetailFocus: React.FC<Props> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.d900 }}>
+      <MusicBed trackId="DetailFocus" />
       {/* Image layer */}
       <AbsoluteFill>
         <Img

@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji, MusicBed } from '../lib/kit';
 
 // =============================================================================
 // DynamicGrid — Modern grid layout with animated cells
@@ -85,6 +85,7 @@ const DynamicGrid: React.FC<Props> = ({
       justifyContent: 'center',
       alignItems: 'center',
     }}>
+      <MusicBed trackId="DynamicGrid" />
       {/* Animated grid cells */}
       <AbsoluteFill style={{
         display: 'grid',

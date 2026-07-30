@@ -44,23 +44,35 @@ export default function Quote({
           borderRadius: 16,
         }}
       />
-      <p
+      <div
         style={{
-          fontFamily: brand.fonts.heading,
-          fontStyle: 'italic',
-          fontSize: Math.round(width * 0.06),
-          color: brand.colors.dark,
-          lineHeight: 1.3,
-          margin: 0,
+          background: 'rgba(255, 255, 255, 0.08)',
+          backdropFilter: 'blur(12px)',
+          borderRadius: '12px',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          boxShadow: '0 8px 24px rgba(26, 26, 26, 0.12)',
+          padding: `${Math.round(width * 0.04)}px ${Math.round(width * 0.06)}px`,
         }}
       >
-        &ldquo;{quote}&rdquo;
-      </p>
+        <p
+          style={{
+            fontFamily: brand.fonts.heading,
+            fontStyle: 'italic',
+            fontSize: Math.round(width * 0.06),
+            color: brand.colors.dark,
+            lineHeight: 1.3,
+            margin: 0,
+          }}
+        >
+          &ldquo;{quote}&rdquo;
+        </p>
+      </div>
       <span
         style={{
           fontFamily: brand.fonts.heading,
           fontSize: Math.round(width * 0.036),
-          color: brand.colors.primary,
+          color: '#d62828',
+          fontWeight: 600,
         }}
       >
         {brand.wordmark}

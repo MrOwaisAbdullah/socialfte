@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji, MusicBed } from '../lib/kit';
 
 // =============================================================================
 // PriceReveal — builds anticipation on a hook line, then wipes in the price.
@@ -33,6 +33,7 @@ const PriceReveal: React.FC<Props> = ({ imageUrl, price, hookText = 'Ye kitne ka
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.d900 }}>
+      <MusicBed trackId="PriceReveal" />
       <Img src={imageUrl} maxRetries={3} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 
       {/* Enhanced vignette overlay */}

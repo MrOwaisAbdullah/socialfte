@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji, MusicBed } from '../lib/kit';
 
 // =============================================================================
 // CinematicReveal — Film-inspired dramatic reveal with letterbox
@@ -91,6 +91,7 @@ const CinematicReveal: React.FC<Props> = ({
     <AbsoluteFill style={{
       backgroundColor: COLORS.d900,
     }}>
+      <MusicBed trackId="CinematicReveal" />
       {/* Main image with cinematic movement */}
       <AbsoluteFill style={{
         transform: `translate(${camX}px, ${camY}px) scale(${camScale})`,

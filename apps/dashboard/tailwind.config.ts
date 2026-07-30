@@ -14,10 +14,16 @@ const config: Config = {
         light: '#F5F0E8', // cream
         dark: '#1A1A1A', // deep charcoal
         muted: '#6b6b6b', // darkened from BRAND.md's #9E9E9E for legibility — see BRAND.md's contrast note
+        offer: '#d62828', // crimson offer/promo red — from shadi offer popup
+        'surface-peach': '#f0e6d2', // warm peach-cream — from shadi offer popup
+        'surface-forest': '#1a3d2e', // deep forest green card — from shadi offer popup
       },
       fontFamily: {
         heading: ['var(--font-heading)', 'Georgia', 'serif'], // Instrument Serif
         body: ['var(--font-body)', 'Helvetica', 'Arial', 'sans-serif'], // Archivo
+      },
+      borderRadius: {
+        popup: '12px', // from shadi offer popup
       },
     },
   },

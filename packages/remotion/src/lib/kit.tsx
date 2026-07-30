@@ -3,7 +3,7 @@
 // beat on one consistent look. Frame-based only; monotonic interpolate + clamp.
 import React from 'react';
 import {
-  AbsoluteFill, interpolate, Img, staticFile, useCurrentFrame,
+  AbsoluteFill, Audio, interpolate, Img, staticFile, useCurrentFrame,
 } from 'remotion';
 import {
   Mic, Plus, Slash, Zap, ArrowUp, Square, Check,
@@ -382,4 +382,69 @@ export const ClaudeChatPanel: React.FC<{
       </div>
     </>
   );
+};
+
+// =============================================================================
+// MusicBed — background audio for video compositions
+// =============================================================================
+type MusicBedProps = {
+  trackId?: string;
+  volume?: number;
+};
+
+export const MusicBed: React.FC<MusicBedProps> = ({ trackId = 'ambient-pad', volume = 0.6 }) => {
+  // Composition-to-track mapping (user's choice: match track to composition style)
+  const trackMap: Record<string, string> = {
+    'CinematicReveal': 'cinematic-min',
+    'BentoReel': 'tech-pulse',
+    'DynamicGrid': 'tech-pulse',
+    'ProductSplit': 'tech-pulse',
+    'HeroReveal': 'lofi-warm',
+    'LifestyleFrame': 'lofi-warm',
+    'DetailFocus': 'lofi-warm',
+    'SetReveal': 'lofi-warm',
+    'ShowcaseCard': 'ambient-pad',
+    'BentoGallery': 'ambient-pad',
+    'FabricDetail': 'ambient-pad',
+    'PriceReveal': 'ambient-pad',
+  };
+
+  // Resolve track: if trackId is a known composition name, use its mapped track;
+  // otherwise treat it as a literal track id (or default to ambient-pad).
+  const resolvedTrack = trackMap[trackId] || trackId || 'ambient-pad';
+  const src = staticFile(`library/music/clips/${resolvedTrack}.mp3`);
+
+  return <Audio src={src} volume={volume} />;
+};
+
+// =============================================================================
+// Beat sync — align transitions to music beats
+// =============================================================================
+type BeatSyncProps = {
+  trackId?: string;
+};
+
+export const useBeatSync = ({ trackId }: BeatSyncProps = {}) => {
+  const frame = useCurrentFrame();
+  const fps = 30;
+
+  // BPM → frames per beat for each track (from music prompts)
+  const bpmMap: Record<string, number> = {
+    'ambient-pad': 70,
+    'lofi-warm': 75,
+    'tech-pulse': 90,
+    'cinematic-min': 65,
+    'docu-pluck': 95,
+    'lullaby-tender': 65,
+  };
+
+  const resolvedTrack = trackId || 'ambient-pad';
+  const bpm = bpmMap[resolvedTrack] || 70;
+  const framesPerBeat = Math.round((fps / bpm) * 60);
+
+  // Current beat number and progress within the beat (0-1)
+  const beatNumber = Math.floor(frame / framesPerBeat);
+  const beatProgress = (frame % framesPerBeat) / framesPerBeat;
+
+  return { beatNumber, beatProgress, framesPerBeat };
 };

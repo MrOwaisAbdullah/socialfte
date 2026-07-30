@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP, MusicBed } from '../lib/kit';
 
 // =============================================================================
 // LifestyleFrame — Warm, lifestyle-focused template with room context
@@ -70,6 +70,7 @@ const LifestyleFrame: React.FC<Props> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.paper }}>
+      <MusicBed trackId="LifestyleFrame" />
       {/* Room background with ambient light effect */}
       <AbsoluteFill style={{
         background: `radial-gradient(circle at 30% 40%, rgba(201, 162, 39, ${lightIntensity}) 0%, transparent 50%)`,

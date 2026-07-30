@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from 'remotion';
 import { BRAND, COLORS, EASINGS } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji, MusicBed } from '../lib/kit';
 
 // =============================================================================
 // HeroReveal — a still room render turned into motion: slow Ken Burns zoom,
@@ -47,6 +47,7 @@ const HeroReveal: React.FC<Props> = ({ imageUrl, headline, subline }) => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.d900 }}>
+      <MusicBed trackId="HeroReveal" />
       <AbsoluteFill style={{ transform: `scale(${scale}) translateX(${panX}px)` }}>
         <Img
           src={imageUrl}

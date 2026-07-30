@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from 'remotion';
 import { COLORS, EASINGS } from '../brand';
 import { FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP, MusicBed } from '../lib/kit';
 
 // =============================================================================
 // FabricDetail — a slow pan across a close-up (fabric, stitching, hardware).
@@ -33,6 +33,7 @@ const FabricDetail: React.FC<Props> = ({ imageUrl, qualityClaim }) => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.d900 }}>
+      <MusicBed trackId="FabricDetail" />
       <AbsoluteFill style={{ transform: `translateX(${panX}%) scale(1.12)` }}>
         <Img src={imageUrl} maxRetries={3} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       </AbsoluteFill>

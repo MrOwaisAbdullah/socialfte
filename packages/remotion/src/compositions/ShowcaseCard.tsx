@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji, MusicBed } from '../lib/kit';
 
 // =============================================================================
 // ShowcaseCard — Modern glassmorphism card with dynamic entrance
@@ -105,6 +105,7 @@ const ShowcaseCard: React.FC<Props> = ({
       justifyContent: 'center',
       alignItems: 'center',
     }}>
+      <MusicBed trackId="ShowcaseCard" />
       {/* Animated background with gradient */}
       <AbsoluteFill style={{
         background: `radial-gradient(circle at 30% 40%, ${COLORS.accent2}22 0%, transparent 50%)`,
@@ -126,15 +127,15 @@ const ShowcaseCard: React.FC<Props> = ({
             transformOrigin: 'center',
           }}
         >
-          {/* Glass effect background */}
+          {/* Glass effect background — popup-inspired glassmorphism */}
           <div style={{
             position: 'absolute',
             inset: 0,
             background: 'rgba(255, 255, 255, 0.08)',
-            backdropFilter: 'blur(20px)',
-            borderRadius: RADIUS.card,
+            backdropFilter: 'blur(12px)',
+            borderRadius: RADIUS.popup,
             border: `1px solid rgba(255, 255, 255, 0.15)`,
-            boxShadow: SHADOW.soft,
+            boxShadow: SHADOW.popup,
           }} />
 
           {/* Product image with mask */}

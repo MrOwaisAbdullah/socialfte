@@ -74,10 +74,13 @@ export default function Hero({
               {parts[0]}
               <span
                 style={{
-                  background: brand.colors.accent,
-                  color: brand.colors.dark,
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  backdropFilter: 'blur(12px)',
+                  color: '#d62828',
                   padding: '0 0.2em',
-                  borderRadius: 6,
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  boxShadow: '0 8px 24px rgba(26, 26, 26, 0.12)',
                 }}
               >
                 {highlightWord}

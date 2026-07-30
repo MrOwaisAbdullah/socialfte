@@ -54,6 +54,33 @@ def _choose_format(platform: str) -> str:
         return formats[0]
     return "image" if random.random() < settings.IMAGE_POST_RATIO else "video"
 
+
+async def _pick_distinct_images(primary_asset: Asset, count: int) -> list[str]:
+    """Pick up to `count-1` distinct asset URLs (excluding the primary asset).
+    Favors underused assets (times_used ASC, created_at DESC) to rotate through
+    the catalog. Returns URLs (R2_PUBLIC_URL/r2_key). May return fewer than
+    requested if the catalog is small."""
+    if count <= 1:
+        return []
+    async with SessionLocal() as session:
+        others = (
+            await session.execute(
+                select(Asset)
+                .where(
+                    Asset.id != primary_asset.id,
+                    Asset.reject_reason.is_(None),
+                )
+                .order_by(Asset.times_used.asc(), Asset.created_at.desc())
+                .limit(count - 1)
+            )
+        ).scalars().all()
+    urls = [
+        f"{settings.R2_PUBLIC_URL}/{asset.r2_key}"
+        for asset in others
+        if asset.r2_key
+    ]
+    return urls
+
 # Enhanced template mapping with new compositions
 # Provides better variety: glassmorphism, cinematic, grid layouts, bento grids
 VIDEO_COMPOSITION_MAP = {
@@ -130,18 +157,26 @@ def _build_image_props(template_slug: str, image_url: str, caption_text: str, he
         return {"setName": headline, "pieces": [], "bundlePrice": ""}
     if template_slug == "quote":
         return {"quote": caption_text, "thumbnailUrl": image_url}
-    if template_slug == "before-after":
-        return {"beforeImageUrl": image_url, "afterImageUrl": image_url}
     # hero, carousel-slide, and any unregistered slug (render route itself
     # rejects unknown templateIds, so this is just the sane default shape).
     return {"imageUrl": image_url, "headline": headline}
 
 
-def _build_video_props(composition_id: str, image_url: str, headline: str) -> dict:
+def _build_video_props(composition_id: str, image_url: str, headline: str, extra_image_urls: list[str] | None = None) -> dict:
     """Minimal, functional prop set per composition. `headline` is the caption
     agent's dedicated 2-5 word overlay text (see _build_image_props above) —
     previously derived from the caption's first line truncated at 80 chars."""
     props: dict = {"imageUrl": image_url}
+    # Assign multiple images for compositions that support them (BentoReel, etc.)
+    if extra_image_urls:
+        if len(extra_image_urls) >= 1:
+            props["secondaryImage"] = extra_image_urls[0]
+        if len(extra_image_urls) >= 2:
+            props["thirdImage"] = extra_image_urls[1]
+        if len(extra_image_urls) >= 3:
+            props["fourthImage"] = extra_image_urls[2]
+        if len(extra_image_urls) >= 4:
+            props["fifthImage"] = extra_image_urls[3]
     if composition_id == "HeroReveal":
         props["headline"] = headline
     elif composition_id == "PriceReveal":
@@ -151,6 +186,8 @@ def _build_video_props(composition_id: str, image_url: str, headline: str) -> di
     elif composition_id == "SetReveal":
         props["setName"] = headline
         props["bundlePrice"] = ""
+    elif composition_id == "BentoReel":
+        props["productName"] = headline
     return props
 
 
@@ -238,6 +275,14 @@ async def compose_batch():
             "Set it to the dashboard app's internal service hostname (check its Dokploy panel). "
             "Image posts will fail to render until this is corrected.",
             settings.RENDER_INTERNAL_URL,
+        )
+
+    # R2_PUBLIC_URL must be set for asset URLs to resolve correctly.
+    # Without it, asset_image_url becomes "/renders/..." (broken relative URL).
+    if not settings.R2_PUBLIC_URL:
+        logger.warning(
+            "R2_PUBLIC_URL is not set — asset image URLs will be broken. "
+            "Set it to your R2 bucket's public URL (e.g. https://pub-xxx.r2.dev)."
         )
 
     # Drafting doesn't need real publish credentials — only publish_due does,
@@ -369,11 +414,15 @@ async def compose_batch():
                 post_id = post.id
 
             composition_id = VIDEO_COMPOSITION_MAP.get(tmpl.slug, "HeroReveal")
+            # Pick distinct images for multi-image templates (BentoReel needs up to 5 total)
+            distinct_urls = []
+            if composition_id in {"BentoReel", "BentoGallery"}:
+                distinct_urls = await _pick_distinct_images(asset, 5)
             try:
                 await dispatch_video_render(
                     str(post_id),
                     composition_id,
-                    _build_video_props(composition_id, asset_image_url or "", headline),
+                    _build_video_props(composition_id, asset_image_url or "", headline, distinct_urls),
                 )
             except Exception as e:
                 logger.error("Video dispatch failed for post %s: %s", post_id, e)

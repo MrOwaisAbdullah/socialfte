@@ -42,7 +42,7 @@ export default function PriceCard({
           fontSize: Math.round(width * 0.028),
           letterSpacing: 1,
           textTransform: 'uppercase',
-          color: brand.colors.accent,
+          color: '#d62828',
         }}
       >
         {tierLabel}
@@ -57,16 +57,28 @@ export default function PriceCard({
       >
         {productName}
       </h1>
-      <p
+      {/* Price with glassmorphism card effect */}
+      <div
         style={{
-          fontFamily: brand.fonts.heading,
-          fontSize: Math.round(width * 0.13),
-          color: brand.colors.accent,
-          margin: 0,
+          background: 'rgba(255, 255, 255, 0.08)',
+          backdropFilter: 'blur(12px)',
+          borderRadius: '12px',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          boxShadow: '0 8px 24px rgba(26, 26, 26, 0.12)',
+          padding: `${Math.round(width * 0.024)}px ${Math.round(width * 0.048)}px`,
         }}
       >
-        {price}
-      </p>
+        <p
+          style={{
+            fontFamily: brand.fonts.heading,
+            fontSize: Math.round(width * 0.13),
+            color: '#d62828',
+            margin: 0,
+          }}
+        >
+          {price}
+        </p>
+      </div>
       <span
         style={{
           marginTop: Math.round(width * 0.02),

@@ -57,8 +57,12 @@ export default function SetBreakdown({
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'baseline',
-              borderBottom: `1px solid ${brand.colors.dark}22`,
-              paddingBottom: Math.round(width * 0.015),
+              background: 'rgba(255, 255, 255, 0.08)',
+              backdropFilter: 'blur(12px)',
+              borderRadius: '12px',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              boxShadow: '0 8px 24px rgba(26, 26, 26, 0.12)',
+              padding: `${Math.round(width * 0.016)}px ${Math.round(width * 0.032)}px`,
             }}
           >
             <span style={{ fontSize: Math.round(width * 0.032), color: brand.colors.dark }}>{piece.name}</span>
@@ -80,7 +84,7 @@ export default function SetBreakdown({
           style={{
             fontFamily: brand.fonts.heading,
             fontSize: Math.round(width * 0.09),
-            color: brand.colors.primary,
+            color: '#d62828',
           }}
         >
           {bundlePrice}

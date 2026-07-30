@@ -36,11 +36,14 @@ export const COLORS = {
   signalAlt: '#4c826a', // lighter warm-green companion
   warn: '#C9762F', // burnt amber — attention pops, distinct from the gold CTA color
   danger: '#8B3A3A', // deep brick red — drawn from the brand's approved bridal "red silk" accent
+  offer: '#d62828', // crimson offer/promo red — from shadi offer popup, distinct from danger
   ink: '#1A1A1A', // deep charcoal — primary text on light
   muted: '#6b6b6b', // darkened from BRAND.md's #9E9E9E — the literal hex reads at
   // 2.36:1 on paper (fails the 4.5:1 caption-legibility gate); this clears 4.70:1
   paper: '#F5F0E8', // cream — primary light surface / bg
   cream: '#ede8e0', // alt light band (slightly deeper cream, card surfaces)
+  peach: '#f0e6d2', // warm peach-cream — from shadi offer popup, alt light surface
+  forest: '#1a3d2e', // deep forest green — from shadi offer popup card, alt dark surface
   line: '#e0dcd4', // 1px borders on light
   // dark scale — warm charcoal ramp (NOT the house default's cool GitHub-ink; this
   // brand explicitly forbids cool blue/grey). Currently unused (no terminal/code
@@ -56,11 +59,12 @@ export const COLORS = {
 // signature gradient: forest green -> gold (the brand's two hero colors)
 export const GRADIENT = `linear-gradient(120deg, ${COLORS.accent2}, ${COLORS.accent})`;
 
-export const RADIUS = { card: 16, panel: 14, window: 10, pill: 999 } as const;
+export const RADIUS = { card: 16, panel: 14, window: 10, pill: 999, popup: 12 } as const;
 
 export const SHADOW = {
   soft: '0 8px 32px rgba(26,26,26,0.12)',
   card: '0 10px 40px rgba(26,26,26,0.10)',
+  popup: '0 8px 24px rgba(26,26,26,0.12)',
 } as const;
 
 // Warm, confident, premium-not-luxury motion (BRAND.md §5 voice -> §6 motion).

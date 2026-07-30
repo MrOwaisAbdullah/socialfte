@@ -47,7 +47,6 @@ DEFAULT_TEMPLATES = [
     ("price-card", "Price Card"),
     ("set-breakdown", "Set Breakdown"),
     ("quote", "Quote"),
-    ("before-after", "Before / After"),
     ("carousel-slide", "Carousel Slide"),
     ("showcase", "Showcase"),
     ("grid-layout", "Grid Layout"),
