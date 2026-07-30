@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
 
 // =============================================================================
 // ShowcaseCard — Modern glassmorphism card with dynamic entrance
@@ -76,12 +76,12 @@ const ShowcaseCard: React.FC<Props> = ({
 
   const nameOp = interpolate(frame, [45, 60], [0, 1], {
     ...CLAMP,
-    easing: EASINGS.easeOutBack
+    easing: EASINGS.overshoot
   });
 
   const highlightOp = interpolate(frame, [55, 70], [0, 1], {
     ...CLAMP,
-    easing: EASINGS.easeOutBack
+    easing: EASINGS.overshoot
   });
 
   const priceScale = spring({
@@ -92,7 +92,7 @@ const ShowcaseCard: React.FC<Props> = ({
 
   const priceOp = interpolate(frame, [65, 80], [0, 1], {
     ...CLAMP,
-    easing: EASINGS.easeOutBack
+    easing: EASINGS.overshoot
   });
 
   // Subtle floating animation
@@ -189,7 +189,7 @@ const ShowcaseCard: React.FC<Props> = ({
               textShadow: '0 2px 8px rgba(0,0,0,0.5)',
               letterSpacing: -0.5,
             }}>
-              {productName}
+              {stripEmoji(productName)}
             </div>
           </div>
 
@@ -241,7 +241,7 @@ const ShowcaseCard: React.FC<Props> = ({
                 backgroundClip: 'text',
                 letterSpacing: -1,
               }}>
-                {price}
+                {stripEmoji(price)}
               </div>
             </div>
           )}

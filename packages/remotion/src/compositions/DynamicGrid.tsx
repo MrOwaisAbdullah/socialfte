@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
 
 // =============================================================================
 // DynamicGrid — Modern grid layout with animated cells
@@ -60,7 +60,7 @@ const DynamicGrid: React.FC<Props> = ({
 
   const titleOp = interpolate(frame, [50, 70], [0, 1], {
     ...CLAMP,
-    easing: EASINGS.easeOutBack
+    easing: EASINGS.overshoot
   });
 
   const descOp = interpolate(frame, [70, 90], [0, 1], {
@@ -76,7 +76,7 @@ const DynamicGrid: React.FC<Props> = ({
 
   const ctaOp = interpolate(frame, [100, 120], [0, 1], {
     ...CLAMP,
-    easing: EASINGS.easeOutBack
+    easing: EASINGS.overshoot
   });
 
   return (
@@ -175,7 +175,7 @@ const DynamicGrid: React.FC<Props> = ({
               lineHeight: 1.1,
               letterSpacing: -1,
             }}>
-              {productName}
+              {stripEmoji(productName)}
             </div>
           </div>
 

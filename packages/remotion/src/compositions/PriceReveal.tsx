@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
 
 // =============================================================================
 // PriceReveal — builds anticipation on a hook line, then wipes in the price.
@@ -20,16 +20,16 @@ type Props = {
 const PriceReveal: React.FC<Props> = ({ imageUrl, price, hookText = 'Ye kitne ka hoga?' }) => {
   const frame = useCurrentFrame();
 
-  const hookOp = interpolate(frame, [0, 35], [0, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
-  const hookScale = interpolate(frame, [0, 35], [0.8, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
+  const hookOp = interpolate(frame, [0, 35], [0, 1], { ...CLAMP, easing: EASINGS.overshoot });
+  const hookScale = interpolate(frame, [0, 35], [0.8, 1], { ...CLAMP, easing: EASINGS.overshoot });
   const hookExitOp = interpolate(frame, [50, 65], [1, 0], { ...CLAMP, easing: EASINGS.easeIn });
 
   // Enhanced price reveal with elastic animation
-  const barWidth = interpolate(frame, [55, 75], [0, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
-  const priceScale = interpolate(frame, [70, 90], [0.5, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
-  const priceOp = interpolate(frame, [65, 85], [0, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
+  const barWidth = interpolate(frame, [55, 75], [0, 1], { ...CLAMP, easing: EASINGS.overshoot });
+  const priceScale = interpolate(frame, [70, 90], [0.5, 1], { ...CLAMP, easing: EASINGS.overshoot });
+  const priceOp = interpolate(frame, [65, 85], [0, 1], { ...CLAMP, easing: EASINGS.overshoot });
 
-  const brandOp = interpolate(frame, [85, 105], [0, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
+  const brandOp = interpolate(frame, [85, 105], [0, 1], { ...CLAMP, easing: EASINGS.overshoot });
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.d900 }}>
@@ -89,7 +89,7 @@ const PriceReveal: React.FC<Props> = ({ imageUrl, price, hookText = 'Ye kitne ka
               letterSpacing: -1,
             }}
           >
-            {price}
+            {stripEmoji(price)}
           </div>
         </div>
       </AbsoluteFill>

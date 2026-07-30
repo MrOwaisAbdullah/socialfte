@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
 
 // =============================================================================
 // CinematicReveal — Film-inspired dramatic reveal with letterbox
@@ -71,7 +71,7 @@ const CinematicReveal: React.FC<Props> = ({
 
   const titleOp = interpolate(frame, [70, 100], [0, 1], {
     ...CLAMP,
-    easing: EASINGS.easeOutBack
+    easing: EASINGS.overshoot
   });
 
   const subtitleOp = interpolate(frame, [100, 120], [0, 1], {
@@ -194,18 +194,17 @@ const CinematicReveal: React.FC<Props> = ({
           {tagline && (
             <div
               style={{
-                opacity: taglineOp,
+                opacity: taglineOp * 0.9,
                 fontFamily: FONT_DISPLAY,
                 fontSize: 24,
                 fontWeight: 400,
                 color: '#fff',
                 letterSpacing: 2,
                 textTransform: 'uppercase',
-                opacity: 0.9,
                 textShadow: '0 2px 6px rgba(0,0,0,0.6)',
               }}
             >
-              {tagline}
+              {stripEmoji(tagline)}
             </div>
           )}
         </div>

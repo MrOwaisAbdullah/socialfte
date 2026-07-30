@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
 
 // =============================================================================
 // ProductSplit — Split-screen layout with dynamic content balance
@@ -65,7 +65,7 @@ const ProductSplit: React.FC<Props> = ({
   });
 
   return (
-    <AbsoluteFill style={{ backgroundColor: COLORS.light }}>
+    <AbsoluteFill style={{ backgroundColor: COLORS.paper }}>
       {/* Dynamic split layout */}
       <div style={{
         display: 'flex',
@@ -154,7 +154,7 @@ const ProductSplit: React.FC<Props> = ({
                 lineHeight: 1.1,
                 letterSpacing: -0.5,
               }}>
-                {productName}
+                {stripEmoji(productName)}
               </div>
             </div>
 
@@ -174,7 +174,7 @@ const ProductSplit: React.FC<Props> = ({
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
                 }}>
-                  {price}
+                  {stripEmoji(price)}
                 </div>
               </div>
             )}

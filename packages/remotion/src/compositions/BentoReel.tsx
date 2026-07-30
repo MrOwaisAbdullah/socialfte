@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
 
 // =============================================================================
 // BentoReel — Vertical bento grid for video reels with animated cells
@@ -40,6 +40,8 @@ const BentoReel: React.FC<Props> = ({
   imageUrl,
   secondaryImage,
   thirdImage,
+  fourthImage,
+  fifthImage,
   productName,
   price,
   tagline = "Premium Quality"
@@ -139,7 +141,7 @@ const BentoReel: React.FC<Props> = ({
 
   const priceOp = interpolate(frame, [140, 160], [0, 1], {
     ...CLAMP,
-    easing: EASINGS.easeOutBack
+    easing: EASINGS.overshoot
   });
 
   // Final brand reveal
@@ -153,7 +155,7 @@ const BentoReel: React.FC<Props> = ({
   const floatRot = Math.sin(frame * 0.015) * 0.3;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: COLORS.light }}>
+    <AbsoluteFill style={{ backgroundColor: COLORS.paper }}>
       {/* Main bento grid container - enhanced for 4x3 grid */}
       <div
         style={{
@@ -231,14 +233,14 @@ const BentoReel: React.FC<Props> = ({
                 >
                   <div style={{
                     fontFamily: FONT_DISPLAY,
-                    fontSize: cell.content?.length > 12 ? 20 : 28,
+                    fontSize: (cell.content?.length ?? 0) > 12 ? 20 : 28,
                     fontWeight: 700,
                     color: '#fff',
                     textAlign: 'center',
                     textShadow: '0 2px 8px rgba(0,0,0,0.3)',
                     lineHeight: 1.1,
                   }}>
-                    {cell.content}
+                    {stripEmoji(String(cell.content))}
                   </div>
                 </div>
               )}
@@ -260,7 +262,7 @@ const BentoReel: React.FC<Props> = ({
                 >
                   <div style={{
                     fontFamily: FONT_BODY,
-                    fontSize: cell.content?.length > 15 ? 16 : 22,
+                    fontSize: (cell.content?.length ?? 0) > 15 ? 16 : 22,
                     fontWeight: 700,
                     color: '#fff',
                     textAlign: 'center',
@@ -268,7 +270,7 @@ const BentoReel: React.FC<Props> = ({
                     textShadow: '0 2px 8px rgba(0,0,0,0.4)',
                     lineHeight: 1.2,
                   }}>
-                    {cell.content}
+                    {stripEmoji(String(cell.content))}
                   </div>
                 </div>
               )}
@@ -291,17 +293,15 @@ const BentoReel: React.FC<Props> = ({
                 >
                   <div style={{
                     fontFamily: FONT_DISPLAY,
-                    fontSize: cell.content?.length > 12 ? 36 : 52,
+                    fontSize: (cell.content?.length ?? 0) > 12 ? 36 : 52,
                     fontWeight: 800,
                     color: COLORS.ink,
                     textAlign: 'center',
                     lineHeight: 1.1,
                     letterSpacing: -1,
                     textShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                    lineHeight: 1,
-                    letterSpacing: -0.8,
                   }}>
-                    {cell.content}
+                    {stripEmoji(String(cell.content))}
                   </div>
                 </div>
               )}
@@ -369,7 +369,7 @@ const BentoReel: React.FC<Props> = ({
                 backgroundClip: 'text',
                 letterSpacing: -1,
               }}>
-                {price}
+                {stripEmoji(String(price))}
               </div>
             </div>
           </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
 
 // =============================================================================
 // BentoGallery — Modern bento grid with mixed content cells
@@ -103,7 +103,7 @@ const BentoGallery: React.FC<Props> = ({
   });
 
   return (
-    <AbsoluteFill style={{ backgroundColor: COLORS.light }}>
+    <AbsoluteFill style={{ backgroundColor: COLORS.paper }}>
       {/* Main bento grid container */}
       <div
         style={{
@@ -174,13 +174,13 @@ const BentoGallery: React.FC<Props> = ({
                 >
                   <div style={{
                     fontFamily: FONT_DISPLAY,
-                    fontSize: cell.content?.length > 15 ? 24 : 32,
+                    fontSize: (cell.content?.length ?? 0) > 15 ? 24 : 32,
                     fontWeight: 700,
                     color: '#fff',
                     textAlign: 'center',
                     textShadow: '0 2px 8px rgba(0,0,0,0.3)',
                   }}>
-                    {cell.content}
+                    {stripEmoji(String(cell.content))}
                   </div>
                 </div>
               )}
@@ -202,7 +202,7 @@ const BentoGallery: React.FC<Props> = ({
                 >
                   <div style={{
                     fontFamily: FONT_BODY,
-                    fontSize: cell.content?.length > 20 ? 18 : 24,
+                    fontSize: (cell.content?.length ?? 0) > 20 ? 18 : 24,
                     fontWeight: 600,
                     color: '#fff',
                     textAlign: 'center',
@@ -210,7 +210,7 @@ const BentoGallery: React.FC<Props> = ({
                     textShadow: '0 2px 8px rgba(0,0,0,0.4)',
                     lineHeight: 1.2,
                   }}>
-                    {cell.content}
+                    {stripEmoji(String(cell.content))}
                   </div>
                 </div>
               )}
@@ -233,14 +233,14 @@ const BentoGallery: React.FC<Props> = ({
                 >
                   <div style={{
                     fontFamily: FONT_DISPLAY,
-                    fontSize: cell.content?.length > 15 ? 20 : 28,
+                    fontSize: (cell.content?.length ?? 0) > 15 ? 20 : 28,
                     fontWeight: 700,
                     color: COLORS.ink,
                     textAlign: 'center',
                     lineHeight: 1.1,
                     letterSpacing: -0.5,
                   }}>
-                    {cell.content}
+                    {stripEmoji(String(cell.content))}
                   </div>
                 </div>
               )}

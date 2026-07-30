@@ -1,14 +1,9 @@
 import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
-import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
+import { BRAND, COLORS, EASINGS, RADIUS } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
 
-// =============================================================================
-// DetailFocus — Close-up detail shot with circular reveal
-// Focus: Craftsmanship and quality details with smooth circular reveal
-// Duration: 5s | 1080x1080 (Square) | 30fps
-// =============================================================================
 export const compositionConfig = {
   id: 'DetailFocus',
   durationInSeconds: 5,
@@ -32,21 +27,18 @@ const DetailFocus: React.FC<Props> = ({
 }) => {
   const frame = useCurrentFrame();
 
-  // Circular reveal animation
   const revealProgress = spring({
     frame: frame - 10,
     fps: 30,
     config: { damping: 15, stiffness: 95 },
   });
 
-  // Image zoom and pan
   const imageScale = 1 + revealProgress * 0.2;
   const imagePan = interpolate(frame, [10, 150], [-2, 2], {
     ...CLAMP,
     easing: EASINGS.easeInOut
   });
 
-  // Text animations
   const detailScale = spring({
     frame: frame - 40,
     fps: 30,
@@ -64,49 +56,36 @@ const DetailFocus: React.FC<Props> = ({
     config: { damping: 18, stiffness: 120 },
   });
 
+  const circleRadius = revealProgress * 80;
+
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.d900 }}>
-      {/* Circular reveal container */}
-      <AbsoluteFill style={{
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}>
-        <div
+      {/* Image layer */}
+      <AbsoluteFill>
+        <Img
+          src={imageUrl}
+          maxRetries={3}
           style={{
-            position: 'relative',
             width: '100%',
             height: '100%',
-            overflow: 'hidden',
+            objectFit: 'cover',
+            transform: `scale(${imageScale}) translateX(${imagePan}%)`,
           }}
-        >
-          {/* Full-size image for background */}
-          <AbsoluteFill>
-            <Img
-              src={imageUrl}
-              maxRetries={3}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                transform: `scale(${imageScale}) translateX(${imagePan}%)`,
-              }}
-            />
+        />
+      </AbsoluteFill>
 
-            {/* Circular reveal overlay */}
-          <AbsoluteFill
-            style={{
-              background: COLORS.d900,
-              clipPath: `circle(${revealProgress * 80}% at 50% 50%)`,
-            }}
-          />
+      {/* Dark overlay that recedes as circle expands */}
+      <AbsoluteFill
+        style={{
+          background: COLORS.d900,
+          clipPath: `polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, calc(50% - ${circleRadius}vmax) calc(50% - ${circleRadius}vmax), calc(50% - ${circleRadius}vmax) calc(50% + ${circleRadius}vmax), calc(50% + ${circleRadius}vmax) calc(50% + ${circleRadius}vmax), calc(50% + ${circleRadius}vmax) calc(50% - ${circleRadius}vmax), calc(50% - ${circleRadius}vmax) calc(50% - ${circleRadius}vmax))`,
+        }}
+      />
 
-          {/* Vignette for depth */}
-          <AbsoluteFill style={{
-            background: 'radial-gradient(circle at 50% 50%, transparent 30%, rgba(0,0,0,0.7) 100%)',
-            clipPath: `circle(${revealProgress * 80}% at 50% 50%)`,
-          }} />
-        </div>
-      </div>
+      {/* Vignette for depth */}
+      <AbsoluteFill style={{
+        background: 'radial-gradient(circle at 50% 50%, transparent 30%, rgba(0,0,0,0.7) 100%)',
+      }} />
 
       {/* Content overlay */}
       <AbsoluteFill
@@ -117,13 +96,7 @@ const DetailFocus: React.FC<Props> = ({
           pointerEvents: 'none',
         }}
       >
-        {/* Detail name */}
-        <div
-          style={{
-            transform: `scale(${detailScale})`,
-            marginBottom: 20,
-          }}
-        >
+        <div style={{ transform: `scale(${detailScale})`, marginBottom: 20 }}>
           <div style={{
             fontFamily: FONT_DISPLAY,
             fontSize: 52,
@@ -133,11 +106,10 @@ const DetailFocus: React.FC<Props> = ({
             letterSpacing: -0.5,
             textShadow: '0 4px 12px rgba(0,0,0,0.8)',
           }}>
-            {detailName}
+            {stripEmoji(detailName)}
           </div>
         </div>
 
-        {/* Description */}
         <div style={{ opacity: descFade, marginBottom: 32 }}>
           <div style={{
             fontFamily: FONT_BODY,
@@ -153,21 +125,14 @@ const DetailFocus: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Quality badge */}
-        <div
-          style={{
-            transform: `scale(${badgeSpring})`,
-          }}
-        >
-          <div
-            style={{
-              padding: '16px 32px',
-              background: 'rgba(201, 162, 39, 0.2)',
-              border: `2px solid ${COLORS.accent}`,
-              borderRadius: RADIUS.pill,
-              backdropFilter: 'blur(10px)',
-            }}
-          >
+        <div style={{ transform: `scale(${badgeSpring})` }}>
+          <div style={{
+            padding: '16px 32px',
+            background: 'rgba(201, 162, 39, 0.2)',
+            border: `2px solid ${COLORS.accent}`,
+            borderRadius: RADIUS.pill,
+            backdropFilter: 'blur(10px)',
+          }}>
             <div style={{
               fontFamily: FONT_BODY,
               fontSize: 20,
@@ -190,15 +155,13 @@ const DetailFocus: React.FC<Props> = ({
           padding: 40,
         }}
       >
-        <div
-          style={{
-            width: 80,
-            height: 80,
-            borderLeft: `4px solid ${COLORS.accent}`,
-            borderTop: `4px solid ${COLORS.accent}`,
-            opacity: 0.8,
-          }}
-        />
+        <div style={{
+          width: 80,
+          height: 80,
+          borderLeft: `4px solid ${COLORS.accent}`,
+          borderTop: `4px solid ${COLORS.accent}`,
+          opacity: 0.8,
+        }} />
       </AbsoluteFill>
 
       {/* Brand signature */}

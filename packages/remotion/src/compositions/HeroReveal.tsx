@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from 'remotion';
 import { BRAND, COLORS, EASINGS } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji } from '../lib/kit';
 
 // =============================================================================
 // HeroReveal — a still room render turned into motion: slow Ken Burns zoom,
@@ -36,14 +36,14 @@ const HeroReveal: React.FC<Props> = ({ imageUrl, headline, subline }) => {
     easing: EASINGS.easeInOut,
   });
 
-  const headlineOp = interpolate(frame, [20, 40], [0, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
-  const headlineY = interpolate(frame, [20, 40], [20, 0], { ...CLAMP, easing: EASINGS.easeOutBack });
-  const headlineScale = interpolate(frame, [20, 30], [0.9, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
+  const headlineOp = interpolate(frame, [20, 40], [0, 1], { ...CLAMP, easing: EASINGS.overshoot });
+  const headlineY = interpolate(frame, [20, 40], [20, 0], { ...CLAMP, easing: EASINGS.overshoot });
+  const headlineScale = interpolate(frame, [20, 30], [0.9, 1], { ...CLAMP, easing: EASINGS.overshoot });
 
-  const sublineOp = interpolate(frame, [35, 55], [0, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
-  const sublineY = interpolate(frame, [35, 55], [20, 0], { ...CLAMP, easing: EASINGS.easeOutBack });
+  const sublineOp = interpolate(frame, [35, 55], [0, 1], { ...CLAMP, easing: EASINGS.overshoot });
+  const sublineY = interpolate(frame, [35, 55], [20, 0], { ...CLAMP, easing: EASINGS.overshoot });
 
-  const brandOp = interpolate(frame, [80, 100], [0, 1], { ...CLAMP, easing: EASINGS.easeOutBack });
+  const brandOp = interpolate(frame, [80, 100], [0, 1], { ...CLAMP, easing: EASINGS.overshoot });
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.d900 }}>
@@ -82,7 +82,7 @@ const HeroReveal: React.FC<Props> = ({ imageUrl, headline, subline }) => {
             fontWeight: 700,
           }}
         >
-          {headline}
+          {stripEmoji(headline)}
         </div>
         {subline && (
           <div
@@ -98,7 +98,7 @@ const HeroReveal: React.FC<Props> = ({ imageUrl, headline, subline }) => {
               letterSpacing: 0.5,
             }}
           >
-            {subline}
+            {stripEmoji(subline)}
           </div>
         )}
       </AbsoluteFill>

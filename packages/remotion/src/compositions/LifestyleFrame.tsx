@@ -69,7 +69,7 @@ const LifestyleFrame: React.FC<Props> = ({
   const floatY = Math.sin(frame * 0.02) * 4;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: COLORS.light }}>
+    <AbsoluteFill style={{ backgroundColor: COLORS.paper }}>
       {/* Room background with ambient light effect */}
       <AbsoluteFill style={{
         background: `radial-gradient(circle at 30% 40%, rgba(201, 162, 39, ${lightIntensity}) 0%, transparent 50%)`,
