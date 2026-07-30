@@ -84,7 +84,7 @@ _EMOJI_PATTERN = re.compile(
 )
 MAX_HASHTAGS = 8
 MIN_HASHTAGS = 3
-MAX_EMOJI = 4
+MAX_EMOJI = 6
 
 
 def clean_caption_output(caption: str, hashtags: list[str]) -> tuple[str, list[str]]:
@@ -124,7 +124,7 @@ def check_formatting(caption: str, hashtags: list[str]) -> list[str]:
 # step at all — compose_batch.py just truncated the caption's first line at
 # 80 characters, producing sentence fragments instead of a real headline.
 MIN_HEADLINE_WORDS = 2
-MAX_HEADLINE_WORDS = 5
+MAX_HEADLINE_WORDS = 8
 
 
 def clean_headline(headline: str) -> str:
@@ -270,7 +270,15 @@ async def write_caption(asset, template, brand: dict | None = None) -> tuple[str
     violations: list[str] = []
     for attempt in range(settings.LLM_MAX_RETRIES + 1):
         try:
-            result = await Runner.run(caption_agent, prompt)
+            retry_hint = ""
+            if violations:
+                retry_hint = (
+                    f"\n\nYOUR PREVIOUS OUTPUT WAS REJECTED for: {'; '.join(violations)}.\n"
+                    f"FIX THESE SPECIFIC ISSUES. Do NOT repeat the same mistakes.\n"
+                    f"Headline MUST be {MIN_HEADLINE_WORDS}-{MAX_HEADLINE_WORDS} words. "
+                    f"Emoji MUST be {MAX_EMOJI} or fewer.\n"
+                )
+            result = await Runner.run(caption_agent, prompt + retry_hint)
         except Exception as e:
             logger.error("Caption model unreachable: %s", e)
             await _write_audit(

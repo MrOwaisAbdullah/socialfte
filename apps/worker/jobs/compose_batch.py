@@ -197,11 +197,17 @@ async def _pick_candidates() -> list[tuple[Asset, Template]]:
         ).scalars().all()
 
     candidates: list[tuple[Asset, Template]] = []
+    rejected_assets: set[str] = set()
     for asset in assets:
+        asset_id_str = str(asset.id)
+        if asset_id_str in rejected_assets:
+            continue
         for tmpl in templates:
             if len(candidates) >= MAX_ASSET_TEMPLATE_COMBOS:
                 break
             candidates.append((asset, tmpl))
+        if len(candidates) >= MAX_ASSET_TEMPLATE_COMBOS:
+            break
     return candidates
 
 
@@ -257,6 +263,8 @@ async def compose_batch():
 
     composed = 0
     shortfall_reasons: list[str] = []
+    rejected_asset_ids: set[str] = set()
+    rejected_template_ids: set[str] = set()
 
     # Computed once and reused for both the caption prompt and the render
     # payload below — was only built inside the still-image render branch,
@@ -277,14 +285,24 @@ async def compose_batch():
             break
 
         asset_id_str = str(asset.id)
+        tmpl_id_str = str(tmpl.id)
+
+        # Skip assets/templates already rejected in this batch run
+        if asset_id_str in rejected_asset_ids:
+            continue
+        if tmpl_id_str in rejected_template_ids:
+            continue
+
         platform = platforms[attempt % len(platforms)]
         fmt = _choose_format(platform)
 
         if not await anti_repeat.check_asset(asset.id):
             shortfall_reasons.append(f"asset {asset_id_str} rejected by anti-repeat")
+            rejected_asset_ids.add(asset_id_str)
             continue
         if not await anti_repeat.check_template(tmpl.id):
-            shortfall_reasons.append(f"template {tmpl.id} rejected by anti-repeat")
+            shortfall_reasons.append(f"template {tmpl_id_str} rejected by anti-repeat")
+            rejected_template_ids.add(tmpl_id_str)
             continue
 
         try:

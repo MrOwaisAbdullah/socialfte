@@ -168,6 +168,24 @@ export default function PostsPage() {
     }
   }, []);
 
+  const updatePostState = useCallback(async (id: string, state: string) => {
+    try {
+      const res = await fetch(`/api/posts/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state }),
+      });
+      if (res.ok) {
+        setPosts((prev) => prev.map((p) => p.id === id ? { ...p, state } : p));
+      } else {
+        const err = await res.json().catch(() => ({ error: "Update failed" }));
+        alert(err.error || "Update failed");
+      }
+    } catch {
+      alert("Network error");
+    }
+  }, []);
+
   const bulkDelete = useCallback(async () => {
     const ids = Array.from(selected);
     if (!ids.length) return;
@@ -312,12 +330,30 @@ export default function PostsPage() {
                   <p className="mt-1 font-body text-xs text-red-500 line-clamp-1">{post.error}</p>
                 )}
               </div>
-              <button
-                onClick={() => deletePost(post.id)}
-                className="mt-1 shrink-0 rounded bg-red-600 px-2 py-1 font-body text-xs text-white hover:bg-red-700"
-              >
-                Delete
-              </button>
+              <div className="flex shrink-0 flex-col gap-1">
+                {post.state === "review" && (
+                  <>
+                    <button
+                      onClick={() => updatePostState(post.id, "approved")}
+                      className="rounded bg-green-600 px-2 py-1 font-body text-xs text-white hover:bg-green-700"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => updatePostState(post.id, "failed")}
+                      className="rounded bg-red-600 px-2 py-1 font-body text-xs text-white hover:bg-red-700"
+                    >
+                      Reject
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => deletePost(post.id)}
+                  className="rounded bg-dark/10 px-2 py-1 font-body text-xs text-dark hover:bg-dark/20"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
         </div>

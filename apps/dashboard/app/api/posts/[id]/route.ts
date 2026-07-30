@@ -1,40 +1,55 @@
-// PATCH /api/posts/[id] — Calendar drag-to-reschedule (Week 5, US4, T039).
-// DELETE /api/posts/[id] — Remove a post from the queue.
-// Session-gated by proxy.ts (this path isn't in its exclusion list), so only
-// a logged-in dashboard session can move or delete a post.
-import { NextRequest, NextResponse } from 'next/server';
-import { and, eq, gte, lt } from 'drizzle-orm';
-import { db } from '@/lib/db/client';
-import { posts, auditLog } from '@/lib/db/schema';
-import { getDailyCap } from '@/lib/cap-limits';
+import { NextRequest, NextResponse } from "next/server";
+import { and, eq, gte, lt } from "drizzle-orm";
+import { db } from "@/lib/db/client";
+import { posts, auditLog } from "@/lib/db/schema";
+import { getDailyCap } from "@/lib/cap-limits";
 
-// Posts still on their way to publishing — what the calendar's cap fill bar
-// counts against. Not 'draft'/'failed'/'skipped' (won't publish) or
-// 'published' (already counted for a past day, not a scheduling conflict).
-const ACTIVE_STATES = ['review', 'approved', 'tiktok_ready'];
+const ACTIVE_STATES = ["review", "approved", "tiktok_ready"];
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  let body: { scheduledAt?: string };
+  let body: { scheduledAt?: string; state?: string };
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 });
-  }
-
-  if (!body.scheduledAt) {
-    return NextResponse.json({ error: 'scheduledAt is required' }, { status: 400 });
-  }
-
-  const newScheduledAt = new Date(body.scheduledAt);
-  if (Number.isNaN(newScheduledAt.getTime())) {
-    return NextResponse.json({ error: 'scheduledAt is not a valid date' }, { status: 400 });
+    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
   const [existing] = await db.select().from(posts).where(eq(posts.id, id));
   if (!existing) {
-    return NextResponse.json({ error: 'post not found' }, { status: 404 });
+    return NextResponse.json({ error: "post not found" }, { status: 404 });
+  }
+
+  // State change (approve / reject / skip)
+  if (body.state) {
+    const validStates = ["approved", "failed", "skipped"];
+    if (!validStates.includes(body.state)) {
+      return NextResponse.json({ error: `state must be one of: ${validStates.join(", ")}` }, { status: 400 });
+    }
+    await db
+      .update(posts)
+      .set({ state: body.state, updatedAt: new Date() })
+      .where(eq(posts.id, id));
+
+    await db.insert(auditLog).values({
+      actor: "dashboard",
+      action: `post_${body.state}`,
+      subjectId: id,
+      payload: { previousState: existing.state, newState: body.state },
+    });
+
+    return NextResponse.json({ id, state: body.state });
+  }
+
+  // Reschedule
+  if (!body.scheduledAt) {
+    return NextResponse.json({ error: "scheduledAt or state is required" }, { status: 400 });
+  }
+
+  const newScheduledAt = new Date(body.scheduledAt);
+  if (Number.isNaN(newScheduledAt.getTime())) {
+    return NextResponse.json({ error: "scheduledAt is not a valid date" }, { status: 400 });
   }
 
   const previousScheduledAt = existing.scheduledAt;
@@ -44,8 +59,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .set({ scheduledAt: newScheduledAt, updatedAt: new Date() })
     .where(eq(posts.id, id));
 
-  // Same-day window in UTC — good enough for a fill-bar warning (FR-015);
-  // this isn't the source of truth for what actually publishes (publish_due.py is).
   const dayStart = new Date(newScheduledAt);
   dayStart.setUTCHours(0, 0, 0, 0);
   const dayEnd = new Date(dayStart);
@@ -66,8 +79,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const cap = getDailyCap(existing.platform, existing.format);
 
   await db.insert(auditLog).values({
-    actor: 'dashboard_calendar',
-    action: 'post_rescheduled',
+    actor: "dashboard_calendar",
+    action: "post_rescheduled",
     subjectId: id,
     payload: {
       previousScheduledAt: previousScheduledAt?.toISOString() ?? null,

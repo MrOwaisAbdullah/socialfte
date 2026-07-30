@@ -26,9 +26,15 @@ async def _write_audit(action: str, subject_id: str, payload: dict):
 
 
 async def _recent_posts(limit: int) -> list[Post]:
+    """Fetch the most recent PUBLISHED posts for anti-repeat checks.
+    Only posts that are actually live should count — drafts in 'review'
+    state shouldn't block template/asset reuse."""
     async with SessionLocal() as session:
         result = await session.execute(
-            select(Post).order_by(Post.created_at.desc()).limit(limit)
+            select(Post)
+            .where(Post.state == "published")
+            .order_by(Post.created_at.desc())
+            .limit(limit)
         )
         return list(result.scalars().all())
 
