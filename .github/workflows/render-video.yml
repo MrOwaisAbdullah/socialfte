@@ -52,11 +52,9 @@ jobs:
         # CI runs, 2026-07-30 17:2x UTC) that every composition using
         # <MusicBed> 404'd fetching its track ("could not be found" at
         # .../public/library/music/clips/<track>.mp3 inside the webpack
-        # bundle), meaning the config-file setting wasn't reaching the
-        # bundler in this environment. The CLI flag is documented to take
-        # precedence over the config option, so this is unambiguous
-        # regardless of why the config alone wasn't enough.
-        run: npx remotion render ${{ inputs.composition_id }} out/render.mp4 --props=./input-props.json --public-dir=../media
+        # bundle). The CLI flag needs an absolute path in CI, so we point
+        # to the workspace media directory defined in project's REMOTE_PUBLIC_DIR.
+        run: npx remotion render ${{ inputs.composition_id }} out/render.mp4 --props=./input-props.json --public-dir="${{ github.workspace }}/media"
 
       - name: Upload to R2
         working-directory: packages/remotion
