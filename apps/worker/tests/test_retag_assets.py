@@ -71,7 +71,7 @@ async def test_retag_assets_updates_asset_fields(mock_deps):
 
 @pytest.mark.asyncio
 async def test_retag_assets_sets_reject_reason_below_threshold(mock_deps):
-    from jobs.retag_assets import retag_assets
+    from jobs.retag_assets import QUALITY_SCORE_REJECT_THRESHOLD, retag_assets
 
     mock_asset = MagicMock(id="asset-2", r2_key="assets/blurry.png")
     mock_session = mock_deps["session"]
@@ -80,7 +80,7 @@ async def test_retag_assets_sets_reject_reason_below_threshold(mock_deps):
     mock_session.get = AsyncMock(return_value=mock_row)
 
     mock_analysis = MagicMock(piece="chair", tier="tier1", variant="standard",
-                               quality_score=40, lighting_ok=False, composition_ok=True)
+                               quality_score=QUALITY_SCORE_REJECT_THRESHOLD - 1, lighting_ok=False, composition_ok=True)
 
     with patch("jobs.retag_assets._analyze_asset", new_callable=AsyncMock, return_value=mock_analysis), \
          patch("jobs.retag_assets.settings") as mock_settings:

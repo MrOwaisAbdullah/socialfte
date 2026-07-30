@@ -11,6 +11,10 @@ import SetBreakdown from './set-breakdown';
 import Quote from './quote';
 import BeforeAfter from './before-after';
 import CarouselSlide from './carousel-slide';
+import BoldHeadline from './bold-headline';
+import ExclusiveBadge from './exclusive-badge';
+import LightCircleFrame from './light-circle-frame';
+import SweetDreams from './sweet-dreams';
 import type { Aspect, BrandTokens } from './aspect';
 
 type TemplateProps = Record<string, unknown> & { aspect?: Aspect; brand: BrandTokens };
@@ -35,6 +39,27 @@ export const TEMPLATE_REGISTRY: Record<
   },
   'carousel-slide': {
     Component: CarouselSlide as ComponentType<TemplateProps>,
+    requiredProps: ['imageUrl', 'headline'],
+  },
+  // Sample-posts/-inspired templates (Bold Headline.png, Exclusive + Save
+  // Badge.png, Light Circle Frame.png, Sweet Dreams.png) — badge/CTA/phone
+  // text are all optional with in-component defaults or honest omission
+  // (see each component), not required here, since compose_batch.py has no
+  // dedicated discount/phone-number field to generate them from.
+  'bold-headline': {
+    Component: BoldHeadline as ComponentType<TemplateProps>,
+    requiredProps: ['imageUrl', 'headline'],
+  },
+  'exclusive-badge': {
+    Component: ExclusiveBadge as ComponentType<TemplateProps>,
+    requiredProps: ['imageUrl', 'headline'],
+  },
+  'light-circle-frame': {
+    Component: LightCircleFrame as ComponentType<TemplateProps>,
+    requiredProps: ['imageUrl', 'headline'],
+  },
+  'sweet-dreams': {
+    Component: SweetDreams as ComponentType<TemplateProps>,
     requiredProps: ['imageUrl', 'headline'],
   },
 };

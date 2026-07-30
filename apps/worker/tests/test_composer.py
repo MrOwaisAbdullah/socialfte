@@ -54,9 +54,10 @@ def test_check_formatting_flags_too_few_hashtags():
 
 
 def test_check_formatting_flags_excessive_emoji():
-    from brain.composer import check_formatting
+    from brain.composer import check_formatting, MAX_EMOJI
 
-    violations = check_formatting("✨🛋️📦💚🎉 too many emoji here", ["#a", "#b", "#c"])
+    caption = "🛋️" * (MAX_EMOJI + 1) + " too many emoji here"
+    violations = check_formatting(caption, ["#a", "#b", "#c"])
     assert any("emoji" in v for v in violations)
 
 

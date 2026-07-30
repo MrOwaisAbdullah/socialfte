@@ -55,23 +55,36 @@ DEFAULT_TEMPLATES = [
     ("product-split", "Product Split"),
     ("bento-gallery", "Bento Gallery"),
     ("bento-reel", "Bento Reel"),
+    ("bold-headline", "Bold Headline"),
+    ("exclusive-badge", "Exclusive Badge"),
+    ("light-circle-frame", "Light Circle Frame"),
+    ("sweet-dreams", "Sweet Dreams"),
 ]
 
 
 async def _seed_templates() -> None:
-    """Insert the default templates if the table is empty. Only runs when
-    empty (not an upsert) so an operator's own template edits/deletions are
-    never silently overwritten on the next restart."""
+    """Insert any DEFAULT_TEMPLATES slug missing from the table — never
+    touches a slug that's already there, so an operator's own edits/
+    deletions to existing rows are preserved. Was "only insert when the
+    whole table is empty", which meant adding a new template to
+    DEFAULT_TEMPLATES (as happened when the 4 sample-post templates were
+    added) silently never reached a live, already-populated table on
+    restart — the operator would have had to insert the new row by hand
+    every time. This runs on every startup and is a no-op once nothing's
+    missing."""
     async with SessionLocal() as session:
-        from sqlalchemy import select, func as sa_func
+        from sqlalchemy import select
 
-        count = (await session.execute(select(sa_func.count()).select_from(Template))).scalar_one()
-        if count > 0:
-            return
+        existing_slugs = set((await session.execute(select(Template.slug))).scalars().all())
+        added = 0
         for slug, display_name in DEFAULT_TEMPLATES:
+            if slug in existing_slugs:
+                continue
             session.add(Template(slug=slug, display_name=display_name))
-        await session.commit()
-        logger.info("Seeded %d default templates", len(DEFAULT_TEMPLATES))
+            added += 1
+        if added:
+            await session.commit()
+            logger.info("Seeded %d new default template(s)", added)
 
 
 @asynccontextmanager

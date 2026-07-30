@@ -35,3 +35,16 @@ export type BrandTokens = {
   socialHandle?: string;
   showBrandMark?: boolean;
 };
+
+// Splits a short (2-5 word) generated headline into two roughly-even word
+// groups, for templates that render it as two differently-colored stacked
+// lines (bold-headline, sweet-dreams) rather than hero.tsx's inline
+// highlightWord — an AI-generated headline has no natural "highlight word"
+// boundary the way a hand-written one does, but splitting by word count
+// reliably gives a clean two-tone break regardless of headline length.
+export function splitHeadlineWords(headline: string): [string, string] {
+  const words = headline.trim().split(/\s+/).filter(Boolean);
+  if (words.length <= 1) return [headline, ''];
+  const mid = Math.ceil(words.length / 2);
+  return [words.slice(0, mid).join(' '), words.slice(mid).join(' ')];
+}

@@ -98,6 +98,10 @@ VIDEO_COMPOSITION_MAP = {
     "product-split": "ProductSplit",     # Split-screen editorial layout
     "bento-gallery": "BentoGallery",     # Square bento grid with mixed cells
     "bento-reel": "BentoReel",          # Portrait bento grid for reels
+    "bold-headline": "HeroReveal",       # Two-tone headline + Ken Burns zoom
+    "exclusive-badge": "PromoHighlight",  # Built for this exact eyebrow+badge aesthetic
+    "light-circle-frame": "DetailFocus",  # "Circular reveal detail shot" matches directly
+    "sweet-dreams": "LifestyleFrame",     # Warm bedroom lifestyle context frame
 }
 
 
@@ -188,6 +192,15 @@ def _build_video_props(composition_id: str, image_url: str, headline: str, extra
         props["bundlePrice"] = ""
     elif composition_id == "BentoReel":
         props["productName"] = headline
+    elif composition_id == "DetailFocus":
+        # detailName is required with no in-component default — was entirely
+        # unhandled here, so any "detail-focus"/"light-circle-frame" video
+        # post rendered with detailName undefined.
+        props["detailName"] = headline
+    elif composition_id == "LifestyleFrame":
+        props["roomName"] = headline
+    elif composition_id == "PromoHighlight":
+        props["headline"] = headline
     return props
 
 

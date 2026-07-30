@@ -55,7 +55,7 @@ async def test_compose_batch_produces_posts(mock_deps):
          patch("jobs.compose_batch.anti_repeat.check_template", new_callable=AsyncMock, return_value=True), \
          patch("jobs.compose_batch.anti_repeat.check_caption", new_callable=AsyncMock, return_value=True), \
          patch("jobs.compose_batch.httpx.AsyncClient") as mock_httpx, \
-         patch("jobs.compose_batch._get_connected_platforms", new_callable=AsyncMock, return_value=["instagram"]), \
+         patch("jobs.compose_batch._get_target_platforms", new_callable=AsyncMock, return_value=["instagram"]), \
          patch("jobs.compose_batch.settings.IMAGE_POST_RATIO", 1.0):
         # IMAGE_POST_RATIO pinned to 1.0 — this test asserts on the
         # still-image path specifically (state='review'); leaving format
@@ -116,7 +116,7 @@ async def test_compose_batch_drafts_without_connected_platforms(mock_deps):
          patch("jobs.compose_batch.anti_repeat.check_caption", new_callable=AsyncMock, return_value=True), \
          patch("jobs.compose_batch.httpx.AsyncClient") as mock_httpx, \
          patch("jobs.compose_batch.dispatch_video_render", new_callable=AsyncMock), \
-         patch("jobs.compose_batch._get_connected_platforms", new_callable=AsyncMock, return_value=[]):
+         patch("jobs.compose_batch._get_target_platforms", new_callable=AsyncMock, return_value=[]):
         mock_write.return_value = ("Solid chair.", "Solid Sheesham Chair", ["#chair"])
         mock_embed.return_value = [0.1] * 10
 
@@ -201,7 +201,7 @@ async def test_platform_rotation_advances_on_failed_attempts_not_successes(mock_
          patch("jobs.compose_batch.anti_repeat.check_template", new_callable=AsyncMock, return_value=True), \
          patch("jobs.compose_batch.anti_repeat.check_caption", new_callable=AsyncMock, return_value=True), \
          patch("jobs.compose_batch.httpx.AsyncClient") as mock_httpx, \
-         patch("jobs.compose_batch._get_connected_platforms", new_callable=AsyncMock, return_value=["facebook", "instagram"]):
+         patch("jobs.compose_batch._get_target_platforms", new_callable=AsyncMock, return_value=["facebook", "instagram"]):
         mock_write.return_value = ("Solid chair.", "Solid Sheesham Chair", ["#chair"])
         mock_embed.return_value = [0.1] * 10
 
@@ -253,7 +253,7 @@ async def test_anti_repeat_violation_retries(mock_deps):
          patch("jobs.compose_batch.anti_repeat.check_asset", new_callable=AsyncMock, return_value=True), \
          patch("jobs.compose_batch.anti_repeat.check_template", new_callable=AsyncMock, return_value=True), \
          patch("jobs.compose_batch.anti_repeat.check_caption", new_callable=AsyncMock, return_value=False), \
-         patch("jobs.compose_batch._get_connected_platforms", new_callable=AsyncMock, return_value=["instagram"]):
+         patch("jobs.compose_batch._get_target_platforms", new_callable=AsyncMock, return_value=["instagram"]):
         mock_write.return_value = ("Test caption.", "Solid Table Deal", ["#test"])
         mock_embed.return_value = [0.1] * 10
 
@@ -290,7 +290,7 @@ async def test_render_props_include_asset_image_url(mock_deps):
          patch("jobs.compose_batch.anti_repeat.check_template", new_callable=AsyncMock, return_value=True), \
          patch("jobs.compose_batch.anti_repeat.check_caption", new_callable=AsyncMock, return_value=True), \
          patch("jobs.compose_batch.httpx.AsyncClient") as mock_httpx, \
-         patch("jobs.compose_batch._get_connected_platforms", new_callable=AsyncMock, return_value=["instagram"]), \
+         patch("jobs.compose_batch._get_target_platforms", new_callable=AsyncMock, return_value=["instagram"]), \
          patch("jobs.compose_batch.settings") as mock_settings:
         mock_resp = MagicMock()
         mock_resp.raise_for_status = MagicMock()

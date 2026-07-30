@@ -649,3 +649,59 @@ and clicking a card opens a detail popup — full-size image or a real
 `<video controls>` player, the untruncated caption, platform/state,
 timestamps, and error text for failed posts — closer to how
 Instagram/Facebook's own post detail view works.
+
+**Four new still-image templates, built to match `Sample-posts/*.png`
+directly.** `bold-headline`, `exclusive-badge`, `light-circle-frame`, and
+`sweet-dreams` (`apps/dashboard/components/templates/`) reproduce the
+macrostructure of the 4 reference designs (two-tone stacked headline +
+circular discount badge; eyebrow + boxed headline + floating badge; a large
+circular framed photo with a ring border; a split dark panel with a
+stacked-word headline) using brand tokens throughout, not hardcoded colors
+— any brand's `/setup` palette renders correctly through them. Registered
+in `registry.ts` (required props: `imageUrl` + `headline` only, matching
+`hero`/`carousel-slide`'s convention) and in `main.py`'s
+`DEFAULT_TEMPLATES`. Badge text, CTA label, and phone number are all
+optional with either an in-component default or honest omission — nothing
+fabricates a discount percentage or phone number that compose_batch.py has
+no real field to generate from (CLAUDE.md: no unauthorized prices).
+`BrandBadge` gained a `variant="lockup"` mode (prominent top-left
+logo+wordmark) since all 4 samples brand every post that way, distinct from
+the existing small bottom-right `variant="corner"` pill every other
+template already used.
+
+**`_seed_templates()` only ever seeded once, ever.** It only inserted
+`DEFAULT_TEMPLATES` when the whole `templates` table was empty — so adding
+the 4 templates above to `DEFAULT_TEMPLATES` would have silently never
+reached a live, already-populated table on restart, the same way
+`before-after` is registered but was never added to `DEFAULT_TEMPLATES` in
+the first place. Now inserts whichever slugs are missing on every startup,
+without touching rows that already exist (an operator's own edits/
+deletions are still preserved) — a genuinely additive migration path
+instead of a one-shot bootstrap.
+
+**Video format for the same 4 templates** maps to existing Remotion
+compositions via `VIDEO_COMPOSITION_MAP` — `light-circle-frame` →
+`DetailFocus` ("circular reveal detail shot" is a direct match),
+`exclusive-badge` → `PromoHighlight` (built for this exact aesthetic
+earlier the same week), `sweet-dreams` → `LifestyleFrame`, `bold-headline`
+→ `HeroReveal`. Fixing this also surfaced that `DetailFocus`/`LifestyleFrame`/
+`PromoHighlight` had no branch in `_build_video_props()` at all — any
+existing `detail-focus`/`lifestyle` video post was rendering with
+`DetailFocus`'s required `detailName` prop undefined. All three now get the
+generated headline the same way every other composition does.
+
+**Three tests were quietly broken by concurrent changes, unrelated to the
+templates work above but caught while running the full suite before
+committing it.** `compose_batch()`'s platform selection was switched from
+`_get_connected_platforms()` to a new `_get_target_platforms()` (Settings
+page's platform picker) without updating the 5 tests that still mocked the
+old, now-dead function — the real `_get_target_platforms()` ran unmocked
+against a fake session, returning a `MagicMock` where a list was expected,
+and `platforms[attempt % len(platforms)]` divided by a `MagicMock`'s
+default `__len__` of `0`. Separately, `QUALITY_SCORE_REJECT_THRESHOLD` was
+lowered from 60 to 40 (Gemini under-scoring good photos), but two tests
+still asserted rejection at exactly `quality_score=40` — `< 40` no longer
+rejects a score of `40` once the threshold itself is `40`. Fixed by
+re-pointing the mocks at the real function name and asserting strictly
+below the threshold (imported, not hardcoded, so a future threshold change
+can't silently reintroduce the same off-by-one).

@@ -1,7 +1,9 @@
 """Tests for the vision tagging agent — Week 4, Step 3.
 
-Verifies quality_gate() sets reject_reason when quality_score is below the schema's
-documented threshold (60) and leaves it null otherwise.
+Verifies quality_gate() sets reject_reason when quality_score is below
+QUALITY_SCORE_REJECT_THRESHOLD (brain/vision.py — currently 40, lowered from
+60 after Gemini was found to consistently under-score professional product
+photos) and leaves it null otherwise.
 """
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -16,11 +18,11 @@ def mock_deps():
 
 @pytest.mark.asyncio
 async def test_quality_gate_flags_low_score(mock_deps):
-    from brain.vision import AssetAnalysis, quality_gate
+    from brain.vision import AssetAnalysis, QUALITY_SCORE_REJECT_THRESHOLD, quality_gate
 
     analysis = AssetAnalysis(
         piece="dining set", tier="tier1", variant="standard",
-        quality_score=40, lighting_ok=False, composition_ok=True,
+        quality_score=QUALITY_SCORE_REJECT_THRESHOLD - 1, lighting_ok=False, composition_ok=True,
     )
 
     with patch("brain.vision._analyze_asset", new_callable=AsyncMock) as mock_analyze:
