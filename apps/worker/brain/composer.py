@@ -87,21 +87,55 @@ MIN_HASHTAGS = 3
 MAX_EMOJI = 6
 
 
+_INLINE_HASHTAG_PATTERN = re.compile(r"#\w+")
+# A "." "." "." spacer line, each dot alone on its own line — the exact
+# "quote card" ending skills/caption-writer.md rule 9 forbids, confirmed
+# live directly preceding an inline hashtag block in a real published draft.
+_DOT_SPACER_LINE = re.compile(r"^[ \t]*\.[ \t]*$\n?", re.MULTILINE)
+
+
 def clean_caption_output(caption: str, hashtags: list[str]) -> tuple[str, list[str]]:
     """Deterministic post-processing applied to every model response, before
     any check runs — fixes what's safe to fix outright rather than spending
     a retry on it. Markdown asterisks are stripped (the content underneath
-    is usually fine, only the ** markers are the problem); hashtags are
-    de-duplicated (case-insensitive, order-preserving) and capped at
+    is usually fine, only the ** markers are the problem).
+
+    Confirmed live: despite skills/caption-writer.md rule 3 ("never write
+    the hashtag list twice") and rule 9 (no "." "." "." quote-card spacer),
+    the model sometimes embeds its own hashtag block directly in the
+    caption body anyway — compose_batch.py then appends the separate
+    structured `hashtags` field on top, producing two overlapping hashtag
+    blocks in the published post (one real example: 15 inline tags,
+    followed by an 8-tag subset from the structured field). Any inline
+    #tags found in the body are pulled out, merged into the structured
+    list, and the body's spacer lines are cleaned up, so there is exactly
+    one hashtag block in the result regardless of where the model put it.
+
+    Hashtags are then normalized (a missing "#" is added — confirmed live,
+    the structured field sometimes came back as bare words like
+    "YousufLiving HomeDecor", not clickable hashtags on any platform),
+    de-duplicated (case-insensitive, order-preserving), and capped at
     MAX_HASHTAGS — truncating a too-long list is safe, but padding a
-    too-short one isn't, so under-MIN_HASHTAGS is still a real check below."""
+    too-short one isn't, so under-MIN_HASHTAGS is still a real check
+    below."""
     caption = re.sub(r"\*{1,2}([^*]+)\*{1,2}", r"\1", caption)
+
+    inline_tags = _INLINE_HASHTAG_PATTERN.findall(caption)
+    if inline_tags:
+        caption = _INLINE_HASHTAG_PATTERN.sub("", caption)
+        caption = _DOT_SPACER_LINE.sub("", caption)
+        caption = re.sub(r"[ \t]+\n", "\n", caption)  # trailing spaces left by removed tags
+        caption = re.sub(r"\n{3,}", "\n\n", caption).strip()
+        hashtags = hashtags + inline_tags
 
     seen = set()
     deduped = []
     for tag in hashtags:
+        tag = tag.strip()
+        if tag and not tag.startswith("#"):
+            tag = f"#{tag}"
         key = tag.lower()
-        if key not in seen:
+        if key and key not in seen:
             seen.add(key)
             deduped.append(tag)
     return caption, deduped[:MAX_HASHTAGS]
