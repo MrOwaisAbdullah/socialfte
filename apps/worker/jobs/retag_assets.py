@@ -124,24 +124,6 @@ async def retag_assets():
                     {"piece": filename_piece, "error": str(e)},
                 )
             continue
-                # Stop retrying a file that's actually gone — mark it
-                # rejected instead of leaving quality_score NULL (the exact
-                # condition this job selects on), which would otherwise
-                # retry this same dead URL every run, forever.
-                async with SessionLocal() as session:
-                    row = await session.get(Asset, asset.id)
-                    if row:
-                        row.quality_score = 0
-                        row.lighting_ok = False
-                        row.composition_ok = False
-                        row.reject_reason = "R2 object not found (404) — file appears to have been deleted from storage"
-                        await session.commit()
-                await _write_audit(
-                    "asset_marked_missing",
-                    str(asset.id),
-                    {"image_url": image_url, "error": str(e)},
-                )
-            continue
 
         reject_reason = None
         if analysis.quality_score < QUALITY_SCORE_REJECT_THRESHOLD:
