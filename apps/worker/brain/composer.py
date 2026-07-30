@@ -135,7 +135,7 @@ def clean_caption_output(caption: str, hashtags: list[str]) -> tuple[str, list[s
         if tag and not tag.startswith("#"):
             tag = f"#{tag}"
         key = tag.lower()
-        if key and key not in seen:
+        if key not in seen:
             seen.add(key)
             deduped.append(tag)
     return caption, deduped[:MAX_HASHTAGS]
