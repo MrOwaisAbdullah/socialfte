@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Dashboard needs to reach the worker - use WORKER_SERVICE_URL to avoid confusion
-// with the worker's own WORKER_INTERNAL_URL (which points to the dashboard).
-// In Dokploy: set WORKER_SERVICE_URL to the worker's internal service hostname.
-const WORKER_URL = process.env.WORKER_SERVICE_URL || "http://socialfte-worker-2s66t5:8000";
+// Dashboard → Worker URL. In Dokploy each service has its own env,
+// so WORKER_INTERNAL_URL on the dashboard points to the worker.
+const WORKER_URL = process.env.WORKER_INTERNAL_URL || "http://localhost:8000";
 
 export async function GET() {
   try {
