@@ -13,6 +13,7 @@ const NAV_LINKS = [
   { href: '/calendar', label: 'Calendar' },
   { href: '/performance', label: 'Performance' },
   { href: '/jobs', label: 'Jobs' },
+  { href: '/settings', label: 'Settings' },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

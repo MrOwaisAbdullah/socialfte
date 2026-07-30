@@ -9,7 +9,7 @@ from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import ForeignKey, Text, Boolean, Integer, TIMESTAMP, JSON
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -153,5 +153,6 @@ class BrandConfig(Base):
     social_handle: Mapped[str | None] = mapped_column(Text)
     show_brand_mark: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     caption_language: Mapped[str | None] = mapped_column(Text)
+    target_platforms: Mapped[list[str] | None] = mapped_column(ARRAY(Text))  # platforms to create posts for
     setup_complete: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())

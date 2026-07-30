@@ -174,6 +174,19 @@ async def _get_connected_platforms() -> list[str]:
         return list(dict.fromkeys(creds))  # unique, preserve order
 
 
+async def _get_target_platforms() -> list[str]:
+    """Return the target platforms from brand_config.
+
+    If no brand_config row exists or target_platforms is empty, return all platforms.
+    These are the platforms the operator selected in the dashboard Settings page.
+    """
+    async with SessionLocal() as session:
+        row = await session.get(BrandConfig, "default")
+        if row and row.target_platforms:
+            return row.target_platforms
+        return list(PLATFORM_FORMATS.keys())
+
+
 async def _pick_candidates() -> list[tuple[Asset, Template]]:
     """Return up to MAX_ASSET_TEMPLATE_COMBOS (asset, template) pairs that pass the
     anti-repeat checks, preferring assets with fewer prior uses and templates in
@@ -232,12 +245,12 @@ async def compose_batch():
     # a platform has no real token. Blocking composition entirely here meant
     # zero drafts could ever be created (nothing to review/approve/test)
     # before OAuth setup existed for any platform.
-    platforms = await _get_connected_platforms()
+    platforms = await _get_target_platforms()
     if not platforms:
         platforms = list(PLATFORM_FORMATS.keys())
         logger.warning(
-            "No connected platform credentials — drafting for all platforms (%s) anyway; "
-            "publish_due will still refuse to publish until real credentials exist",
+            "No target platforms configured — drafting for all platforms (%s) anyway; "
+            "configure target platforms in Settings to limit composition",
             ", ".join(platforms),
         )
 
