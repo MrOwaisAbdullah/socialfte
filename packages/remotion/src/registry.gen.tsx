@@ -11,6 +11,8 @@ import Shot7, { compositionConfig as cfg7 } from './compositions/CinematicReveal
 import Shot8, { compositionConfig as cfg8 } from './compositions/ProductSplit';
 import Shot9, { compositionConfig as cfg9 } from './compositions/LifestyleFrame';
 import Shot10, { compositionConfig as cfg10 } from './compositions/DetailFocus';
+import Shot11, { compositionConfig as cfg11 } from './compositions/BentoGallery';
+import Shot12, { compositionConfig as cfg12 } from './compositions/BentoReel';
 
 export const shots: { Comp: React.FC; config: any }[] = [
   { Comp: Shot0 as React.FC, config: cfg0 },
@@ -24,4 +26,6 @@ export const shots: { Comp: React.FC; config: any }[] = [
   { Comp: Shot8 as React.FC, config: cfg8 },
   { Comp: Shot9 as React.FC, config: cfg9 },
   { Comp: Shot10 as React.FC, config: cfg10 },
+  { Comp: Shot11 as React.FC, config: cfg11 },
+  { Comp: Shot12 as React.FC, config: cfg12 },
 ];

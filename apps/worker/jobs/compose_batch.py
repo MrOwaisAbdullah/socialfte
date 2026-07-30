@@ -55,7 +55,7 @@ def _choose_format(platform: str) -> str:
     return "image" if random.random() < settings.IMAGE_POST_RATIO else "video"
 
 # Enhanced template mapping with new compositions
-# Provides better variety: glassmorphism, cinematic, grid layouts, etc.
+# Provides better variety: glassmorphism, cinematic, grid layouts, bento grids
 VIDEO_COMPOSITION_MAP = {
     "hero": "HeroReveal",              # Classic Ken Burns zoom
     "premium-hero": "CinematicReveal",   # Film-inspired letterbox reveal
@@ -69,6 +69,8 @@ VIDEO_COMPOSITION_MAP = {
     "lifestyle": "LifestyleFrame",       # Warm room context frame
     "detail-focus": "DetailFocus",       # Circular reveal detail shot
     "product-split": "ProductSplit",     # Split-screen editorial layout
+    "bento-gallery": "BentoGallery",     # Square bento grid with mixed cells
+    "bento-reel": "BentoReel",          # Portrait bento grid for reels
 }
 
 

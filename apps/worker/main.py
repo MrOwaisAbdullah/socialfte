@@ -54,6 +54,8 @@ DEFAULT_TEMPLATES = [
     ("lifestyle", "Lifestyle"),
     ("detail-focus", "Detail Focus"),
     ("product-split", "Product Split"),
+    ("bento-gallery", "Bento Gallery"),
+    ("bento-reel", "Bento Reel"),
 ]
 
 

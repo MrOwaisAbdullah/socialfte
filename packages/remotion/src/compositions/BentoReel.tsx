@@ -1,0 +1,395 @@
+import React from 'react';
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
+import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
+import { FONT_DISPLAY, FONT_BODY } from '../fonts';
+import { BrandBadge, CLAMP } from '../lib/kit';
+
+// =============================================================================
+// BentoReel — Vertical bento grid for video reels with animated cells
+// Focus: Instagram Reels/Shorts format with mixed content cells and smooth motion
+// Duration: 10s | 1080x1920 (Portrait for reels) | 30fps
+// =============================================================================
+export const compositionConfig = {
+  id: 'BentoReel',
+  durationInSeconds: 10,
+  fps: 30,
+  width: 1080,
+  height: 1920
+};
+
+type BentoCell = {
+  type: 'image' | 'color' | 'gradient' | 'text' | 'icon';
+  content?: string;
+  color?: string;
+  icon?: string;
+  position: { row: number; col: number; rowSpan: number; colSpan: number };
+};
+
+type Props = {
+  imageUrl: string;
+  secondaryImage?: string;
+  thirdImage?: string;
+  productName: string;
+  price?: string;
+  tagline?: string;
+};
+
+const BentoReel: React.FC<Props> = ({
+  imageUrl,
+  secondaryImage,
+  thirdImage,
+  productName,
+  price,
+  tagline = "Premium Quality"
+}) => {
+  const frame = useCurrentFrame();
+
+  // Define vertical bento grid layout (4x2 grid for portrait)
+  const bentoLayout: BentoCell[] = [
+    // Large hero image cell (2x2) - top left
+    {
+      type: 'image',
+      content: imageUrl,
+      position: { row: 0, col: 0, rowSpan: 2, colSpan: 2 }
+    },
+    // Gradient tagline cell (1x1) - top right
+    {
+      type: 'gradient',
+      content: tagline,
+      position: { row: 0, col: 2, rowSpan: 1, colSpan: 1 }
+    },
+    // Secondary image cell (1x1) - middle right
+    {
+      type: 'image',
+      content: secondaryImage || imageUrl,
+      position: { row: 1, col: 2, rowSpan: 1, colSpan: 1 }
+    },
+    // Brand color cell (1x2) - bottom left
+    {
+      type: 'color',
+      color: COLORS.accent2,
+      content: BRAND.wordmark[0] + ' ' + BRAND.wordmark[1],
+      position: { row: 2, col: 0, rowSpan: 1, colSpan: 1 }
+    },
+    // Product name cell (1x1) - bottom middle
+    {
+      type: 'text',
+      content: productName,
+      position: { row: 2, col: 1, rowSpan: 1, colSpan: 1 }
+    },
+    // Price/icon cell (1x1) - bottom right
+    {
+      type: 'gradient',
+      content: price || '★',
+      position: { row: 2, col: 2, rowSpan: 1, colSpan: 1 }
+    },
+    // Third image cell (1x2) - below hero
+    {
+      type: 'image',
+      content: thirdImage || secondaryImage || imageUrl,
+      position: { row: 3, col: 0, rowSpan: 1, colSpan: 2 }
+    },
+    // Info cell (1x1) - below gradient
+    {
+      type: 'color',
+      color: COLORS.accent,
+      content: 'NEW',
+      position: { row: 3, col: 2, rowSpan: 1, colSpan: 1 }
+    },
+  ];
+
+  // Cell animations - staggered entrance
+  const cellSprings = bentoLayout.map((_, index) =>
+    spring({
+      frame: frame - (15 + index * 10),
+      fps: 30,
+      config: { damping: 14 + index * 2, stiffness: 95 - index * 2 },
+    })
+  );
+
+  // Content animations within cells
+  const contentScales = bentoLayout.map((_, index) =>
+    spring({
+      frame: frame - (60 + index * 8),
+      fps: 30,
+      config: { damping: 16, stiffness: 105 },
+    })
+  );
+
+  // Price reveal animation
+  const priceScale = spring({
+    frame: frame - 140,
+    fps: 30,
+    config: { damping: 15, stiffness: 120 },
+  });
+
+  const priceOp = interpolate(frame, [140, 160], [0, 1], {
+    ...CLAMP,
+    easing: EASINGS.easeOutBack
+  });
+
+  // Final brand reveal
+  const brandOp = interpolate(frame, [200, 220], [0, 1], {
+    ...CLAMP,
+    easing: EASINGS.easeOut
+  });
+
+  // Floating animation for image cells
+  const floatY = Math.sin(frame * 0.02) * 3;
+  const floatRot = Math.sin(frame * 0.015) * 0.3;
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: COLORS.light }}>
+      {/* Main bento grid container */}
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gridTemplateRows: 'repeat(4, 1fr)',
+          gap: 6,
+          padding: 12,
+        }}
+      >
+        {bentoLayout.map((cell, index) => {
+          const cellScale = cellSprings[index];
+          const contentScale = contentScales[index];
+          const isImageCell = cell.type === 'image';
+
+          return (
+            <div
+              key={`${cell.position.row}-${cell.position.col}`}
+              style={{
+                gridRow: `${cell.position.row + 1} / span ${cell.position.rowSpan}`,
+                gridColumn: `${cell.position.col + 1} / span ${cell.position.colSpan}`,
+                position: 'relative',
+                transform: `scale(${cellScale}) ${isImageCell ? `translateY(${floatY}px) rotate(${floatRot}deg)` : ''}`,
+                transformOrigin: 'center',
+              }}
+            >
+              {/* Cell content */}
+              {cell.type === 'image' && (
+                <div style={{
+                  position: 'relative',
+                  width: '100%',
+                  height: '100%',
+                  borderRadius: RADIUS.panel,
+                  overflow: 'hidden',
+                  boxShadow: SHADOW.card,
+                }}>
+                  <AbsoluteFill style={{ transform: `scale(${contentScale})` }}>
+                    <Img
+                      src={cell.content || ''}
+                      maxRetries={3}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  </AbsoluteFill>
+
+                  {/* Enhanced gradient overlay */}
+                  <AbsoluteFill style={{
+                    background: 'linear-gradient(135deg, transparent 40%, rgba(0,0,0,0.3) 100%)',
+                  }} />
+
+                  {/* Shine effect */}
+                  <AbsoluteFill style={{
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%)',
+                    opacity: 0.3 + Math.sin(frame * 0.05 + index) * 0.1,
+                  }} />
+                </div>
+              )}
+
+              {cell.type === 'color' && (
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: cell.color,
+                    borderRadius: RADIUS.panel,
+                    boxShadow: SHADOW.soft,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 16,
+                    transform: `scale(${contentScale})`,
+                  }}
+                >
+                  <div style={{
+                    fontFamily: FONT_DISPLAY,
+                    fontSize: cell.content?.length > 12 ? 20 : 28,
+                    fontWeight: 700,
+                    color: '#fff',
+                    textAlign: 'center',
+                    textShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                    lineHeight: 1.1,
+                  }}>
+                    {cell.content}
+                  </div>
+                </div>
+              )}
+
+              {cell.type === 'gradient' && (
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    background: cell.color || GRADIENT,
+                    borderRadius: RADIUS.panel,
+                    boxShadow: SHADOW.soft,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 12,
+                    transform: `scale(${contentScale})`,
+                  }}
+                >
+                  <div style={{
+                    fontFamily: FONT_BODY,
+                    fontSize: cell.content?.length > 15 ? 16 : 22,
+                    fontWeight: 700,
+                    color: '#fff',
+                    textAlign: 'center',
+                    letterSpacing: 0.8,
+                    textShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                    lineHeight: 1.2,
+                  }}>
+                    {cell.content}
+                  </div>
+                </div>
+              )}
+
+              {cell.type === 'text' && (
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: '#fff',
+                    borderRadius: RADIUS.panel,
+                    boxShadow: SHADOW.card,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 12,
+                    transform: `scale(${contentScale})`,
+                    border: `3px solid ${COLORS.accent}`,
+                  }}
+                >
+                  <div style={{
+                    fontFamily: FONT_DISPLAY,
+                    fontSize: cell.content?.length > 12 ? 18 : 24,
+                    fontWeight: 800,
+                    color: COLORS.ink,
+                    textAlign: 'center',
+                    lineHeight: 1,
+                    letterSpacing: -0.8,
+                  }}>
+                    {cell.content}
+                  </div>
+                </div>
+              )}
+
+              {/* Decorative elements */}
+              {index % 4 === 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: 6,
+                  left: 6,
+                  width: 16,
+                  height: 16,
+                  borderTop: `3px solid ${COLORS.accent}`,
+                  borderLeft: `3px solid ${COLORS.accent}`,
+                }} />
+              )}
+
+              {index % 4 === 2 && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: 6,
+                  right: 6,
+                  width: 16,
+                  height: 16,
+                  borderBottom: `3px solid ${COLORS.accent}`,
+                  borderRight: `3px solid ${COLORS.accent}`,
+                }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Price reveal overlay */}
+      {price && (
+        <AbsoluteFill
+          style={{
+            alignItems: 'flex-end',
+            justifyContent: 'flex-end',
+            padding: 80,
+            pointerEvents: 'none',
+          }}
+        >
+          <div
+            style={{
+              transform: `scale(${priceScale})`,
+              opacity: priceOp,
+            }}
+          >
+            <div style={{
+              padding: '20px 40px',
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(12px)',
+              borderRadius: RADIUS.card,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+              border: `3px solid ${COLORS.accent}`,
+            }}>
+              <div style={{
+                fontFamily: FONT_DISPLAY,
+                fontSize: 48,
+                fontWeight: 800,
+                background: GRADIENT,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                letterSpacing: -1,
+              }}>
+                {price}
+              </div>
+            </div>
+          </div>
+        </AbsoluteFill>
+      )}
+
+      {/* Brand reveal */}
+      <AbsoluteFill
+        style={{
+          alignItems: 'flex-start',
+          justifyContent: 'flex-end',
+          padding: 60,
+          opacity: brandOp,
+          pointerEvents: 'none',
+        }}
+      >
+        <div style={{
+          fontFamily: FONT_BODY,
+          fontSize: 18,
+          color: COLORS.ink,
+          textAlign: 'right',
+          opacity: 0.7,
+        }}>
+          <div style={{ marginBottom: 8 }}>
+            {BRAND.wordmark[0]}
+            <span style={{ color: COLORS.accent }}>{BRAND.wordmark[1]}</span>
+            {BRAND.wordmark[2]}
+          </div>
+          <div style={{ fontSize: 14, color: COLORS.muted }}>
+            {BRAND.signoff}
+          </div>
+        </div>
+      </AbsoluteFill>
+
+      <BrandBadge width={1080} />
+    </AbsoluteFill>
+  );
+};
+
+export default BentoReel;
