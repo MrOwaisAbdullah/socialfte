@@ -11,11 +11,27 @@ const WORKER_URL = process.env.WORKER_INTERNAL_URL || "http://localhost:8000";
 
 export async function GET() {
   try {
-    const res = await fetch(`${WORKER_URL}/jobs`);
+    const res = await fetch(`${WORKER_URL}/jobs`, {
+      signal: AbortSignal.timeout(5000), // 5 second timeout
+    });
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: `Worker returned ${res.status}: ${res.statusText}` },
+        { status: res.status }
+      );
+    }
     const data = await res.json();
     return NextResponse.json(data);
   } catch (e) {
-    return NextResponse.json({ error: "Could not reach worker" }, { status: 502 });
+    console.error("Jobs API error:", e);
+    return NextResponse.json(
+      {
+        error: "Could not reach worker",
+        message: "Make sure WORKER_INTERNAL_URL is set and the worker is running",
+        jobs: []
+      },
+      { status: 502 }
+    );
   }
 }
 
