@@ -6,12 +6,12 @@ import { BrandBadge, CLAMP } from '../lib/kit';
 
 // =============================================================================
 // BentoReel — Vertical bento grid for video reels with animated cells
-// Focus: Instagram Reels/Shorts format with mixed content cells and smooth motion
-// Duration: 10s | 1080x1920 (Portrait for reels) | 30fps
+// Focus: Instagram Reels/Shorts format with mixed content cells, large text, multiple images
+// Duration: 12s | 1080x1920 (Portrait for reels) | 30fps
 // =============================================================================
 export const compositionConfig = {
   id: 'BentoReel',
-  durationInSeconds: 10,
+  durationInSeconds: 12,
   fps: 30,
   width: 1080,
   height: 1920
@@ -32,6 +32,8 @@ type Props = {
   productName: string;
   price?: string;
   tagline?: string;
+  fourthImage?: string;
+  fifthImage?: string;
 };
 
 const BentoReel: React.FC<Props> = ({
@@ -44,7 +46,7 @@ const BentoReel: React.FC<Props> = ({
 }) => {
   const frame = useCurrentFrame();
 
-  // Define vertical bento grid layout (4x2 grid for portrait)
+  // Define enhanced vertical bento grid layout (4x3 grid for more content)
   const bentoLayout: BentoCell[] = [
     // Large hero image cell (2x2) - top left
     {
@@ -52,7 +54,7 @@ const BentoReel: React.FC<Props> = ({
       content: imageUrl,
       position: { row: 0, col: 0, rowSpan: 2, colSpan: 2 }
     },
-    // Gradient tagline cell (1x1) - top right
+    // Large gradient tagline cell (1x1) - top right
     {
       type: 'gradient',
       content: tagline,
@@ -64,37 +66,49 @@ const BentoReel: React.FC<Props> = ({
       content: secondaryImage || imageUrl,
       position: { row: 1, col: 2, rowSpan: 1, colSpan: 1 }
     },
-    // Brand color cell (1x2) - bottom left
-    {
-      type: 'color',
-      color: COLORS.accent2,
-      content: BRAND.wordmark[0] + ' ' + BRAND.wordmark[1],
-      position: { row: 2, col: 0, rowSpan: 1, colSpan: 1 }
-    },
-    // Product name cell (1x1) - bottom middle
+    // Product name cell (1x2) - large text below hero
     {
       type: 'text',
       content: productName,
-      position: { row: 2, col: 1, rowSpan: 1, colSpan: 1 }
+      position: { row: 2, col: 0, rowSpan: 1, colSpan: 2 }
     },
-    // Price/icon cell (1x1) - bottom right
+    // Price cell (1x1) - bottom left
     {
       type: 'gradient',
       content: price || '★',
       position: { row: 2, col: 2, rowSpan: 1, colSpan: 1 }
     },
-    // Third image cell (1x2) - below hero
+    // Brand cell (1x1) - bottom middle
+    {
+      type: 'color',
+      color: COLORS.accent2,
+      content: BRAND.wordmark[0] + '\n' + BRAND.wordmark[1],
+      position: { row: 2, col: 3, rowSpan: 1, colSpan: 1 }
+    },
+    // Third image cell (1x2) - middle section
     {
       type: 'image',
       content: thirdImage || secondaryImage || imageUrl,
       position: { row: 3, col: 0, rowSpan: 1, colSpan: 2 }
     },
-    // Info cell (1x1) - below gradient
+    // Info cell (1x1) - middle right
     {
       type: 'color',
       color: COLORS.accent,
       content: 'NEW',
       position: { row: 3, col: 2, rowSpan: 1, colSpan: 1 }
+    },
+    // Fourth image cell (1x1) - bottom right
+    {
+      type: 'image',
+      content: fourthImage || thirdImage || imageUrl,
+      position: { row: 3, col: 3, rowSpan: 1, colSpan: 1 }
+    },
+    // Fifth image cell (1x3) - bottom row full width
+    {
+      type: 'image',
+      content: fifthImage || fourthImage || imageUrl,
+      position: { row: 4, col: 0, rowSpan: 1, colSpan: 3 }
     },
   ];
 
@@ -140,17 +154,17 @@ const BentoReel: React.FC<Props> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.light }}>
-      {/* Main bento grid container */}
+      {/* Main bento grid container - enhanced for 4x3 grid */}
       <div
         style={{
           position: 'relative',
           width: '100%',
           height: '100%',
           display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gridTemplateRows: 'repeat(4, 1fr)',
-          gap: 6,
-          padding: 12,
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gridTemplateRows: 'repeat(5, 1fr)',
+          gap: 8,
+          padding: 16,
         }}
       >
         {bentoLayout.map((cell, index) => {
@@ -277,10 +291,13 @@ const BentoReel: React.FC<Props> = ({
                 >
                   <div style={{
                     fontFamily: FONT_DISPLAY,
-                    fontSize: cell.content?.length > 12 ? 18 : 24,
+                    fontSize: cell.content?.length > 12 ? 36 : 52,
                     fontWeight: 800,
                     color: COLORS.ink,
                     textAlign: 'center',
+                    lineHeight: 1.1,
+                    letterSpacing: -1,
+                    textShadow: '0 2px 8px rgba(0,0,0,0.2)',
                     lineHeight: 1,
                     letterSpacing: -0.8,
                   }}>
