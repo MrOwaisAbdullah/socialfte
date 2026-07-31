@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import ForeignKey, Text, Boolean, Integer, TIMESTAMP, JSON
+from sqlalchemy import ForeignKey, Text, Boolean, Integer, TIMESTAMP, JSON, NUMERIC
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -102,6 +102,28 @@ class AuditLog(Base):
     subject_id: Mapped[str | None] = mapped_column(Text)
     payload: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+
+
+class Concept(Base):
+    __tablename__ = "concepts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    asset_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("assets.id"), nullable=False)
+    concept_type: Mapped[str] = mapped_column(Text, nullable=False)
+    headlines: Mapped[list] = mapped_column(JSONB, nullable=False)
+    captions: Mapped[list] = mapped_column(JSONB, nullable=False)
+    creative_direction: Mapped[str | None] = mapped_column(Text)
+    suggested_templates: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+    animation_style: Mapped[str | None] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(Text, nullable=False, server_default="draft")
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    approved_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+    usage_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    performance_score: Mapped[float | None] = mapped_column(NUMERIC)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+
+    asset: Mapped[Asset] = relationship()
 
 
 class Credential(Base):
