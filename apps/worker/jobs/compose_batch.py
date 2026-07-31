@@ -417,6 +417,14 @@ async def compose_batch():
         asset_image_url = f"{settings.R2_PUBLIC_URL}/{asset.r2_key}" if asset.r2_key else None
         is_video = fmt in VIDEO_FORMATS
 
+        # Fail-fast: still-image posts require a valid asset URL — rendering
+        # with an empty imageUrl produces broken images (gradient overlay with no
+        # background image). Video posts handle missing assets separately via
+        # GitHub Actions, but still-image renders would create corrupted posts.
+        if not asset_image_url and not is_video:
+            shortfall_reasons.append(f"asset {asset_id_str} has no R2 key (not uploaded)")
+            continue
+
         if is_video:
             # Video rendering is asynchronous (GitHub Actions + a callback,
             # Week 5 Step 2) — the post has to exist before we can dispatch a
