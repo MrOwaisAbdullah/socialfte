@@ -54,6 +54,7 @@ export default function Hero({
           left: 0,
           bottom: 0,
           padding: Math.round(width * 0.06),
+          paddingRight: Math.round(width * 0.25),
           maxWidth: '82%',
           display: 'flex',
           flexDirection: 'column',

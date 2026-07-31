@@ -67,7 +67,12 @@ HUMANIZER_BANNED_PHRASES = [
 def check_humanizer(caption: str) -> list[str]:
     """Return every banned phrase found in `caption` (case-insensitive). Empty = pass."""
     lowered = caption.lower()
-    return [phrase for phrase in HUMANIZER_BANNED_PHRASES if phrase in lowered]
+    violations = [phrase for phrase in HUMANIZER_BANNED_PHRASES if phrase in lowered]
+    # Reject Devanagari (Hindi) and Nastaliq (Urdu) script — the audience
+    # reads Roman Urdu, not Indic/Arabic writing systems.
+    if re.search(r"[\u0900-\u097F\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]", caption):
+        violations.append("contains Devanagari/Nastaliq/Arabic script (use Roman Urdu only)")
+    return violations
 
 
 # Confirmed live: a real caption came back with 30+ hashtags (duplicated
@@ -120,6 +125,24 @@ def clean_caption_output(caption: str, hashtags: list[str]) -> tuple[str, list[s
     below."""
     caption = re.sub(r"\*{1,2}([^*]+)\*{1,2}", r"\1", caption)
 
+    # Strip "Option N:" / "Caption:" / "Option N (label):" prefixes — the
+    # model sometimes generates multiple alternatives despite the prompt
+    # saying to write exactly one. Take only the first option's text.
+    caption = re.sub(
+        r"^\s*Option\s+\d+\s*[\(:：].*?\)?\s*[:\n]",
+        "",
+        caption,
+        count=1,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    caption = re.sub(
+        r"^\s*Caption\s*[:\n]",
+        "",
+        caption,
+        count=1,
+        flags=re.IGNORECASE,
+    )
+
     inline_tags = _INLINE_HASHTAG_PATTERN.findall(caption)
     if inline_tags:
         caption = _INLINE_HASHTAG_PATTERN.sub("", caption)
@@ -169,10 +192,13 @@ def clean_headline(headline: str) -> str:
 def check_headline(headline: str) -> list[str]:
     """Word-count check — the whole point of the headline is that it's short
     enough to read overlaid on a photo in under a second (FR: 2-5 words)."""
+    violations = []
     word_count = len(headline.split())
     if not (MIN_HEADLINE_WORDS <= word_count <= MAX_HEADLINE_WORDS):
-        return [f"headline is {word_count} words (must be {MIN_HEADLINE_WORDS}-{MAX_HEADLINE_WORDS})"]
-    return []
+        violations.append(f"headline is {word_count} words (must be {MIN_HEADLINE_WORDS}-{MAX_HEADLINE_WORDS})")
+    if re.search(r"[\u0900-\u097F\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]", headline):
+        violations.append("headline contains Devanagari/Nastaliq/Arabic script (use Roman Urdu only)")
+    return violations
 
 
 class CaptionOutput(BaseModel):

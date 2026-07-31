@@ -53,11 +53,19 @@ Rules for the mix:
 - Do not transliterate English words into Urdu spelling or vice versa — pick
   whichever language a real bilingual Pakistani would naturally use for that
   specific word, and don't force a translation just to hit a language quota.
+- **NEVER use Devanagari script (हिन्दी), Nastaliq script (اردو), or any
+  non-Latin writing system. ALL text must be in Roman letters only.** The
+  audience reads Roman Urdu, not Hindi/Urdu script. If you write in Devanagari
+  or Nastaliq, the post will be unreadable to the target audience.
 - If `brand.language` explicitly says otherwise (e.g. "English" or "Urdu"),
   follow that instead — this default only applies when no language is set.
 
 ## Rules
 
+0. **Write EXACTLY ONE caption.** Do NOT provide multiple options (Option 1,
+   Option 2, Option 3). Do NOT label your output with "Option 1:", "Caption:",
+   or similar prefixes. Write one caption and return it. The system will reject
+   any output that contains multiple options or numbered alternatives.
 1. Describe what makes the piece worth buying — material, craftsmanship, use case, exclusivity. Be concrete, not vague ("solid sheesham wood, hand-finished joints" beats "premium quality").
 2. Keep captions between 80-300 characters.
 3. Add exactly 3-8 relevant hashtags about the product and category, each one different — never repeat a hashtag, and never write the hashtag list twice.
