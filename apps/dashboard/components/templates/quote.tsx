@@ -35,13 +35,23 @@ export default function Quote({
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={thumbnailUrl}
+        src={thumbnailUrl || ''}
         alt=""
         style={{
           width: Math.round(width * 0.22),
           height: Math.round(width * 0.22),
           objectFit: 'cover',
           borderRadius: 16,
+        }}
+        onLoad={() => {
+          if (typeof window !== 'undefined') {
+            console.log(`[Quote Template] Thumbnail loaded: ${thumbnailUrl}`);
+          }
+        }}
+        onError={(e) => {
+          if (typeof window !== 'undefined') {
+            console.error(`[Quote Template] Thumbnail failed to load: ${thumbnailUrl}`);
+          }
         }}
       />
       <div
