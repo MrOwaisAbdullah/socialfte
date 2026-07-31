@@ -15,6 +15,8 @@ interface Post {
   createdAt: string | null;
   templateId: string | null;
   assetId: string | null;
+  templateSlug: string | null;
+  templateDisplayName: string | null;
 }
 
 const STATES = ["draft", "render", "review", "approved", "publish", "failed"];
@@ -91,9 +93,14 @@ function PostDetailModal({ post, onClose, onDelete }: { post: Post; onClose: () 
             <div className="flex items-center gap-2">
               <span className="font-body text-sm font-medium capitalize">{post.platform.replace("_", " ")}</span>
               <span className={`rounded px-2 py-0.5 text-xs font-medium ${stateColor(post.state)}`}>{post.state}</span>
-              {post.templateId && (
+              {post.templateDisplayName && (
+                <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                  {post.templateDisplayName}
+                </span>
+              )}
+              {post.templateSlug && !post.templateDisplayName && (
                 <span className="rounded bg-dark/10 px-2 py-0.5 text-xs font-medium text-dark">
-                  Template: {post.templateId.slice(0, 8)}...
+                  {post.templateSlug}
                 </span>
               )}
             </div>

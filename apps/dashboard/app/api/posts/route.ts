@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { and, desc, eq, gte, lt } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { posts } from '@/lib/db/schema';
+import { posts, templates } from '@/lib/db/schema';
 import { getDailyCap } from '@/lib/cap-limits';
 
 const PLATFORMS = ['facebook', 'instagram', 'youtube_shorts', 'tiktok'];
@@ -37,8 +37,11 @@ export async function GET(request: NextRequest) {
         createdAt: posts.createdAt,
         templateId: posts.templateId,
         assetId: posts.assetId,
+        templateSlug: templates.slug,
+        templateDisplayName: templates.displayName,
       })
       .from(posts)
+      .leftJoin(templates, eq(posts.templateId, templates.id))
       .orderBy(desc(posts.createdAt))
       .limit(100);
     return NextResponse.json(allPosts.map(p => ({ ...p, scheduledAt: p.scheduledAt?.toISOString() ?? null, createdAt: p.createdAt?.toISOString() ?? null })));
@@ -60,8 +63,11 @@ export async function GET(request: NextRequest) {
         createdAt: posts.createdAt,
         templateId: posts.templateId,
         assetId: posts.assetId,
+        templateSlug: templates.slug,
+        templateDisplayName: templates.displayName,
       })
       .from(posts)
+      .leftJoin(templates, eq(posts.templateId, templates.id))
       .where(eq(posts.state, stateFilter))
       .orderBy(desc(posts.createdAt))
       .limit(100);
