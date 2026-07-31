@@ -1,8 +1,8 @@
 import { Config } from '@remotion/cli/config';
 
 // core/media IS Remotion's public root (see MIGRATION.md): staticFile('library/logos/x') →
-// ../media/library/x (reusable), staticFile('projects/<proj>/x') → ../media/projects/... (per-video).
-Config.setPublicDir('../media');
+// public/library/logos/x (symlinked to ../../media). The default public/ dir
+// (next to package.json) resolves correctly via the symlink created in CI.
 
 Config.setVideoImageFormat('jpeg');
 Config.setOverwriteOutput(true);

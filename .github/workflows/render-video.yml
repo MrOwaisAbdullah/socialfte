@@ -45,16 +45,15 @@ jobs:
           RENDER_PROPS: ${{ inputs.props }}
         run: echo "$RENDER_PROPS" > input-props.json
 
+      # Remotion requires `public/` to sit next to package.json. Our media
+      # lives at repo-root/media/, so symlink it into the Remotion project.
+      # This also makes Config.setPublicDir('../media') resolve correctly.
+      - name: Symlink public → media
+        run: ln -s "${{ github.workspace }}/media" "${{ github.workspace }}/packages/remotion/public"
+
       - name: Render
         working-directory: packages/remotion
-        # --public-dir explicit, not left to remotion.config.ts's
-        # Config.setPublicDir('../media') alone — confirmed live (3 failed
-        # CI runs, 2026-07-30 17:2x UTC) that every composition using
-        # <MusicBed> 404'd fetching its track ("could not be found" at
-        # .../public/library/music/clips/<track>.mp3 inside the webpack
-        # bundle). The CLI flag needs an absolute path in CI, so we point
-        # to the workspace media directory defined in project's REMOTE_PUBLIC_DIR.
-        run: npx remotion render ${{ inputs.composition_id }} out/render.mp4 --props=./input-props.json --public-dir="${{ github.workspace }}/media"
+        run: npx remotion render ${{ inputs.composition_id }} out/render.mp4 --props=./input-props.json
 
       - name: Upload to R2
         working-directory: packages/remotion
