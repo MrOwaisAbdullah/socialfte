@@ -45,7 +45,7 @@ export default function Hero({
         style={{
           position: 'absolute',
           inset: 0,
-          background: `linear-gradient(115deg, ${brand.colors.dark}CC 0%, ${brand.colors.dark}66 40%, transparent 70%)`,
+          background: `linear-gradient(115deg, ${brand.colors.dark}99 0%, ${brand.colors.dark}44 35%, transparent 65%)`,
         }}
       />
       <div

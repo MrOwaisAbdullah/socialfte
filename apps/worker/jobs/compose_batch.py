@@ -160,7 +160,10 @@ def _build_image_props(template_slug: str, image_url: str, caption_text: str, he
     if template_slug == "set-breakdown":
         return {"setName": headline, "pieces": [], "bundlePrice": ""}
     if template_slug == "quote":
-        return {"quote": caption_text, "thumbnailUrl": image_url}
+        # The quote template renders a short quote as image text — use
+        # the headline (2-8 words), NOT the full caption (which includes
+        # hashtags and would render as a wall of text on the image).
+        return {"quote": headline, "thumbnailUrl": image_url}
     # hero, carousel-slide, and any unregistered slug (render route itself
     # rejects unknown templateIds, so this is just the sane default shape).
     return {"imageUrl": image_url, "headline": headline}

@@ -79,6 +79,21 @@ export async function POST(request: NextRequest) {
     page.setDefaultNavigationTimeout(60_000);
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
     await page.goto(previewUrl.toString(), { waitUntil: 'networkidle0' });
+    // Wait for all <img> elements to fully load — R2 asset images may be
+    // slow to fetch, and networkidle0 alone doesn't guarantee they've
+    // painted. Without this, the screenshot captures a blank gradient.
+    await page.evaluate(() =>
+      Promise.all(
+        Array.from(document.querySelectorAll('img')).map(
+          (img) =>
+            new Promise<void>((resolve) => {
+              if (img.complete) return resolve();
+              img.onload = () => resolve();
+              img.onerror = () => resolve();
+            }),
+        ),
+      ),
+    );
     await page.evaluate(() => document.fonts.ready);
     const screenshot = await page.screenshot({
       type: 'png',
