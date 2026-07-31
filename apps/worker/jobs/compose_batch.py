@@ -278,6 +278,15 @@ async def _pick_candidates() -> list[tuple[Asset, Template]]:
         asset_id_str = str(asset.id)
         if asset_id_str in rejected_assets:
             continue
+        # Log asset details for debugging — helps identify which assets
+        # have empty/broken r2_keys when they pass selection but fail render.
+        logger.debug(
+            "Selected asset %s: r2_key='%s', times_used=%d, kind=%s",
+            asset_id_str,
+            asset.r2_key or "(empty)",
+            asset.times_used,
+            asset.kind,
+        )
         for tmpl in templates:
             if len(candidates) >= MAX_ASSET_TEMPLATE_COMBOS:
                 break
@@ -436,6 +445,7 @@ async def compose_batch():
         # produce broken images (gradient overlay with no background).
         if not asset.r2_key or not asset.r2_key.strip():
             if not is_video:
+                logger.warning("Skipping asset %s: empty r2_key (value: '%s')", asset_id_str, asset.r2_key or "")
                 shortfall_reasons.append(f"asset {asset_id_str} has empty r2_key (not uploaded)")
                 continue
             # Video renders handle missing assets via GitHub Actions
@@ -443,6 +453,14 @@ async def compose_batch():
         else:
             asset_image_url = f"{settings.R2_PUBLIC_URL}/{asset.r2_key}"
         is_video = fmt in VIDEO_FORMATS
+
+        # Quote template specifically requires a valid thumbnailUrl — it
+        # renders a small circular thumbnail + quote text on a solid color
+        # background. Without an image, it's just a colored square with text.
+        if tmpl.slug == "quote" and not asset_image_url:
+            logger.warning("Skipping quote template: asset %s has no valid image URL", asset_id_str)
+            shortfall_reasons.append(f"quote template requires valid image, asset {asset_id_str} has none")
+            continue
 
         if is_video:
             # Video rendering is asynchronous (GitHub Actions + a callback,
