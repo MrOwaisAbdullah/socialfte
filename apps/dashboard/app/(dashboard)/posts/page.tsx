@@ -13,6 +13,8 @@ interface Post {
   externalId: string | null;
   error: string | null;
   createdAt: string | null;
+  templateId: string | null;
+  assetId: string | null;
 }
 
 const STATES = ["draft", "render", "review", "approved", "publish", "failed"];
@@ -89,6 +91,11 @@ function PostDetailModal({ post, onClose, onDelete }: { post: Post; onClose: () 
             <div className="flex items-center gap-2">
               <span className="font-body text-sm font-medium capitalize">{post.platform.replace("_", " ")}</span>
               <span className={`rounded px-2 py-0.5 text-xs font-medium ${stateColor(post.state)}`}>{post.state}</span>
+              {post.templateId && (
+                <span className="rounded bg-dark/10 px-2 py-0.5 text-xs font-medium text-dark">
+                  Template: {post.templateId.slice(0, 8)}...
+                </span>
+              )}
             </div>
             <button onClick={onClose} className="font-body text-sm text-muted hover:text-dark">
               Close
@@ -101,6 +108,8 @@ function PostDetailModal({ post, onClose, onDelete }: { post: Post; onClose: () 
             {post.scheduledAt && <span>Scheduled: {new Date(post.scheduledAt).toLocaleString()}</span>}
             {post.externalId && <span>Platform ID: {post.externalId}</span>}
             {post.createdAt && <span>Created: {new Date(post.createdAt).toLocaleString()}</span>}
+            {post.templateId && <span>Template ID: {post.templateId}</span>}
+            {post.assetId && <span>Asset ID: {post.assetId}</span>}
           </div>
           {post.error && <p className="font-body text-xs text-red-600">{post.error}</p>}
           <div className="flex items-center gap-3">

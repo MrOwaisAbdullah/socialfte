@@ -79,17 +79,28 @@ export async function POST(request: NextRequest) {
     page.setDefaultNavigationTimeout(60_000);
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
     await page.goto(previewUrl.toString(), { waitUntil: 'networkidle0' });
-    // Wait for all <img> elements to fully load — R2 asset images may be
-    // slow to fetch, and networkidle0 alone doesn't guarantee they've
-    // painted. Without this, the screenshot captures a blank gradient.
+    // Wait for all <img> elements to fully load AND verify they actually
+    // loaded successfully (not just complete=failed). R2 images may be slow,
+    // and networkidle0 doesn't guarantee they painted. Without this, the
+    // screenshot captures a broken gradient (img.complete=true even on 404).
     await page.evaluate(() =>
       Promise.all(
         Array.from(document.querySelectorAll('img')).map(
           (img) =>
             new Promise<void>((resolve) => {
-              if (img.complete) return resolve();
+              if (img.complete) {
+                // Image is done loading — check if it actually succeeded.
+                // naturalWidth=0 means the image failed to load (404, CORS, etc.)
+                if (img.naturalWidth === 0) {
+                  console.error(`Image failed to load: ${img.src} (naturalWidth=0)`);
+                }
+                return resolve();
+              }
               img.onload = () => resolve();
-              img.onerror = () => resolve();
+              img.onerror = () => {
+                console.error(`Image failed to load: ${img.src}`);
+                resolve();
+              };
             }),
         ),
       ),

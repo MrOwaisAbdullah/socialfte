@@ -35,6 +35,8 @@ export async function GET(request: NextRequest) {
         externalId: posts.externalId,
         error: posts.error,
         createdAt: posts.createdAt,
+        templateId: posts.templateId,
+        assetId: posts.assetId,
       })
       .from(posts)
       .orderBy(desc(posts.createdAt))
@@ -56,6 +58,8 @@ export async function GET(request: NextRequest) {
         externalId: posts.externalId,
         error: posts.error,
         createdAt: posts.createdAt,
+        templateId: posts.templateId,
+        assetId: posts.assetId,
       })
       .from(posts)
       .where(eq(posts.state, stateFilter))
