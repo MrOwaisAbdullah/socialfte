@@ -156,9 +156,23 @@ def _build_image_props(template_slug: str, image_url: str, caption_text: str, he
     (brain/composer.py's write_caption) — was `caption_text.splitlines()[0][:80]`,
     a truncated sentence fragment of the full caption rather than a real headline."""
     if template_slug == "price-card":
-        return {"productName": headline, "tierLabel": "", "price": ""}
+        # Use asset.tier for tier label (e.g., "Premium", "Standard") and
+        # asset.variant for pricing message (e.g., "Save 40%", "Lowest Price").
+        # Falls back to empty strings if not set.
+        return {
+            "productName": headline,
+            "tierLabel": asset.tier or "",
+            "price": asset.variant or "",
+        }
     if template_slug == "set-breakdown":
-        return {"setName": headline, "pieces": [], "bundlePrice": ""}
+        # For set breakdown, we could create pieces from asset.variant if it
+        # contains pricing info like "Chair: PKR 15000, Table: PKR 25000".
+        # For now, use the tier as a placeholder and show bundle savings.
+        return {
+            "setName": headline,
+            "pieces": [],  # Could parse from asset.variant in future
+            "bundlePrice": f"Save {asset.variant or '40%'}" if asset.variant else "",
+        }
     if template_slug == "quote":
         # The quote template renders a short quote as image text — use
         # the headline (2-8 words), NOT the full caption (which includes
@@ -268,9 +282,21 @@ async def _pick_candidates() -> list[tuple[Asset, Template]]:
             await session.execute(
                 select(Template)
                 .order_by(Template.created_at.asc())
-                .limit(TARGET_BATCH_SIZE * 2)
+                .limit(TARGET_BATCH_SIZE * 4)  # Get more templates to filter from
             )
         ).scalars().all()
+
+        # Separate price-focused templates from regular ones
+        price_templates = [t for t in templates if t.slug in ("price-card", "set-breakdown")]
+        regular_templates = [t for t in templates if t.slug not in ("price-card", "set-breakdown")]
+
+        # Use price templates less frequently (20% of the time)
+        # This ensures "Save 40%" messaging appears but doesn't dominate
+        import random
+        if random.random() < 0.2 and price_templates:
+            templates = regular_templates + price_templates
+        else:
+            templates = regular_templates
 
     candidates: list[tuple[Asset, Template]] = []
     rejected_assets: set[str] = set()
