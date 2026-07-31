@@ -1,5 +1,6 @@
 import { resolveAspect, type Aspect, type BrandTokens } from './aspect';
 import BrandBadge from './brand-badge';
+import { stripEmoji } from './lib';
 
 export type SetBreakdownProps = {
   setName: string;
@@ -39,7 +40,7 @@ export default function SetBreakdown({
           margin: 0,
         }}
       >
-        {setName}
+        {stripEmoji(setName)}
       </h1>
       <div
         style={{
@@ -65,8 +66,8 @@ export default function SetBreakdown({
               padding: `${Math.round(width * 0.016)}px ${Math.round(width * 0.032)}px`,
             }}
           >
-            <span style={{ fontSize: Math.round(width * 0.032), color: brand.colors.dark }}>{piece.name}</span>
-            <span style={{ fontSize: Math.round(width * 0.032), color: brand.colors.muted }}>{piece.price}</span>
+            <span style={{ fontSize: Math.round(width * 0.032), color: brand.colors.dark }}>{stripEmoji(piece.name)}</span>
+            <span style={{ fontSize: Math.round(width * 0.032), color: brand.colors.muted }}>{stripEmoji(piece.price)}</span>
           </div>
         ))}
       </div>

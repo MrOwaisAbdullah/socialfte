@@ -1,5 +1,6 @@
 import { resolveAspect, type Aspect, type BrandTokens } from './aspect';
 import BrandBadge from './brand-badge';
+import { stripEmoji } from './lib';
 
 export type QuoteProps = {
   quote: string;
@@ -74,7 +75,7 @@ export default function Quote({
             margin: 0,
           }}
         >
-          &ldquo;{quote}&rdquo;
+          &ldquo;{stripEmoji(quote)}&rdquo;
         </p>
       </div>
       <span

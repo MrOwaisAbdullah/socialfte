@@ -1,5 +1,6 @@
 import { resolveAspect, type Aspect, type BrandTokens } from './aspect';
 import BrandBadge from './brand-badge';
+import { stripEmoji } from './lib';
 
 export type PriceCardProps = {
   productName: string;
@@ -45,7 +46,7 @@ export default function PriceCard({
           color: '#d62828',
         }}
       >
-        {tierLabel}
+        {stripEmoji(tierLabel)}
       </span>
       <h1
         style={{
@@ -55,7 +56,7 @@ export default function PriceCard({
           margin: 0,
         }}
       >
-        {productName}
+        {stripEmoji(productName)}
       </h1>
       {/* Price with glassmorphism card effect */}
       <div
@@ -76,7 +77,7 @@ export default function PriceCard({
             margin: 0,
           }}
         >
-          {price}
+          {stripEmoji(price)}
         </p>
       </div>
       <span
@@ -91,7 +92,7 @@ export default function PriceCard({
           borderRadius: 999,
         }}
       >
-        {ctaLabel}
+        {stripEmoji(ctaLabel)}
       </span>
       <BrandBadge brand={brand} width={width} />
     </div>
