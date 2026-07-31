@@ -51,6 +51,32 @@ export const assets = pgTable(
   ]
 );
 
+export const concepts = pgTable(
+  'concepts',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    assetId: uuid('asset_id').references(() => assets.id).notNull(),
+    conceptType: text('concept_type').notNull(),
+    headlines: jsonb().notNull().$type<string[]>(),
+    captions: jsonb().notNull().$type<string[]>(),
+    creativeDirection: text('creative_direction'),
+    suggestedTemplates: jsonb('suggested_templates').$type<string[]>(),
+    animationStyle: text('animation_style'),
+    state: text().notNull().default('draft'),
+    approvedBy: uuid('approved_by'),
+    approvedAt: timestamp('approved_at', { withTimezone: true }),
+    usageCount: integer('usage_count').notNull().default(0),
+    performanceScore: jsonb('performance_score').$type<number>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_concepts_asset_id').on(table.assetId),
+    index('idx_concepts_state').on(table.state),
+    index('idx_concepts_type_state').on(table.conceptType, table.state),
+  ]
+);
+
 export const posts = pgTable(
   'posts',
   {

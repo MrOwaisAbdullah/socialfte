@@ -8,6 +8,7 @@ const brandName = process.env.BRAND_NAME || 'Dashboard';
 // All content screens available in the dashboard.
 const NAV_LINKS = [
   { href: '/', label: 'Home' },
+  { href: '/concepts', label: 'Concepts' },
   { href: '/posts', label: 'Posts' },
   { href: '/assets', label: 'Assets' },
   { href: '/calendar', label: 'Calendar' },

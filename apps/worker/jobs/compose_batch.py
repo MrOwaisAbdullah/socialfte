@@ -19,7 +19,7 @@ from brain.base import embed
 from brain.composer import write_caption
 from composer import anti_repeat
 from config import settings
-from db.models import Asset, BrandConfig, Credential, Post, Template
+from db.models import Asset, BrandConfig, Concept, Credential, Post, Template
 from db.session import SessionLocal
 from jobs.dispatch_render import dispatch_video_render
 
@@ -322,6 +322,49 @@ async def _pick_candidates() -> list[tuple[Asset, Template]]:
     return candidates
 
 
+async def _get_approved_concept(asset_id: str) -> dict | None:
+    """Get a random approved concept for this asset.
+
+    Returns concept dict with headlines and captions, or None if no approved
+    concepts exist. Prioritizes concepts with lower usage_count to rotate
+    through creative options.
+    """
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(Concept)
+            .where(
+                Concept.asset_id == asset_id,
+                Concept.state == "approved"
+            )
+            .order_by(Concept.usage_count.asc(), Concept.created_at.desc())
+            .limit(5)
+        )
+        concepts = result.scalars().all()
+
+    if not concepts:
+        return None
+
+    # Pick random concept from top 5 least-used
+    concept = random.choice(concepts)
+
+    # Update usage count
+    async with SessionLocal() as session:
+        await session.execute(
+            update(Concept)
+            .where(Concept.id == concept.id)
+            .values(usage_count=Concept.usage_count + 1)
+        )
+        await session.commit()
+
+    return {
+        "id": str(concept.id),
+        "headlines": concept.headlines,
+        "captions": concept.captions,
+        "concept_type": concept.concept_type,
+        "animation_style": concept.animation_style,
+    }
+
+
 async def compose_batch():
     """Compose a batch of posts in state='review'. Runs on COMPOSE_BATCH_CRON."""
     logger.info("Starting batch composition — target: %d posts", TARGET_BATCH_SIZE)
@@ -440,12 +483,45 @@ async def compose_batch():
             rejected_template_ids.add(tmpl_id_str)
             continue
 
-        try:
-            caption, headline, hashtags = await write_caption(asset, tmpl, brand=brand_tokens)
-        except Exception as e:
-            logger.error("Caption generation failed for asset %s: %s", asset_id_str, e)
-            shortfall_reasons.append(f"caption failed for asset {asset_id_str}: {e}")
-            continue
+        # Try to use approved concept for this asset if available
+        concept = await _get_approved_concept(asset.id)
+        if concept and concept["headlines"] and concept["captions"]:
+            # Use concept's headline/caption options instead of generating
+            headline = random.choice(concept["headlines"])
+            caption_text = random.choice(concept["captions"])
+            logger.info("Using approved concept %s for asset %s", concept["id"][-8:], asset_id_str[-8:])
+            # Extract hashtags from caption for anti-repeat check
+            hashtags = []
+            if "#" in caption_text:
+                hashtags = [tag.strip() for tag in caption_text.split() if tag.startswith("#")]
+        else:
+            # Fall back to AI generation if no approved concept
+            try:
+                caption, headline, hashtags = await write_caption(asset, tmpl, brand=brand_tokens)
+            except Exception as e:
+                logger.error("Caption generation failed for asset %s: %s", asset_id_str, e)
+                shortfall_reasons.append(f"caption failed for asset {asset_id_str}: {e}")
+                continue
+
+            caption_vec = None
+            caption_ok = False
+            caption_text = ""
+            for retry in range(settings.ANTI_REPEAT_MAX_RETRIES + 1):
+                caption_text = (caption or "") + ("\n\n" + " ".join(hashtags) if hashtags else "")
+                caption_vec = await embed(caption_text)
+                if await anti_repeat.check_caption(caption_vec):
+                    caption_ok = True
+                    break
+                logger.warning("Caption rejected by anti-repeat (attempt %d), regenerating", retry)
+                try:
+                    caption, headline, hashtags = await write_caption(asset, tmpl, brand=brand_tokens)
+                except Exception:
+                    break
+            if not caption_ok:
+                shortfall_reasons.append(f"caption anti-repeat exhausted for asset {asset_id_str}")
+                continue
+
+            caption_vec = await embed(caption_text)
 
         caption_vec = None
         caption_ok = False
