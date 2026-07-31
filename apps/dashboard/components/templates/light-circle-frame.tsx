@@ -1,5 +1,6 @@
 import { resolveAspect, type Aspect, type BrandTokens } from './aspect';
 import BrandBadge from './brand-badge';
+import { stripEmoji } from './lib';
 
 export type LightCircleFrameProps = {
   imageUrl: string;
@@ -71,7 +72,7 @@ export default function LightCircleFrame({
             lineHeight: 1.1,
           }}
         >
-          {headline}
+          {stripEmoji(headline)}
         </div>
       </div>
 

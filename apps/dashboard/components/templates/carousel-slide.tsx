@@ -1,5 +1,6 @@
 import { resolveAspect, type Aspect, type BrandTokens } from './aspect';
 import BrandBadge from './brand-badge';
+import { stripEmoji } from './lib';
 
 export type CarouselSlideProps = {
   imageUrl: string;
@@ -86,7 +87,7 @@ export default function CarouselSlide({
             margin: 0,
           }}
         >
-          {headline}
+          {stripEmoji(headline)}
         </h2>
         {bodyCopy && (
           <p

@@ -1,5 +1,6 @@
 import { resolveAspect, type Aspect, type BrandTokens } from './aspect';
 import BrandBadge from './brand-badge';
+import { stripEmoji } from './lib';
 
 export type ExclusiveBadgeProps = {
   imageUrl: string;
@@ -78,7 +79,7 @@ export default function ExclusiveBadge({
               color: brand.colors.accent,
             }}
           >
-            {headline}
+            {stripEmoji(headline)}
           </span>
         </div>
       </div>

@@ -291,6 +291,12 @@ async def compose_batch():
     """Compose a batch of posts in state='review'. Runs on COMPOSE_BATCH_CRON."""
     logger.info("Starting batch composition — target: %d posts", TARGET_BATCH_SIZE)
 
+    # Track asset/template use within this batch run — anti-repeat only
+    # checks 'published' posts, so without this, the same asset/template would
+    # be reused for every post in a single batch (all start in 'review' state).
+    used_asset_ids: set[str] = set()
+    used_template_ids: set[str] = set()
+
     # Fail-fast: RENDER_INTERNAL_URL must be reachable for image posts.
     # The default (http://localhost:3000) only works for local dev; in Dokploy
     # the dashboard has a generated service hostname. Surface this early
@@ -380,6 +386,16 @@ async def compose_batch():
         platform = platforms[attempt % len(platforms)]
         fmt = _choose_format(platform)
 
+        # Intra-batch anti-repeat: prevent reuse within this run since
+        # anti-repeat.check_* only looks at 'published' posts, not the
+        # 'review' posts we're creating right now.
+        if asset_id_str in used_asset_ids:
+            shortfall_reasons.append(f"asset {asset_id_str} already used in this batch")
+            continue
+        if tmpl_id_str in used_template_ids:
+            shortfall_reasons.append(f"template {tmpl_id_str} already used in this batch")
+            continue
+
         if not await anti_repeat.check_asset(asset.id):
             shortfall_reasons.append(f"asset {asset_id_str} rejected by anti-repeat")
             rejected_asset_ids.add(asset_id_str)
@@ -414,16 +430,19 @@ async def compose_batch():
             shortfall_reasons.append(f"caption anti-repeat exhausted for asset {asset_id_str}")
             continue
 
-        asset_image_url = f"{settings.R2_PUBLIC_URL}/{asset.r2_key}" if asset.r2_key else None
+        # r2_key is NOT NULL in the DB, but can be an empty string if the
+        # asset record was created without an actual file upload. Empty
+        # r2_key means the image doesn't exist in R2 — rendering would
+        # produce broken images (gradient overlay with no background).
+        if not asset.r2_key or not asset.r2_key.strip():
+            if not is_video:
+                shortfall_reasons.append(f"asset {asset_id_str} has empty r2_key (not uploaded)")
+                continue
+            # Video renders handle missing assets via GitHub Actions
+            asset_image_url = None
+        else:
+            asset_image_url = f"{settings.R2_PUBLIC_URL}/{asset.r2_key}"
         is_video = fmt in VIDEO_FORMATS
-
-        # Fail-fast: still-image posts require a valid asset URL — rendering
-        # with an empty imageUrl produces broken images (gradient overlay with no
-        # background image). Video posts handle missing assets separately via
-        # GitHub Actions, but still-image renders would create corrupted posts.
-        if not asset_image_url and not is_video:
-            shortfall_reasons.append(f"asset {asset_id_str} has no R2 key (not uploaded)")
-            continue
 
         if is_video:
             # Video rendering is asynchronous (GitHub Actions + a callback,
@@ -518,6 +537,10 @@ async def compose_batch():
                 "state": "draft" if is_video else "review",
             },
         )
+
+        # Mark asset/template as used in this batch to prevent reuse
+        used_asset_ids.add(asset_id_str)
+        used_template_ids.add(tmpl_id_str)
 
         async with SessionLocal() as session:
             await session.execute(
