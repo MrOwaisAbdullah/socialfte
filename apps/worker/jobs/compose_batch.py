@@ -201,6 +201,16 @@ def _build_video_props(composition_id: str, image_url: str, headline: str, extra
         props["roomName"] = headline
     elif composition_id == "PromoHighlight":
         props["headline"] = headline
+    elif composition_id == "DynamicGrid":
+        props["productName"] = headline
+    elif composition_id == "ShowcaseCard":
+        props["productName"] = headline
+    elif composition_id == "ProductSplit":
+        props["productName"] = headline
+    elif composition_id == "BentoGallery":
+        props["title"] = headline
+    elif composition_id == "CinematicReveal":
+        props["title"] = headline
     return props
 
 
