@@ -45,27 +45,3 @@ export async function GET(request: NextRequest) {
     }))
   );
 }
-
-// PATCH /api/concepts/[id] - Approve or reject a concept
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const body = await request.json();
-  const { state } = body; // 'approved' or 'rejected'
-
-  if (!['approved', 'rejected'].includes(state)) {
-    return NextResponse.json({ error: 'Invalid state' }, { status: 400 });
-  }
-
-  await db
-    .update(concepts)
-    .set({
-      state,
-      updatedAt: new Date(),
-      ...(state === 'approved' && { approvedAt: new Date() })
-     })
-    .where(eq(concepts.id, params.id));
-
-  return NextResponse.json({ success: true });
-}
