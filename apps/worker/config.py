@@ -155,13 +155,13 @@ class Settings(BaseSettings):
     OPENROUTER_SITE_URL: str = Field(default="")
     OPENROUTER_APP_NAME: str = Field(default="SocialFTE")
 
-    MODEL_CAPTION: str = Field(default="deepseek/deepseek-v4-flash")
+    MODEL_CAPTION: str = Field(default="deepseek/deepseek-v4-flash-latest")
     MODEL_JUDGEMENT: str = Field(default="deepseek/deepseek-v4-pro")
     MODEL_VISION: str = Field(default="google/gemini-2.5-flash")
     MODEL_EMBED: str = Field(default="openai/text-embedding-3-small")
     # MODEL_FREE is what test_free_tier_round_trip and BOOTSTRAP's Step 6 LLM
-    # check hit. Previously deepseek/deepseek-v4-flash:free, which OpenRouter
-    # has deprecated ("use this slug instead: deepseek/deepseek-v4-flash", a
+    # check hit. Previously deepseek/deepseek-v4-flash-latest:free, which OpenRouter
+    # has deprecated ("use this slug instead: deepseek/deepseek-v4-flash-latest", a
     # paid model, per its own 404 response) — switched to a general-purpose
     # free-tier chat model confirmed available as of 2026-07-28. Other
     # free-tier slugs confirmed available the same day, any of which could

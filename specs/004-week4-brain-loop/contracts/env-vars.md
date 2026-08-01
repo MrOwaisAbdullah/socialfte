@@ -8,11 +8,11 @@ from docs/socialfte-spec-v2.md §7. All Week 1–3 variables are unchanged.
 | `OPENROUTER_API_KEY` | `""` | Every LLM call (caption, judgement, vision, embed) — required, no fallback |
 | `OPENROUTER_SITE_URL` | `"https://social.yousufliving.com"` | Sent as `HTTP-Referer` header — improves OpenRouter rate limits, not brand-specific despite the default (FR-019 still applies: read from config, don't hardcode in code) |
 | `OPENROUTER_APP_NAME` | `"SocialFTE"` | Sent as `X-Title` header |
-| `MODEL_CAPTION` | `"deepseek/deepseek-v4-flash"` | `agents/composer.py`'s caption_agent |
+| `MODEL_CAPTION` | `"deepseek/deepseek-v4-flash-latest"` | `agents/composer.py`'s caption_agent |
 | `MODEL_JUDGEMENT` | `"deepseek/deepseek-v4-pro"` | Anti-repeat fallback tier, weekly_digest's summary writer |
 | `MODEL_VISION` | `"google/gemini-2.5-flash"` | `agents/vision.py`'s vision_agent |
 | `MODEL_EMBED` | `"openai/text-embedding-3-small"` | Caption embeddings for the anti-repeat cosine check — dimension MUST stay in sync with the existing `EMBED_DIMENSIONS` (already in config.py since Week 2); changing either without a full re-embed of `posts.caption_vec` breaks every existing row |
-| `MODEL_FREE` | `"deepseek/deepseek-v4-flash:free"` | Dev/testing only — never used in the daily compose_batch/collect_metrics/weekly_digest crons |
+| `MODEL_FREE` | `"deepseek/deepseek-v4-flash-latest:free"` | Dev/testing only — never used in the daily compose_batch/collect_metrics/weekly_digest crons |
 | `LLM_MAX_RETRIES` | `3` | Per-call retry count (`ModelSettings(retry=...)`, research.md Decision 1) |
 | `LLM_TIMEOUT_SECONDS` | `120` | Per-call timeout |
 | `ANTI_REPEAT_TEMPLATE_WINDOW` | `4` | Posts to look back for template repetition (FR-003) |

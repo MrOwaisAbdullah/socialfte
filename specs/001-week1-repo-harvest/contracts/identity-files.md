@@ -23,7 +23,7 @@ done.
   TikTok — TikTok marked draft-only until audited), notification channels with current
   state (Discord: active, WhatsApp: available, Telegram: available/off-by-default,
   VPN note for Pakistan), LLM gateway (OpenRouter), primary model
-  (`deepseek/deepseek-v4-flash`), vision model (`google/gemini-2.5-flash`), base-repo
+  (`deepseek/deepseek-v4-flash-latest`), vision model (`google/gemini-2.5-flash`), base-repo
   attribution (fork of `hassancs91/claude-youtube-editor`, MIT).
 - No word limit stated in the spec; keep it a facts table, not prose.
 

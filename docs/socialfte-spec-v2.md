@@ -45,13 +45,13 @@ DeepSeek Flash is $0.09/M input, roughly the cheapest capable model available.
 
 | Job | Model | OpenRouter ID | Input $/M |
 |---|---|---|---|
-| Caption writing, hashtags | DeepSeek V4 Flash | `deepseek/deepseek-v4-flash` | 0.09 |
-| Weekly digest, planning | DeepSeek V4 Flash | `deepseek/deepseek-v4-flash` | 0.09 |
+| Caption writing, hashtags | DeepSeek V4 Flash | `deepseek/deepseek-v4-flash-latest` | 0.09 |
+| Weekly digest, planning | DeepSeek V4 Flash | `deepseek/deepseek-v4-flash-latest` | 0.09 |
 | Hero post, brand-voice audit | DeepSeek V4 Pro | `deepseek/deepseek-v4-pro` | 0.435 |
 | Asset tagging (vision) | Gemini 2.5 Flash | `google/gemini-2.5-flash` | ~0.075 |
 | Image quality gate (vision) | Gemini 2.5 Flash | `google/gemini-2.5-flash` | ~0.075 |
 | Cover-frame selection (vision) | Gemini 2.5 Flash | `google/gemini-2.5-flash` | ~0.075 |
-| Dev / testing | DeepSeek V4 Flash free | `deepseek/deepseek-v4-flash:free` | 0 |
+| Dev / testing | DeepSeek V4 Flash free | `deepseek/deepseek-v4-flash-latest:free` | 0 |
 | Embeddings (anti-repeat) | OpenAI small | `openai/text-embedding-3-small` | 0.02 |
 
 **Why OpenRouter and not direct APIs:** one key instead of four, automatic fallback when
@@ -67,7 +67,7 @@ call re-sends SOUL.md + BRAND.md + AGENTS.md.
 model_list:
   - model_name: caption
     litellm_params:
-      model: openrouter/deepseek/deepseek-v4-flash
+      model: openrouter/deepseek/deepseek-v4-flash-latest
       api_key: os.environ/OPENROUTER_API_KEY
       api_base: https://openrouter.ai/api/v1
 
@@ -120,10 +120,10 @@ def model(name: str) -> LitellmModel:
     )
 
 MODEL_MAP = {
-    "caption":   "deepseek/deepseek-v4-flash",
+    "caption":   "deepseek/deepseek-v4-flash-latest",
     "judgement": "deepseek/deepseek-v4-pro",
     "vision":    "google/gemini-2.5-flash",
-    "free":      "deepseek/deepseek-v4-flash:free",
+    "free":      "deepseek/deepseek-v4-flash-latest:free",
 }
 
 caption_agent = Agent(
@@ -523,11 +523,11 @@ OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 OPENROUTER_SITE_URL=https://social.yousufliving.com   # sent as HTTP-Referer, improves rate limits
 OPENROUTER_APP_NAME=SocialFTE                         # sent as X-Title
 
-MODEL_CAPTION=deepseek/deepseek-v4-flash
+MODEL_CAPTION=deepseek/deepseek-v4-flash-latest
 MODEL_JUDGEMENT=deepseek/deepseek-v4-pro
 MODEL_VISION=google/gemini-2.5-flash
 MODEL_EMBED=openai/text-embedding-3-small
-MODEL_FREE=deepseek/deepseek-v4-flash:free            # dev/testing only
+MODEL_FREE=deepseek/deepseek-v4-flash-latest:free            # dev/testing only
 
 LLM_MAX_RETRIES=3
 LLM_TIMEOUT_SECONDS=120

@@ -47,7 +47,7 @@ endpoint via `api_base`.
   of Python in `agents/base.py` — no need for the Router's config-driven fallback list.
 
 **Rationale for keeping `MODEL_MAP`**: §2's `MODEL_MAP` dict (mapping `"caption"` →
-`"deepseek/deepseek-v4-flash"` etc.) is still the right shape — it's just a plain
+`"deepseek/deepseek-v4-flash-latest"` etc.) is still the right shape — it's just a plain
 Python dict, not LiteLLM Proxy config, and it's what makes "swap DeepSeek for Qwen
 later is a one-line change" (§2) still true.
 
@@ -255,7 +255,7 @@ convenience.
 - Exact current `openai-agents` and `litellm` package version pins compatible with
   Python 3.11 (Week 3's Docker base) — check at `requirements.txt` update time.
 - Whether OpenRouter's DeepSeek V4 Flash/Pro and Gemini 2.5 Flash model IDs
-  (`deepseek/deepseek-v4-flash`, etc.) are still the current OpenRouter slugs at
+  (`deepseek/deepseek-v4-flash-latest`, etc.) are still the current OpenRouter slugs at
   implementation time — OpenRouter model availability/slugs can change; the routing
   table in docs/socialfte-spec-v2.md §2 should be re-checked against OpenRouter's
   live model list before shipping, the same way Meta's Graph API version needed a

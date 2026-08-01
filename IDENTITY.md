@@ -29,5 +29,5 @@
 | Field | Value |
 |---|---|
 | Gateway | OpenRouter |
-| Primary model | `deepseek/deepseek-v4-flash` |
+| Primary model | `deepseek/deepseek-v4-flash-latest-latest` |
 | Vision model | `google/gemini-2.5-flash` |

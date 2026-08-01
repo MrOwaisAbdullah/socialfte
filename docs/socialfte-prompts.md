@@ -88,7 +88,7 @@ Product name: SocialFTE. Version: 0.1.0. Author: Owais Abdullah.
 Supported platforms: Facebook, Instagram, YouTube Shorts, TikTok (draft-only until
 audited). Notification channels: Discord (active), WhatsApp (available), Telegram
 (available, off by default — requires VPN in Pakistan). LLM gateway: OpenRouter.
-Primary model: deepseek/deepseek-v4-flash. Vision model: google/gemini-2.5-flash.
+Primary model: deepseek/deepseek-v4-flash-latest. Vision model: google/gemini-2.5-flash.
 Base repo: fork of hassancs91/claude-youtube-editor (MIT).
 
 AGENTS.md (repo root):
@@ -460,7 +460,7 @@ Query metrics table for the last 7 days. Compute:
   - Top posting hour by average reach
   - Platform with highest engagement rate
   - Any post that outperformed the weekly average by more than 2x
-Use deepseek/deepseek-v4-flash to write the digest as a plain-language paragraph (not
+Use deepseek/deepseek-v4-flash-latest to write the digest as a plain-language paragraph (not
 bullet points — the agent reads this next week and bullets are hard to parse in context).
 Append the digest to MEMORY.md under a "## Week of {date}" heading.
 Send the digest to the Discord channel via notify/discord.py send().
