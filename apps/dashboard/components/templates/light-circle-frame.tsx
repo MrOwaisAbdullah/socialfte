@@ -60,13 +60,14 @@ export default function LightCircleFrame({
             color: brand.colors.dark,
           }}
         >
-          {eyebrow}
+          {stripEmoji(eyebrow)}
         </div>
         <div
           style={{
             fontFamily: brand.fonts.heading,
             fontWeight: 800,
             fontSize: Math.round(width * 0.052),
+            letterSpacing: -0.5,
             textTransform: 'uppercase',
             color: brand.colors.dark,
             lineHeight: 1.1,
@@ -112,7 +113,7 @@ export default function LightCircleFrame({
           }}
         >
           <span style={{ fontFamily: brand.fonts.body, fontSize: Math.round(width * 0.015), color: brand.colors.dark }}>
-            {badgeText}
+            {stripEmoji(badgeText)}
           </span>
           {badgeValue && (
             <span
@@ -123,7 +124,7 @@ export default function LightCircleFrame({
                 color: brand.colors.dark,
               }}
             >
-              {badgeValue}
+              {stripEmoji(badgeValue)}
             </span>
           )}
         </div>
@@ -158,7 +159,7 @@ export default function LightCircleFrame({
           borderRadius: 999,
         }}
       >
-        {ctaLabel}
+        {stripEmoji(ctaLabel)}
       </div>
     </div>
   );

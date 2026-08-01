@@ -1,5 +1,6 @@
 import { resolveAspect, splitHeadlineWords, type Aspect, type BrandTokens } from './aspect';
 import BrandBadge from './brand-badge';
+import { stripEmoji } from './lib';
 
 export type BoldHeadlineProps = {
   imageUrl: string;
@@ -25,7 +26,7 @@ export default function BoldHeadline({
   brand,
 }: BoldHeadlineProps & { aspect?: Aspect; brand: BrandTokens }) {
   const { width, height } = resolveAspect(aspect);
-  const [line1, line2] = splitHeadlineWords(headline);
+  const [line1, line2] = splitHeadlineWords(stripEmoji(headline));
 
   return (
     <div
@@ -53,6 +54,7 @@ export default function BoldHeadline({
             fontFamily: brand.fonts.heading,
             fontWeight: 800,
             fontSize: Math.round(width * 0.078),
+            letterSpacing: -1,
             lineHeight: 1.05,
             margin: 0,
             textTransform: 'uppercase',
@@ -87,7 +89,7 @@ export default function BoldHeadline({
               maxWidth: '90%',
             }}
           >
-            {subline}
+            {stripEmoji(subline)}
           </p>
         )}
       </div>

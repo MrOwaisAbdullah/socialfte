@@ -49,6 +49,7 @@ export default function ExclusiveBadge({
           top: Math.round(width * 0.055),
           textAlign: 'right',
           maxWidth: '52%',
+          zIndex: 1,
         }}
       >
         <div
@@ -59,7 +60,7 @@ export default function ExclusiveBadge({
             color: `${brand.colors.light}E6`,
           }}
         >
-          {eyebrow}
+          {stripEmoji(eyebrow)}
         </div>
         <div
           style={{
@@ -89,7 +90,7 @@ export default function ExclusiveBadge({
           position: 'absolute',
           left: Math.round(width * 0.055),
           right: '22%',
-          top: Math.round(height * 0.15),
+          top: Math.round(height * 0.25),
           bottom: Math.round(height * 0.15),
           borderRadius: Math.round(width * 0.025),
           overflow: 'hidden',
@@ -119,7 +120,7 @@ export default function ExclusiveBadge({
           }}
         >
           <span style={{ fontFamily: brand.fonts.body, fontSize: Math.round(width * 0.015), color: brand.colors.light }}>
-            {badgeText}
+            {stripEmoji(badgeText)}
           </span>
           {badgeValue && (
             <span
@@ -130,7 +131,7 @@ export default function ExclusiveBadge({
                 color: brand.colors.accent,
               }}
             >
-              {badgeValue}
+              {stripEmoji(badgeValue)}
             </span>
           )}
         </div>
@@ -162,7 +163,7 @@ export default function ExclusiveBadge({
             borderRadius: 999,
           }}
         >
-          {ctaLabel}
+          {stripEmoji(ctaLabel)}
         </span>
         <span style={{ fontFamily: brand.fonts.body, fontSize: Math.round(width * 0.024), color: brand.colors.accent }}>
           {brand.socialHandle || ''}

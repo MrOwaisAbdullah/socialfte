@@ -1,5 +1,6 @@
 import { resolveAspect, type Aspect, type BrandTokens } from './aspect';
 import BrandBadge from './brand-badge';
+import { stripEmoji } from './lib';
 
 export type HeroProps = {
   imageUrl: string;
@@ -9,10 +10,13 @@ export type HeroProps = {
   ctaLabel?: string;
 };
 
-// Reference design (spec.md Story 4, Acceptance Scenario 3): full-bleed
-// background image, bottom-left-to-transparent gradient scrim, Instrument
-// Serif headline with a colored highlight box behind the key word, Archivo
-// body, WhatsApp CTA in brand.colors.primary with brand.colors.accent text.
+// Full-bleed background image, bottom-left-to-transparent gradient scrim,
+// Instrument Serif headline with the highlight word set in italic + accent
+// color rather than a glass box behind it — a type-weight/style contrast
+// reads as more intentional than a background chip, and holds up on any
+// photo behind it since it doesn't depend on backdrop-filter support.
+// Archivo body, WhatsApp CTA in brand.colors.primary with
+// brand.colors.accent text.
 export default function Hero({
   imageUrl,
   headline,
@@ -23,7 +27,9 @@ export default function Hero({
   brand,
 }: HeroProps & { aspect?: Aspect; brand: BrandTokens }) {
   const { width, height } = resolveAspect(aspect);
-  const parts = highlightWord ? headline.split(highlightWord) : [headline];
+  const cleanHeadline = stripEmoji(headline);
+  const cleanHighlightWord = highlightWord ? stripEmoji(highlightWord) : undefined;
+  const parts = cleanHighlightWord ? cleanHeadline.split(cleanHighlightWord) : [cleanHeadline];
 
   return (
     <div
@@ -64,32 +70,31 @@ export default function Hero({
         <h1
           style={{
             fontFamily: brand.fonts.heading,
+            fontWeight: 700,
             fontSize: Math.round(width * 0.075),
-            lineHeight: 1.1,
+            letterSpacing: -1,
+            lineHeight: 1.08,
             color: brand.colors.light,
             margin: 0,
+            textShadow: `0 2px 12px ${brand.colors.dark}88`,
           }}
         >
-          {highlightWord ? (
+          {cleanHighlightWord ? (
             <>
               {parts[0]}
               <span
                 style={{
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  backdropFilter: 'blur(12px)',
-                  color: '#d62828',
-                  padding: '0 0.2em',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  boxShadow: '0 8px 24px rgba(26, 26, 26, 0.12)',
+                  fontStyle: 'italic',
+                  fontWeight: 400,
+                  color: brand.colors.accent,
                 }}
               >
-                {highlightWord}
+                {cleanHighlightWord}
               </span>
               {parts[1]}
             </>
           ) : (
-            headline
+            cleanHeadline
           )}
         </h1>
         {price && (
@@ -101,7 +106,7 @@ export default function Hero({
               margin: 0,
             }}
           >
-            {price}
+            {stripEmoji(price)}
           </p>
         )}
         <span
@@ -117,7 +122,7 @@ export default function Hero({
             borderRadius: 999,
           }}
         >
-          {ctaLabel}
+          {stripEmoji(ctaLabel)}
         </span>
       </div>
       <BrandBadge brand={brand} width={width} />

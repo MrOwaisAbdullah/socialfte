@@ -10,6 +10,13 @@ export type CarouselSlideProps = {
   slideCount?: number;
 };
 
+// Deliberately lighter-touch than hero.tsx (which this used to duplicate
+// almost exactly — same full-bleed-photo-plus-glass-panel shape): a slide
+// meant to be swiped through many times in a row reads better with the
+// text sitting directly on the photo (text-shadow for legibility) than
+// another heavy glass panel every single slide. The slide counter is a
+// small solid rect, not a pill, so it reads as a page marker rather than
+// a second CTA-shaped element competing with the real one on other templates.
 export default function CarouselSlide({
   imageUrl,
   headline,
@@ -41,26 +48,25 @@ export default function CarouselSlide({
         style={{
           position: 'absolute',
           inset: 0,
-          background: `linear-gradient(to top, ${brand.colors.dark}CC 0%, transparent 45%)`,
+          background: `linear-gradient(to top, ${brand.colors.dark}E6 0%, transparent 55%)`,
         }}
       />
       {slideIndex && slideCount && (
         <span
           style={{
             position: 'absolute',
-            top: Math.round(width * 0.04),
+            top: Math.round(width * 0.045),
             right: Math.round(width * 0.05),
             fontFamily: brand.fonts.body,
-            fontWeight: 600,
-            fontSize: Math.round(width * 0.026),
-            color: brand.colors.light,
-            background: '#d62828',
-            padding: '4px 12px',
-            borderRadius: '12px',
-            boxShadow: '0 8px 24px rgba(26, 26, 26, 0.12)',
+            fontWeight: 700,
+            fontSize: Math.round(width * 0.024),
+            color: brand.colors.dark,
+            background: brand.colors.light,
+            padding: '5px 12px',
+            borderRadius: 4,
           }}
         >
-          {slideIndex}/{slideCount}
+          {slideIndex} / {slideCount}
         </span>
       )}
       <div
@@ -69,10 +75,6 @@ export default function CarouselSlide({
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(255, 255, 255, 0.08)',
-          backdropFilter: 'blur(12px)',
-          borderTop: '1px solid rgba(255, 255, 255, 0.15)',
-          boxShadow: '0 8px 24px rgba(26, 26, 26, 0.12)',
           padding: Math.round(width * 0.06),
           display: 'flex',
           flexDirection: 'column',
@@ -82,9 +84,13 @@ export default function CarouselSlide({
         <h2
           style={{
             fontFamily: brand.fonts.heading,
-            fontSize: Math.round(width * 0.055),
+            fontWeight: 700,
+            fontSize: Math.round(width * 0.058),
+            letterSpacing: -0.5,
+            lineHeight: 1.1,
             color: brand.colors.light,
             margin: 0,
+            textShadow: `0 2px 12px ${brand.colors.dark}AA`,
           }}
         >
           {stripEmoji(headline)}
@@ -96,9 +102,10 @@ export default function CarouselSlide({
               fontSize: Math.round(width * 0.028),
               color: brand.colors.light,
               margin: 0,
+              textShadow: `0 1px 8px ${brand.colors.dark}AA`,
             }}
           >
-            {bodyCopy}
+            {stripEmoji(bodyCopy)}
           </p>
         )}
       </div>

@@ -757,3 +757,42 @@ thing once the route actually reports failure — it just never used to.
 Scanned all 28 posts with a `render_url` for this exact byte-size
 fingerprint after the fix; only the one reported was affected — this was a
 rare transient failure, not a systemic one.
+
+**Redesigned all 10 still-image templates for real structural variety**,
+after the user flagged that posts "aren't attractive" and real renders
+confirmed it: most templates shared the same "full photo + dark gradient +
+serif headline + pill CTA" formula, several used a glassmorphism card
+(`rgba(255,255,255,0.08)` white glass) that was invisible on light
+backgrounds (`quote.tsx`, `set-breakdown.tsx`), 5 templates hardcoded an
+off-brand `#d62828` red instead of `brand.colors.accent`, and `hero.tsx` /
+`bold-headline.tsx` / `sweet-dreams.tsx` were missing the emoji/glyph-strip
+fix already applied to the other 7 (confirmed live: a broken glyph box in a
+real headline). Reference DNA pulled from
+`docs/daily-linkedin-posts-pipeline/linkedin-infographic-template.html` (a
+different, unrelated pipeline the user pointed at as a design reference) —
+a two-tier type pairing (bold upright serif headline + a small italic
+serif accent, not a box-highlight background) and a hairline-rule footer
+instead of another glass panel — applied through `brand.fonts.heading`'s
+existing upright/italic forms, no new fonts introduced. `hero.tsx` and
+`carousel-slide.tsx` were near-duplicate macrostructures; differentiated
+by moving `carousel-slide` to text-directly-on-photo (no glass panel) with
+a small rect slide-counter instead of a pill. `set-breakdown.tsx` gained
+an optional `imageUrl` prop (wired through `compose_batch.py`) since it
+previously had no image slot at all and rendered mostly blank space when
+`pieces` is empty — the common case, since compose_batch has no real
+per-piece pricing data to populate it with. `price-card.tsx` was rebuilt
+directly in the linkedin-infographic style (eyebrow badge, bold headline,
+italic-accent price, hairline footer) since it has no photo dependency to
+begin with — the strongest fit for a typography-led treatment.
+
+Visual QA done with the `agent-browser` skill against a local dev server
+(this sandbox has no working headless Chrome otherwise, and chrome-devtools
+MCP was down) — caught two real bugs invisible from code review alone:
+`price-card.tsx`'s default corner `BrandBadge` overlapped its own CTA
+button (removed — the template's footer already shows the wordmark), and
+`exclusive-badge.tsx`'s boxed headline vertically overlapped the photo
+below it, which painted on top and clipped the text (increased the image's
+top offset for clearance). Also confirmed live: this WSL environment's
+`/mnt/d/`-backed filesystem doesn't reliably deliver file-watch events to
+Turbopack's dev server — an edit that doesn't seem to take effect after a
+save needs a full dev-server restart, not just a page reload.

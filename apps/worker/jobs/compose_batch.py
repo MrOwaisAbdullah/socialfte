@@ -170,10 +170,14 @@ def _build_image_props(template_slug: str, image_url: str, caption_text: str, he
         # For set breakdown, we could create pieces from asset.variant if it
         # contains pricing info like "Chair: PKR 15000, Table: PKR 25000".
         # For now, use the tier as a placeholder and show bundle savings.
+        # imageUrl is optional on this template specifically so it isn't
+        # left rendering as mostly blank space when there's no real
+        # per-piece data (pieces=[] is the common case here).
         return {
             "setName": headline,
             "pieces": [],  # Could parse from asset.variant in future
             "bundlePrice": f"Save {asset.variant or '40%'}" if asset.variant else "",
+            "imageUrl": image_url,
         }
     if template_slug == "quote":
         # The quote template renders a short quote as image text — use

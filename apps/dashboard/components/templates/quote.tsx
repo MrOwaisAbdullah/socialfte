@@ -7,8 +7,12 @@ export type QuoteProps = {
   thumbnailUrl: string;
 };
 
-// Brand mark rendered per BRAND.md's logo-usage rule: wordmark in the display
-// font, forest-green-on-cream (this template's light background).
+// Editorial testimonial card, not a glass panel — the previous version's
+// glassmorphism box (rgba(255,255,255,0.08) white glass) was built for a
+// dark background and was nearly invisible here on brand.colors.light,
+// adding padding and a shadow without adding any real visual distinction.
+// A large decorative quotation mark + confident italic serif setting reads
+// as intentional on a light page; a barely-visible box did not.
 export default function Quote({
   quote,
   thumbnailUrl,
@@ -29,65 +33,82 @@ export default function Quote({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: Math.round(width * 0.1),
-        gap: Math.round(width * 0.05),
+        padding: Math.round(width * 0.11),
         textAlign: 'center',
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={thumbnailUrl || ''}
-        alt=""
-        style={{
-          width: Math.round(width * 0.22),
-          height: Math.round(width * 0.22),
-          objectFit: 'cover',
-          borderRadius: 16,
-        }}
-        onLoad={() => {
-          if (typeof window !== 'undefined') {
-            console.log(`[Quote Template] Thumbnail loaded: ${thumbnailUrl}`);
-          }
-        }}
-        onError={(e) => {
-          if (typeof window !== 'undefined') {
-            console.error(`[Quote Template] Thumbnail failed to load: ${thumbnailUrl}`);
-          }
-        }}
-      />
-      <div
-        style={{
-          background: 'rgba(255, 255, 255, 0.08)',
-          backdropFilter: 'blur(12px)',
-          borderRadius: '12px',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
-          boxShadow: '0 8px 24px rgba(26, 26, 26, 0.12)',
-          padding: `${Math.round(width * 0.04)}px ${Math.round(width * 0.06)}px`,
-        }}
-      >
-        <p
-          style={{
-            fontFamily: brand.fonts.heading,
-            fontStyle: 'italic',
-            fontSize: Math.round(width * 0.06),
-            color: brand.colors.dark,
-            lineHeight: 1.3,
-            margin: 0,
-          }}
-        >
-          &ldquo;{stripEmoji(quote)}&rdquo;
-        </p>
-      </div>
       <span
         style={{
           fontFamily: brand.fonts.heading,
-          fontSize: Math.round(width * 0.036),
-          color: '#d62828',
-          fontWeight: 600,
+          fontSize: Math.round(width * 0.16),
+          lineHeight: 0.6,
+          color: `${brand.colors.accent}55`,
         }}
       >
-        {brand.wordmark}
+        &ldquo;
       </span>
+
+      <p
+        style={{
+          fontFamily: brand.fonts.heading,
+          fontStyle: 'italic',
+          fontSize: Math.round(width * 0.062),
+          letterSpacing: -0.5,
+          color: brand.colors.dark,
+          lineHeight: 1.28,
+          margin: `${Math.round(width * 0.02)}px 0 ${Math.round(width * 0.05)}px`,
+          maxWidth: '86%',
+        }}
+      >
+        {stripEmoji(quote)}
+      </p>
+
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: Math.round(width * 0.02),
+        }}
+      >
+        {thumbnailUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={thumbnailUrl}
+            alt=""
+            style={{
+              width: Math.round(width * 0.11),
+              height: Math.round(width * 0.11),
+              objectFit: 'cover',
+              borderRadius: '50%',
+              border: `2px solid ${brand.colors.accent}`,
+            }}
+          />
+        )}
+        <span
+          style={{
+            fontFamily: brand.fonts.body,
+            fontWeight: 700,
+            fontSize: Math.round(width * 0.03),
+            letterSpacing: 0.3,
+            color: brand.colors.dark,
+          }}
+        >
+          {brand.wordmark}
+        </span>
+      </div>
+
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          bottom: Math.round(width * 0.07),
+          transform: 'translateX(-50%)',
+          width: Math.round(width * 0.1),
+          height: 2,
+          background: brand.colors.accent,
+        }}
+      />
+
       <BrandBadge brand={brand} width={width} />
     </div>
   );

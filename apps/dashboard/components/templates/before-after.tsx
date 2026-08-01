@@ -1,5 +1,6 @@
 import { resolveAspect, type Aspect, type BrandTokens } from './aspect';
 import BrandBadge from './brand-badge';
+import { stripEmoji } from './lib';
 
 export type BeforeAfterProps = {
   beforeImageUrl: string;
@@ -69,14 +70,16 @@ export default function BeforeAfter({
             left: '50%',
             transform: 'translateX(-50%)',
             fontFamily: brand.fonts.heading,
+            fontWeight: 700,
             fontSize: Math.round(width * 0.04),
+            letterSpacing: -0.5,
             color: brand.colors.accent,
             background: brand.colors.dark,
             padding: '6px 18px',
             borderRadius: 999,
           }}
         >
-          {label}
+          {stripEmoji(label)}
         </div>
       )}
       <BrandBadge brand={brand} width={width} />

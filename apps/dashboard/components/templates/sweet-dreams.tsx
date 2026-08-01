@@ -1,5 +1,6 @@
 import { resolveAspect, type Aspect, type BrandTokens } from './aspect';
 import BrandBadge from './brand-badge';
+import { stripEmoji } from './lib';
 
 export type SweetDreamsProps = {
   imageUrl: string;
@@ -21,7 +22,7 @@ export default function SweetDreams({
   brand,
 }: SweetDreamsProps & { aspect?: Aspect; brand: BrandTokens }) {
   const { width, height } = resolveAspect(aspect);
-  const words = headline.trim().split(/\s+/).filter(Boolean);
+  const words = stripEmoji(headline).trim().split(/\s+/).filter(Boolean);
 
   return (
     <div
@@ -55,6 +56,7 @@ export default function SweetDreams({
                 fontFamily: brand.fonts.heading,
                 fontWeight: 800,
                 fontSize: Math.round(width * 0.078),
+                letterSpacing: -1,
                 lineHeight: 1.05,
                 textTransform: 'uppercase',
                 color: brand.colors.light,
@@ -77,7 +79,7 @@ export default function SweetDreams({
             borderRadius: 6,
           }}
         >
-          {ctaLabel}
+          {stripEmoji(ctaLabel)}
         </span>
       </div>
 
