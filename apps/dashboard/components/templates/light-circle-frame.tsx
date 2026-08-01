@@ -29,7 +29,11 @@ export default function LightCircleFrame({
   brand,
 }: LightCircleFrameProps & { aspect?: Aspect; brand: BrandTokens }) {
   const { width, height } = resolveAspect(aspect);
-  const circleSize = Math.round(Math.min(width, height) * 0.82);
+  // Was 0.82 at top:'55%' — a 2-line headline (now maxWidth-constrained,
+  // see below) pushed down far enough to touch the circle's top edge.
+  // Smaller circle + lower center gives the header block real clearance
+  // without the circle's bottom running off-canvas.
+  const circleSize = Math.round(Math.min(width, height) * 0.72);
 
   return (
     <div
@@ -49,6 +53,13 @@ export default function LightCircleFrame({
           position: 'absolute',
           right: Math.round(width * 0.05),
           top: Math.round(width * 0.045),
+          // Was unconstrained, so a headline long enough to fit on one
+          // line at this font size (e.g. "Elegance That Fits Your
+          // Budget") shrink-to-fit all the way across the canvas,
+          // overlapping the top-left wordmark — confirmed live and
+          // reproduced with that exact headline. maxWidth forces it to
+          // wrap sooner, well clear of the wordmark.
+          maxWidth: '54%',
           textAlign: 'right',
         }}
       >
@@ -81,7 +92,7 @@ export default function LightCircleFrame({
         style={{
           position: 'absolute',
           left: '50%',
-          top: '55%',
+          top: '60%',
           transform: 'translate(-50%, -50%)',
           width: circleSize,
           height: circleSize,

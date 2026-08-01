@@ -7,12 +7,14 @@ export type QuoteProps = {
   thumbnailUrl: string;
 };
 
-// Editorial testimonial card, not a glass panel — the previous version's
-// glassmorphism box (rgba(255,255,255,0.08) white glass) was built for a
-// dark background and was nearly invisible here on brand.colors.light,
-// adding padding and a shadow without adding any real visual distinction.
-// A large decorative quotation mark + confident italic serif setting reads
-// as intentional on a light page; a barely-visible box did not.
+// Editorial testimonial card. Was a flat brand.colors.light background
+// with no photo at all — next to the rest of the (photo-driven) lineup it
+// read as unfinished, flagged live as "looking very empty". Now uses the
+// same asset photo compose_batch already passes as `thumbnailUrl` as a
+// full-bleed background, darkened by a heavy gradient scrim so only its
+// texture/mood comes through rather than a clear, competing product shot
+// — the quote text stays the visual focus, the photo just stops the card
+// from being a blank rectangle. Text flipped to light-on-dark to match.
 export default function Quote({
   quote,
   thumbnailUrl,
@@ -27,8 +29,9 @@ export default function Quote({
         width,
         height,
         position: 'relative',
-        background: brand.colors.light,
+        background: brand.colors.dark,
         fontFamily: brand.fonts.body,
+        overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -37,12 +40,29 @@ export default function Quote({
         textAlign: 'center',
       }}
     >
+      {thumbnailUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={thumbnailUrl}
+          alt=""
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      )}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: `linear-gradient(180deg, ${brand.colors.dark}F0 0%, ${brand.colors.dark}D9 100%)`,
+        }}
+      />
+
       <span
         style={{
+          position: 'relative',
           fontFamily: brand.fonts.heading,
           fontSize: Math.round(width * 0.16),
           lineHeight: 0.6,
-          color: `${brand.colors.accent}55`,
+          color: `${brand.colors.accent}88`,
         }}
       >
         &ldquo;
@@ -50,11 +70,12 @@ export default function Quote({
 
       <p
         style={{
+          position: 'relative',
           fontFamily: brand.fonts.heading,
           fontStyle: 'italic',
           fontSize: Math.round(width * 0.062),
           letterSpacing: -0.5,
-          color: brand.colors.dark,
+          color: brand.colors.light,
           lineHeight: 1.28,
           margin: `${Math.round(width * 0.02)}px 0 ${Math.round(width * 0.05)}px`,
           maxWidth: '86%',
@@ -63,39 +84,18 @@ export default function Quote({
         {stripEmoji(quote)}
       </p>
 
-      <div
+      <span
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: Math.round(width * 0.02),
+          position: 'relative',
+          fontFamily: brand.fonts.body,
+          fontWeight: 700,
+          fontSize: Math.round(width * 0.03),
+          letterSpacing: 0.3,
+          color: brand.colors.light,
         }}
       >
-        {thumbnailUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={thumbnailUrl}
-            alt=""
-            style={{
-              width: Math.round(width * 0.11),
-              height: Math.round(width * 0.11),
-              objectFit: 'cover',
-              borderRadius: '50%',
-              border: `2px solid ${brand.colors.accent}`,
-            }}
-          />
-        )}
-        <span
-          style={{
-            fontFamily: brand.fonts.body,
-            fontWeight: 700,
-            fontSize: Math.round(width * 0.03),
-            letterSpacing: 0.3,
-            color: brand.colors.dark,
-          }}
-        >
-          {brand.wordmark}
-        </span>
-      </div>
+        {brand.wordmark}
+      </span>
 
       <div
         style={{

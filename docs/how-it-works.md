@@ -842,3 +842,48 @@ consecutive candidates vary both asset and template. Added
 `test_pick_candidates_interleaves_across_assets` (11 mock assets, 18 mock
 templates — the real prod shape) asserting the candidate pool spans all 11
 distinct assets instead of 1.
+
+**Increased `hero.tsx`'s gradient scrim opacity** — the bottom-left dark
+gradient behind the headline/CTA text was too light against brighter
+source photos (light walls, windows, sky), thinning out contrast. Bumped
+the gradient stops from 60%/27% dark to 90%/60%, and pushed the fade point
+out from 65% to 70%, so text stays legible across more of the catalog's
+photos.
+
+**Fixed two real overlap bugs in `exclusive-badge.tsx` and
+`light-circle-frame.tsx`**, both confirmed live from real post renders and
+reproduced exactly with the same headline text:
+
+- `exclusive-badge.tsx`'s gold-outlined headline box and the photo below
+  it were both absolutely positioned, with the photo's `top` a hardcoded
+  fraction of the canvas height tuned for a short headline. A longer
+  headline ("Your Daily Routine, Upgraded.") wraps to 2 lines, making the
+  header block taller than that fixed offset assumed, so the box's bottom
+  edge visually overlapped the photo. Fixed structurally instead of
+  tuning another magic number: the header, photo, and footer are now a
+  flex column, so the header's real rendered height — whatever it turns
+  out to be for a given headline — pushes the photo down via normal flow.
+  This can't recur regardless of headline length. The floating discount
+  badge (previously positioned relative to the whole canvas) now
+  positions relative to the photo's own container instead, since that
+  container no longer has a fixed size.
+- `light-circle-frame.tsx`'s eyebrow+headline block had no `maxWidth` at
+  all, so a headline long enough to want the full canvas width
+  shrink-to-fit nearly edge-to-edge, overlapping the top-left wordmark
+  ("Elegance That Fits Your Budget" reproduced this exactly). Added
+  `maxWidth: '54%'` to force it to wrap sooner. That then pushed the
+  (now 2-line) block low enough to touch the circular photo frame's top
+  edge, so the circle was also shrunk (0.82 → 0.72 of the canvas) and
+  recentered lower (top 55% → 60%) to give the header real clearance
+  without running the circle's bottom off-canvas. Verified against both
+  a 2-line and a short 1-word headline to confirm neither overlaps nor
+  leaves an awkward empty gap.
+
+**Gave `quote.tsx` a real background** instead of a flat
+`brand.colors.light` fill — flagged live as "looking very empty" next to
+the rest of the photo-driven lineup. Reuses the same asset photo
+`compose_batch` already passes in as `thumbnailUrl`, full-bleed behind a
+heavy dark gradient scrim (`brand.colors.dark` at ~94%/85% opacity), so
+only the photo's texture and mood come through rather than a clear,
+competing product shot — the quote text stays the focus. Text colors
+flipped to light-on-dark to match the now-dark background.
