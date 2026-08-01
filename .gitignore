@@ -66,3 +66,4 @@ media/library/faces/*.webp
 .idea/
 .DS_Store
 Thumbs.db
+docs/daily-linkedin-posts-pipeline

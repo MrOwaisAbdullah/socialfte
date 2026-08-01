@@ -10,15 +10,23 @@ export type SetBreakdownProps = {
   imageUrl?: string;
 };
 
-// Editorial list card: hairline-divided rows instead of the previous
-// glassmorphism boxes (rgba(255,255,255,0.08) white glass on this
-// template's light background, same near-invisible issue as quote.tsx had)
-// and an italic-serif bundle price for the same two-tier type contrast the
-// rest of the templates use. `imageUrl` is new and optional — this
-// template previously had no image slot at all, so compose_batch.py's
-// single-asset path (pieces=[], bundlePrice='' — no real per-piece data to
-// show) rendered almost entirely blank space; a photo, when available,
-// gives it something to look at either way.
+// Ranked-bars treatment for the piece list (docs/daily-linkedin-posts-
+// pipeline/skills/illustration-formats/SKILL.md's RANKED_BARS format:
+// italic serif rank numeral, bold label, a proportional bar, value at
+// far right, three color tiers by rank) — replaces both the earlier
+// invisible glassmorphism rows (rgba(255,255,255,0.08) white glass on
+// this template's light background, same issue quote.tsx had) and a
+// plainer hairline-list version. Bar width is only proportional when a
+// real numeric value can be parsed out of the price string — pieces
+// that don't parse get an equal, honest-looking bar rather than a
+// fabricated proportion. `imageUrl` stays optional: this template had no
+// image slot at all before, and compose_batch.py's single-asset path
+// (pieces=[], no real per-piece data) still needs something to show.
+function parsePriceValue(price: string): number | null {
+  const match = price.replace(/,/g, '').match(/\d+(\.\d+)?/);
+  return match ? parseFloat(match[0]) : null;
+}
+
 export default function SetBreakdown({
   setName,
   pieces,
@@ -29,6 +37,10 @@ export default function SetBreakdown({
   brand,
 }: SetBreakdownProps & { aspect?: Aspect; brand: BrandTokens }) {
   const { width, height } = resolveAspect(aspect);
+  const values = pieces.map((p) => parsePriceValue(p.price));
+  const maxValue = Math.max(...values.filter((v): v is number => v !== null), 1);
+  const tierColor = (i: number) =>
+    i === 0 ? brand.colors.accent : i <= 2 ? `${brand.colors.accent}AA` : `${brand.colors.dark}66`;
 
   return (
     <div
@@ -72,28 +84,52 @@ export default function SetBreakdown({
 
       <div
         style={{
-          marginTop: Math.round(width * 0.04),
+          marginTop: Math.round(width * 0.045),
           display: 'flex',
           flexDirection: 'column',
+          gap: Math.round(width * 0.024),
           flex: 1,
-          borderTop: `1px solid ${brand.colors.muted}33`,
+          justifyContent: 'center',
         }}
       >
-        {pieces.map((piece) => (
-          <div
-            key={piece.name}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'baseline',
-              borderBottom: `1px solid ${brand.colors.muted}33`,
-              padding: `${Math.round(width * 0.02)}px 0`,
-            }}
-          >
-            <span style={{ fontSize: Math.round(width * 0.03), color: brand.colors.dark }}>{stripEmoji(piece.name)}</span>
-            <span style={{ fontSize: Math.round(width * 0.03), color: brand.colors.muted }}>{stripEmoji(piece.price)}</span>
-          </div>
-        ))}
+        {pieces.map((piece, i) => {
+          const value = values[i];
+          const barPct = value !== null ? Math.max(10, (value / maxValue) * 100) : 100;
+          return (
+            <div key={piece.name} style={{ display: 'flex', flexDirection: 'column', gap: Math.round(width * 0.006) }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ display: 'flex', alignItems: 'baseline', gap: Math.round(width * 0.014) }}>
+                  <span
+                    style={{
+                      fontFamily: brand.fonts.heading,
+                      fontStyle: 'italic',
+                      fontSize: Math.round(width * 0.024),
+                      color: brand.colors.muted,
+                    }}
+                  >
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <span style={{ fontWeight: 700, fontSize: Math.round(width * 0.028), color: brand.colors.dark }}>
+                    {stripEmoji(piece.name)}
+                  </span>
+                </span>
+                <span style={{ fontWeight: 700, fontSize: Math.round(width * 0.026), color: brand.colors.dark }}>
+                  {stripEmoji(piece.price)}
+                </span>
+              </div>
+              <div style={{ height: 10, borderRadius: 999, background: `${brand.colors.muted}22` }}>
+                <div
+                  style={{
+                    width: `${barPct}%`,
+                    height: '100%',
+                    borderRadius: 999,
+                    background: tierColor(i),
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div

@@ -796,3 +796,26 @@ top offset for clearance). Also confirmed live: this WSL environment's
 `/mnt/d/`-backed filesystem doesn't reliably deliver file-watch events to
 Turbopack's dev server — an edit that doesn't seem to take effect after a
 save needs a full dev-server restart, not just a page reload.
+
+**Gave `set-breakdown.tsx`'s piece list a RANKED_BARS treatment**, following
+up on the still-unused parts of `docs/daily-linkedin-posts-pipeline/` (a
+separate, unrelated LinkedIn content pipeline dropped into `docs/` as a
+reference). Its `skills/illustration-formats/SKILL.md` documents a
+RANKED_BARS infographic format that maps directly onto a priced item list:
+an italic serif rank numeral, a bold label, a horizontal bar sized
+proportionally to the value, the value itself set bold at the far right,
+and three color tiers by rank (top = full accent, next two = accent at
+reduced opacity, rest = dark at reduced opacity). Replaced the plain
+hairline-divided rows with this. Bar width is only ever computed from a
+real numeric value parsed out of the price string (`parsePriceValue`); a
+piece whose price doesn't parse gets an honest full-width bar instead of a
+fabricated proportion, keeping with the no-invented-numbers rule applied
+everywhere else in this codebase. Verified with a 4-piece real-data test
+(`agent-browser` screenshot against the local dev server) — bar widths and
+tier colors matched the underlying values exactly, no overlap with the
+bundle-price/savings row below. Other parts of that pipeline's skills
+(the `branded-carousel` 7-slide brand-research system, its own
+`render.js`) were read and deliberately not ported — they assume a
+different data shape and brand-scraping workflow than SocialFTE's
+single-own-photo-per-post model, and SocialFTE's own render route (after
+the earlier fix above) is already more robust than the reference one.
