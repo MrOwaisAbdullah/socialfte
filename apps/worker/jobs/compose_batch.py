@@ -102,6 +102,8 @@ VIDEO_COMPOSITION_MAP = {
     "exclusive-badge": "PromoHighlight",  # Built for this exact eyebrow+badge aesthetic
     "light-circle-frame": "DetailFocus",  # "Circular reveal detail shot" matches directly
     "sweet-dreams": "LifestyleFrame",     # Warm bedroom lifestyle context frame
+    "shader-dissolve": "ShaderDissolve",  # Cross-fade between product angles, edge glow + dissolve
+    "card-converge": "CardConverge",      # Scattered cards converge — set-breakdown-style multi-piece reveal
 }
 
 
@@ -228,6 +230,11 @@ def _build_video_props(composition_id: str, image_url: str, headline: str, extra
         props["title"] = headline
     elif composition_id == "CinematicReveal":
         props["title"] = headline
+    elif composition_id == "ShaderDissolve":
+        props["headline"] = headline
+    elif composition_id == "CardConverge":
+        props["setName"] = headline
+        props["bundlePrice"] = ""  # same honest gap as SetReveal above — no real per-set price data here
     return props
 
 
@@ -580,7 +587,7 @@ async def compose_batch():
             composition_id = VIDEO_COMPOSITION_MAP.get(tmpl.slug, "HeroReveal")
             # Pick distinct images for multi-image templates (BentoReel needs up to 5 total)
             distinct_urls = []
-            if composition_id in {"BentoReel", "BentoGallery"}:
+            if composition_id in {"BentoReel", "BentoGallery", "ShaderDissolve", "CardConverge"}:
                 distinct_urls = await _pick_distinct_images(asset, 5)
             try:
                 await dispatch_video_render(

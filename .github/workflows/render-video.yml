@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       composition_id:
-        description: "Remotion composition id (any from packages/remotion/src/compositions/: HeroReveal, PriceReveal, FabricDetail, SetReveal, BrandProof, ShowcaseCard, DynamicGrid, CinematicReveal, ProductSplit, LifestyleFrame, DetailFocus, BentoGallery, BentoReel)"
+        description: "Remotion composition id (any from packages/remotion/src/compositions/: HeroReveal, PriceReveal, FabricDetail, SetReveal, BrandProof, ShowcaseCard, DynamicGrid, CinematicReveal, ProductSplit, LifestyleFrame, DetailFocus, BentoGallery, BentoReel, PromoHighlight, ShaderDissolve, CardConverge)"
         required: true
         type: string
       props:

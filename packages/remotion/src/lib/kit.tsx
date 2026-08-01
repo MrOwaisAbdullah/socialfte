@@ -409,6 +409,8 @@ export const MusicBed: React.FC<MusicBedProps> = ({ trackId = 'ambient-pad', vol
     'BentoGallery': 'ambient-pad',
     'FabricDetail': 'ambient-pad',
     'PriceReveal': 'ambient-pad',
+    'ShaderDissolve': 'cinematic-min',
+    'CardConverge': 'tech-pulse',
   };
 
   // Resolve track: if trackId is a known composition name, use its mapped track;

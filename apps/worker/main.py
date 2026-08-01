@@ -59,6 +59,11 @@ DEFAULT_TEMPLATES = [
     ("exclusive-badge", "Exclusive Badge"),
     ("light-circle-frame", "Light Circle Frame"),
     ("sweet-dreams", "Sweet Dreams"),
+    # Video-only (no still-image registry.ts entry — same pattern as
+    # premium-hero/showcase/grid-layout/etc. above): pure motion effects
+    # with no single-frame equivalent worth rendering as a static image.
+    ("shader-dissolve", "Shader Dissolve"),
+    ("card-converge", "Card Converge"),
 ]
 
 

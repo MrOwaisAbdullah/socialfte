@@ -1,7 +1,55 @@
 [
  {
+  "id": "BentoGallery",
+  "durationInSeconds": 8,
+  "fps": 30,
+  "width": 1080,
+  "height": 1080,
+  "transparent": false
+ },
+ {
+  "id": "BentoReel",
+  "durationInSeconds": 12,
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "transparent": false
+ },
+ {
   "id": "BrandProof",
-  "durationInSeconds": 5,
+  "durationInSeconds": 8,
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "transparent": false
+ },
+ {
+  "id": "CardConverge",
+  "durationInSeconds": 10,
+  "fps": 30,
+  "width": 1080,
+  "height": 1080,
+  "transparent": false
+ },
+ {
+  "id": "CinematicReveal",
+  "durationInSeconds": 10,
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "transparent": false
+ },
+ {
+  "id": "DetailFocus",
+  "durationInSeconds": 10,
+  "fps": 30,
+  "width": 1080,
+  "height": 1080,
+  "transparent": false
+ },
+ {
+  "id": "DynamicGrid",
+  "durationInSeconds": 8,
   "fps": 30,
   "width": 1080,
   "height": 1920,
@@ -9,7 +57,7 @@
  },
  {
   "id": "FabricDetail",
-  "durationInSeconds": 4,
+  "durationInSeconds": 8,
   "fps": 30,
   "width": 1080,
   "height": 1920,
@@ -17,23 +65,63 @@
  },
  {
   "id": "HeroReveal",
-  "durationInSeconds": 5,
+  "durationInSeconds": 10,
   "fps": 30,
   "width": 1080,
   "height": 1920,
+  "transparent": false
+ },
+ {
+  "id": "LifestyleFrame",
+  "durationInSeconds": 8,
+  "fps": 30,
+  "width": 1080,
+  "height": 1080,
   "transparent": false
  },
  {
   "id": "PriceReveal",
-  "durationInSeconds": 5,
+  "durationInSeconds": 8,
   "fps": 30,
   "width": 1080,
   "height": 1920,
   "transparent": false
  },
  {
+  "id": "ProductSplit",
+  "durationInSeconds": 8,
+  "fps": 30,
+  "width": 1080,
+  "height": 1080,
+  "transparent": false
+ },
+ {
+  "id": "PromoHighlight",
+  "durationInSeconds": 8,
+  "fps": 30,
+  "width": 1080,
+  "height": 1080,
+  "transparent": false
+ },
+ {
   "id": "SetReveal",
-  "durationInSeconds": 6,
+  "durationInSeconds": 10,
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "transparent": false
+ },
+ {
+  "id": "ShaderDissolve",
+  "durationInSeconds": 10,
+  "fps": 30,
+  "width": 1080,
+  "height": 1080,
+  "transparent": false
+ },
+ {
+  "id": "ShowcaseCard",
+  "durationInSeconds": 8,
   "fps": 30,
   "width": 1080,
   "height": 1920,
