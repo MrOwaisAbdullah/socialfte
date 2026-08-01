@@ -111,6 +111,7 @@ async def lifespan(app: FastAPI):
     from jobs.weekly_digest import weekly_digest
     from jobs.process_footage import process_footage
     from jobs.retag_assets import retag_assets
+    from jobs.create_concepts import create_concepts
 
     job_definitions = [
         ("refresh_tokens", refresh_tokens, settings.TOKEN_REFRESH_CRON, "Refresh platform tokens"),
@@ -121,6 +122,7 @@ async def lifespan(app: FastAPI):
         ("weekly_digest", weekly_digest, settings.WEEKLY_DIGEST_CRON, "Generate weekly performance digest"),
         ("process_footage", process_footage, settings.PROCESS_FOOTAGE_CRON, "Process uploaded video clips (audio + cover-frames)"),
         ("retag_assets", retag_assets, settings.RETAG_ASSETS_CRON, "Retag assets vision-tagging missed"),
+        ("create_concepts", create_concepts, settings.CREATE_CONCEPTS_CRON, "Generate creative concepts for review"),
     ]
 
     # job_schedules holds any cron the dashboard's schedule editor has set,

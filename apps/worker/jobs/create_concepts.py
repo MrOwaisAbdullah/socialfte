@@ -27,7 +27,7 @@ CONCEPT_TYPES = ["price-focused", "lifestyle", "quality", "exclusive", "comfort"
 ANIMATION_STYLES = [
     "frame-sequence",  # Product explodes/rebuilds with multiple headlines
     "shader-dissolve",  # Cross-fade between product angles with edge glow
-    "card-convergence",  # Scattered items → full set reveal
+    "card-converge",  # Scattered items → full set reveal
     "none",  # Standard static posts
 ]
 
@@ -213,7 +213,7 @@ async def _select_animation_style(asset: Asset, concept_type: str) -> str:
     # For now, simple logic – could be smarter
     if asset.kind == "clip":
         # Videos get scroll animations
-        return random.choice(["frame-sequence", "shader-dissolve", "card-convergence"])
+        return random.choice(["frame-sequence", "shader-dissolve", "card-converge"])
     else:
         # Photos use standard templates
         return "none"

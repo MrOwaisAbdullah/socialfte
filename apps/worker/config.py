@@ -229,6 +229,13 @@ class Settings(BaseSettings):
     # forget and never retries on its own otherwise.
     RETAG_ASSETS_CRON: str = Field(default="0 */6 * * *")  # every 6 hours
 
+    # Creative pipeline — generates headline/caption concept drafts for
+    # human review on the dashboard's /concepts page (jobs/create_concepts.py).
+    # Was never registered as a real job at all (existed only as a manually-
+    # invoked script), so the dashboard's own "Run the create_concepts job
+    # first" message had nothing to point at on the Jobs page.
+    CREATE_CONCEPTS_CRON: str = Field(default="0 6 * * 0")  # Sundays at 06:00
+
     # ─────────────────────────────────────────────
     # OPTIONAL
     # ─────────────────────────────────────────────
