@@ -94,6 +94,13 @@ async def _generate_concept_variations(
     A generation failure for one variation is logged and skipped rather
     than aborting the whole concept; write_caption() itself already retries
     on humanizer/formatting violations internally.
+
+    The CONCEPT_VARIATIONS calls are independent of each other, so they run
+    concurrently (asyncio.gather) rather than one at a time — confirmed
+    live, a fully sequential version made a real run (10 assets x up to 2
+    concepts x 3 variations = up to 60 write_caption() calls, each 1-4
+    attempts plus a reviewer call) take 20-40+ minutes, which read as "only
+    generating 1 concept" to an operator checking the log a few minutes in.
     """
     direction = await _get_creative_direction(concept_type)
     # No real Template row exists yet at concept-generation time (that's
@@ -105,18 +112,23 @@ async def _generate_concept_variations(
     suggested_slug = TEMPLATE_SUGGESTIONS.get(concept_type, ["hero"])[0]
     template_stub = SimpleNamespace(slug=suggested_slug, display_name=None)
 
+    results = await asyncio.gather(
+        *[
+            write_caption(asset, template_stub, brand=brand_tokens, creative_direction=direction)
+            for _ in range(CONCEPT_VARIATIONS)
+        ],
+        return_exceptions=True,
+    )
+
     headlines: list[str] = []
     captions: list[str] = []
-    for _ in range(CONCEPT_VARIATIONS):
-        try:
-            caption, headline, hashtags = await write_caption(
-                asset, template_stub, brand=brand_tokens, creative_direction=direction
-            )
-        except Exception as e:
+    for result in results:
+        if isinstance(result, BaseException):
             logger.warning(
-                "Concept variation generation failed for asset %s (%s): %s", asset.id, concept_type, e
+                "Concept variation generation failed for asset %s (%s): %s", asset.id, concept_type, result
             )
             continue
+        caption, headline, hashtags = result
         headlines.append(headline)
         # Hashtags folded into the caption text (not stored separately) —
         # matches compose_batch.py's own caption_text construction, which

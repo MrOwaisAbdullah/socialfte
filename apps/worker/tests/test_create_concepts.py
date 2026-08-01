@@ -75,13 +75,15 @@ async def test_generate_concept_variations_skips_failed_attempts():
 
     asset = MagicMock(id="asset-1", piece="dining set", tier="tier1", variant="standard")
 
-    async def side_effect(*args, **kwargs):
-        if mock_write.call_count == 1:
-            raise ConnectionError("model unreachable")
-        return ("Caption.", "Headline", ["#tag"])
-
+    # The CONCEPT_VARIATIONS calls run concurrently (asyncio.gather), so a
+    # call-count-based side_effect function can't reliably target "the
+    # first call" — all calls happen synchronously before any of them
+    # actually runs. A side_effect list is consumed in call order instead,
+    # which stays well-defined regardless of await interleaving.
     with patch("jobs.create_concepts.write_caption", new_callable=AsyncMock) as mock_write:
-        mock_write.side_effect = side_effect
+        mock_write.side_effect = [ConnectionError("model unreachable")] + [
+            ("Caption.", "Headline", ["#tag"]) for _ in range(CONCEPT_VARIATIONS - 1)
+        ]
 
         headlines, captions = await _generate_concept_variations(asset, "quality", {})
 
