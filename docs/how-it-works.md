@@ -705,3 +705,30 @@ rejects a score of `40` once the threshold itself is `40`. Fixed by
 re-pointing the mocks at the real function name and asserting strictly
 below the threshold (imported, not hardcoded, so a future threshold change
 can't silently reintroduce the same off-by-one).
+
+**`create_concepts.py` (the Phase 1 creative-planning job — headline/
+caption drafts a human reviews and approves on `/concepts` before
+`compose_batch` can use them) existed only as a manually-invoked script,
+never registered with the scheduler.** The dashboard's own Concepts page
+told the operator to "run the create_concepts job first," but there was no
+such job on the Jobs page to run — fixed by registering it in `main.py`'s
+`job_definitions` with a new `CREATE_CONCEPTS_CRON` setting (default
+weekly, Sundays 06:00).
+
+Its content generation was also canned English-only template strings, not
+real generation — confirmed to directly violate this project's own rules:
+one template used "elevate your home" verbatim (a `HUMANIZER_BANNED_PHRASES`
+entry), most used em dashes, several exceeded the 1-3 emoji rule, and none
+of it went through `check_humanizer`/`check_formatting`/`clean_caption_output`
+at all, since concepts never called `write_caption()`. `write_caption()`
+gained an optional `creative_direction` parameter (a one-line steer like
+"Emphasize value, savings, and smart purchasing decisions", backward
+compatible — existing callers don't pass it) so `create_concepts.py` can
+generate each concept type's angle through the exact same writer+reviewer
+pipeline, humanizer checks, and Roman Urdu default every regular post
+already gets, instead of a parallel path with none of those guarantees.
+Generates `CONCEPT_VARIATIONS = 3` real headline/caption pairs per concept
+(down from the canned version's free 5/3) since real generations cost
+actual model calls — a full run is up to 10 assets × 2 concepts ×
+3 variations × 2 agent calls (writer + reviewer) = up to 120 real model
+calls, worth knowing before pointing this at a tight OpenRouter budget.

@@ -289,8 +289,18 @@ async def _review_caption(
     return revised_caption, revised_headline, revised_hashtags
 
 
-async def write_caption(asset, template, brand: dict | None = None) -> tuple[str, str, list[str]]:
+async def write_caption(
+    asset, template, brand: dict | None = None, creative_direction: str | None = None
+) -> tuple[str, str, list[str]]:
     """Generate a caption + headline + hashtags for an asset+template pairing.
+
+    `creative_direction`, when given, adds a one-line steer to the prompt
+    (e.g. "Emphasize value, savings, and smart purchasing decisions") —
+    used by jobs/create_concepts.py to generate multiple differently-angled
+    concept drafts through this exact same pipeline, rather than the
+    canned English-only templates it used to return that bypassed every
+    check below entirely (including HUMANIZER_BANNED_PHRASES — one of
+    those old templates used "elevate your home" verbatim).
 
     Two-agent pipeline: caption_agent drafts, mechanical checks
     (check_humanizer/check_formatting/check_headline) gate it with retries,
@@ -324,7 +334,8 @@ async def write_caption(asset, template, brand: dict | None = None) -> tuple[str
         f"Asset: piece={asset.piece}, tier={asset.tier}, variant={asset.variant}\n"
         f"Template: {getattr(template, 'display_name', None) or getattr(template, 'slug', None)}\n"
         f"Language: {language or 'not set — use your default (Roman Urdu + English)'}\n"
-        f"Context: {brand}"
+        + (f"Creative direction: {creative_direction}\n" if creative_direction else "")
+        + f"Context: {brand}"
     )
 
     violations: list[str] = []

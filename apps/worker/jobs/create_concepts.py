@@ -8,15 +8,15 @@ Runs weekly or on-demand to populate the concepts library with fresh creative op
 import asyncio
 import logging
 import random
-from datetime import datetime, timezone
+from types import SimpleNamespace
 
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
-from config import settings
+from brain.composer import write_caption
 from db.models import Asset, Concept
 from db.session import SessionLocal
 from audit import write_audit
+from jobs.compose_batch import _build_brand_tokens
 
 logger = logging.getLogger("worker.create_concepts")
 
@@ -66,134 +66,64 @@ async def _pick_assets_needing_concepts(limit: int = MAX_CONCEPTS_PER_RUN) -> li
     return assets[:limit]
 
 
-async def _generate_headlines(asset: Asset, concept_type: str, count: int = 5) -> list[str]:
-    """Generate headline variations using the caption agent.
+# Real LLM calls per concept — each is a full write_caption() round trip
+# (writer agent + reviewer agent), so this directly controls job cost/time.
+# The canned-template version this replaced generated 5 headlines + 3
+# captions for free, but real generations aren't free — this trades some
+# variety for a sane run cost. At MAX_CONCEPTS_PER_RUN=10 assets x up to 2
+# concepts each x this many variations x 2 agent calls, a full run is up
+# to 10*2*CONCEPT_VARIATIONS*2 real model calls.
+CONCEPT_VARIATIONS = 3
 
-    Different concept types need different headline styles:
-    - price-focused: Value-oriented
-    - lifestyle: Aspirational
-    - quality: Craftsmanship-focused
-    - exclusive: Scarcity-driven
-    - comfort: Ergonomic/emotional
+
+async def _generate_concept_variations(
+    asset: Asset, concept_type: str, brand_tokens: dict
+) -> tuple[list[str], list[str]]:
+    """Generate real headline + caption variations for one concept, via the
+    exact same write_caption() pipeline every regular post goes through —
+    not the canned English-only templates this used to return, which
+    bypassed every quality guardrail in brain/composer.py entirely
+    (confirmed: one of the old templates used "elevate your home" verbatim,
+    a HUMANIZER_BANNED_PHRASES entry) and ignored the brand's Roman Urdu +
+    English default.
+
+    Headlines and captions are collected as two separate lists (matching
+    the Concept.headlines/Concept.captions schema and how compose_batch.py
+    already picks one of each independently via random.choice) rather than
+    kept as headline+caption pairs — same shape the canned version used.
+    A generation failure for one variation is logged and skipped rather
+    than aborting the whole concept; write_caption() itself already retries
+    on humanizer/formatting violations internally.
     """
-    # For now, use simple templates until we integrate with caption agent
-    templates = {
-        "price-focused": [
-            f"Luxury {{product}} within reach",
-            f"Best value {{product}} you'll find",
-            f"Premium {{product}}, smart price",
-            f"{{product}} – quality that fits your budget",
-            f"Affordable luxury: {{product}}",
-        ],
-        "lifestyle": [
-            f"Transform your space with {{product}}",
-            f"{{product}} – elevate your living",
-            f"Your dream space starts with {{product}}",
-            f"{{product}} for modern living",
-            f"Redefine your home with {{product}}",
-        ],
-        "quality": [
-            f"Handcrafted {{product}} built to last",
-            f"{{product}} – precision meets passion",
-            f"Premium {{product}} with uncompromising quality",
-            f"{{product}} crafted for generations",
-            f"Where quality meets comfort: {{product}}",
-        ],
-        "exclusive": [
-            f"Exclusive {{product}} – limited availability",
-            f"Rare find: {{product}}",
-            f"{{product}} for the discerning few",
-            f"Own the extraordinary: {{product}}",
-            f"Limited edition {{product}}",
-        ],
-        "comfort": [
-            f"{{product}} – comfort redefined",
-            f"Experience unmatched comfort with {{product}}",
-            f"{{product}} designed for relaxation",
-            f"Your comfort, our priority: {{product}}",
-            f"{{product}} – where comfort meets style",
-        ],
-    }
+    direction = await _get_creative_direction(concept_type)
+    # No real Template row exists yet at concept-generation time (that's
+    # what suggested_templates is for — a template gets picked later, when
+    # a concept is actually used) — write_caption() only reads .slug/
+    # .display_name off whatever it's given, so a lightweight stand-in
+    # naming the concept type's first suggested template gives the model
+    # real stylistic context without needing a DB row.
+    suggested_slug = TEMPLATE_SUGGESTIONS.get(concept_type, ["hero"])[0]
+    template_stub = SimpleNamespace(slug=suggested_slug, display_name=None)
 
-    product_name = asset.original_filename or asset.piece or "furniture piece"
-    # Remove file extension if present
-    if "." in product_name:
-        product_name = product_name.rsplit(".", 1)[0]
-
-    templates_list = templates.get(concept_type, templates["quality"])
-    headlines = []
-
-    for template in templates_list:
-        # Replace {{product}} placeholder
-        headline = template.replace("{{product}}", product_name)
+    headlines: list[str] = []
+    captions: list[str] = []
+    for _ in range(CONCEPT_VARIATIONS):
+        try:
+            caption, headline, hashtags = await write_caption(
+                asset, template_stub, brand=brand_tokens, creative_direction=direction
+            )
+        except Exception as e:
+            logger.warning(
+                "Concept variation generation failed for asset %s (%s): %s", asset.id, concept_type, e
+            )
+            continue
         headlines.append(headline)
-
-    # Shuffle and return requested count
-    random.shuffle(headlines)
-    return headlines[:count]
-
-
-async def _generate_captions(asset: Asset, concept_type: str, headlines: list[str]) -> list[str]:
-    """Generate caption variations aligned with concept type.
-
-    Uses different tones based on concept:
-    - price-focused: Value messaging
-    - lifestyle: Aspirational tone
-    - quality: Craftsmanship emphasis
-    - exclusive: Scarcity appeal
-    - comfort: Emotional connection
-    """
-    product_name = asset.original_filename or asset.piece or "furniture piece"
-    if "." in product_name:
-        product_name = product_name.rsplit(".", 1)[0]
-
-    captions = []
-
-    # Generate different caption options
-    templates = {
-        "price-focused": [
-            f"Premium quality without the premium price tag. Experience {product_name} – luxury that fits your budget. Crafted for comfort, priced for value. ✨",
-            f"Why overpay? {product_name} delivers exceptional quality at smart prices. Built to last, designed to impress. Your wallet will thank you. 💰",
-            f"Luxury within reach – {product_name} proves you don't have to compromise. Premium materials, expert craftsmanship, affordable pricing. The smart choice. 🏠",
-        ],
-        "lifestyle": [
-            f"Transform your space with {product_name}. Designed for modern living, crafted for everyday elegance. Elevate your home with a piece that speaks to your style. ✨",
-            f"Your dream space starts here. {product_name} brings together comfort, style, and sophistication. Create moments worth remembering in a home you'll love. 🏡",
-            f"Redefine your living experience. {product_name} isn't just furniture – it's the foundation of your ideal lifestyle. Where form meets function, beautifully. 🌟",
-        ],
-        "quality": [
-            f"Built to last generations. {product_name} showcases exceptional craftsmanship with premium materials and expert construction. Each piece tells a story of quality and dedication. 🛠️",
-            f"Precision meets passion in every detail of {product_name}. Handcrafted by skilled artisans using time-honored techniques and modern innovation. Quality you can feel. ✨",
-            f"{product_name} – where uncompromising quality meets timeless design. Crafted with care, built to serve, and made to impress. Invest in furniture that stands the test of time. 🏆",
-        ],
-        "exclusive": [
-            f"Exclusive {product_name} – limited availability for those who appreciate the extraordinary. Secure your piece before it's gone. Own furniture that makes a statement. 💎",
-            f"Rare find: {product_name} represents exceptional design and craftsmanship. Limited pieces available. Don't miss your chance to own something truly special. ⭐",
-            f"Designed for the discerning few. {product_name} offers exclusivity without compromise. Be among the select owners of this remarkable piece. 🌟",
-        ],
-        "comfort": [
-            f"Experience unmatched comfort with {product_name}. Thoughtfully designed to cradle you in relaxation after a long day. Your personal sanctuary awaits. 🛋️",
-            f"Where style meets comfort – {product_name} redefines relaxation. Ergonomically designed with your well-being in mind. Comfort you'll look forward to every day. 🌙",
-            f"Your comfort, our priority. {product_name} brings together supportive design and plush elegance. Create your perfect cozy corner at home. 🏡",
-        ],
-    }
-
-    templates_list = templates.get(concept_type, templates["quality"])
-    captions = [t.format(product_name=product_name) for t in templates_list]
-
-    # Add hashtags to each caption
-    hashtag_options = [
-        "#FurnitureGoals #HomeDecor #InteriorDesign",
-        "#PakistaniFurniture #HomeInspo #LivingRoom",
-        "#ComfortMeetsStyle #DreamHome #FurnitureLover",
-    ]
-
-    final_captions = []
-    for i, caption in enumerate(captions):
-        hashtags = hashtag_options[i % len(hashtag_options)]
-        final_captions.append(f"{caption}\n\n{hashtags}")
-
-    return final_captions
+        # Hashtags folded into the caption text (not stored separately) —
+        # matches compose_batch.py's own caption_text construction, which
+        # is also what its approved-concept branch expects when it later
+        # re-extracts hashtags from this same text via a leading "#" scan.
+        captions.append((caption or "") + ("\n\n" + " ".join(hashtags) if hashtags else ""))
+    return headlines, captions
 
 
 async def _get_creative_direction(concept_type: str) -> str:
@@ -223,7 +153,8 @@ async def create_concepts():
     """Generate creative concepts for assets needing them.
 
     Runs on CREATE_CONCEPTS_CRON (default weekly) or can be triggered manually.
-    Creates 3-5 headline variations and 3 caption options per concept.
+    Creates up to CONCEPT_VARIATIONS headline + caption options per concept,
+    each a real write_caption() generation (not canned text).
     """
     logger.info("Starting concepts generation — target: %d concepts", MAX_CONCEPTS_PER_RUN)
 
@@ -231,6 +162,11 @@ async def create_concepts():
     if not assets:
         logger.info("No assets needing concepts found")
         return
+
+    # Built once and reused for every concept this run — same reasoning as
+    # compose_batch.py's own brand_tokens: it's the same brand_config row
+    # regardless of which asset/concept is being generated.
+    brand_tokens = await _build_brand_tokens()
 
     created = 0
     skipped = 0
@@ -261,8 +197,13 @@ async def create_concepts():
             concept_type = CONCEPT_TYPES[i % len(CONCEPT_TYPES)]
 
             # Generate content
-            headlines = await _generate_headlines(asset, concept_type, count=5)
-            captions = await _generate_captions(asset, concept_type, headlines)
+            headlines, captions = await _generate_concept_variations(asset, concept_type, brand_tokens)
+            if not headlines or not captions:
+                logger.warning(
+                    "All variation attempts failed for asset %s (%s), skipping this concept",
+                    asset_id_str, concept_type,
+                )
+                continue
             creative_direction = await _get_creative_direction(concept_type)
             suggested_templates = TEMPLATE_SUGGESTIONS.get(concept_type, ["hero"])
             animation_style = await _select_animation_style(asset, concept_type)
