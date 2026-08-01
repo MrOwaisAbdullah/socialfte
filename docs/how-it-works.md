@@ -731,4 +731,29 @@ Generates `CONCEPT_VARIATIONS = 3` real headline/caption pairs per concept
 (down from the canned version's free 5/3) since real generations cost
 actual model calls — a full run is up to 10 assets × 2 concepts ×
 3 variations × 2 agent calls (writer + reviewer) = up to 120 real model
-calls, worth knowing before pointing this at a tight OpenRouter budget.
+calls, worth knowing before pointing this at a tight OpenRouter budget. The
+3 variations per concept run concurrently (`asyncio.gather`), not one at a
+time — a sequential version made a real run take 20-40+ minutes and looked
+"stuck at 1 concept" to an operator checking a few minutes in.
+
+**`/api/internal/render` (the Puppeteer screenshot route) never checked
+whether the page it navigated to actually loaded.** Confirmed live: a real
+published post's `render_url` was, byte for byte, a screenshot of Chrome's
+own "This page couldn't load — a server error occurred" interstitial, not
+the actual template — uploaded to R2 and returned as a successful render.
+`page.goto()` only rejects for network-level failures (DNS, connection
+refused, timeout); a transient non-2xx from `/render-preview` itself (a
+cold-start hiccup, a DB blip) still completes the navigation, and Chrome
+swaps in its own error page in place of the real content, which the code
+then dutifully screenshotted. Fixed by checking `response.ok()` after
+`page.goto()` and throwing (caught, returned as a 502 with a real error
+body) if it isn't. A related gap in the same route: broken `<img>` loads
+were already detected (a leftover `naturalWidth === 0` check) but only
+`console.error`'d inside the browser itself — invisible outside Puppeteer,
+and the render proceeded anyway with a broken image icon in the shot. Now
+a failed image load fails the render the same way. `compose_batch.py`'s
+existing `resp.raise_for_status()` around this call already does the right
+thing once the route actually reports failure — it just never used to.
+Scanned all 28 posts with a `render_url` for this exact byte-size
+fingerprint after the fix; only the one reported was affected — this was a
+rare transient failure, not a systemic one.

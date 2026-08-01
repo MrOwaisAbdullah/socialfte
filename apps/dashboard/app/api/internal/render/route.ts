@@ -78,33 +78,47 @@ export async function POST(request: NextRequest) {
     const page = await browser.newPage();
     page.setDefaultNavigationTimeout(60_000);
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
-    await page.goto(previewUrl.toString(), { waitUntil: 'networkidle0' });
+    const response = await page.goto(previewUrl.toString(), { waitUntil: 'networkidle0' });
+    // page.goto() only rejects for network-level failures (DNS, connection
+    // refused, timeout) — a transient non-2xx from /render-preview itself
+    // (a cold-start hiccup, a DB blip) still "succeeds" as a navigation,
+    // and Chrome swaps in its own "This page couldn't load" interstitial
+    // in place of the real template. Confirmed live: a real published
+    // post's render_url was literally a screenshot of that Chrome error
+    // page, uploaded to R2 and reported as a successful render, because
+    // nothing here checked the navigation's actual status before
+    // screenshotting whatever was on screen.
+    if (!response || !response.ok()) {
+      throw new Error(
+        `render-preview returned ${response ? response.status() : 'no response'} for templateId=${templateId}`
+      );
+    }
     // Wait for all <img> elements to fully load AND verify they actually
-    // loaded successfully (not just complete=failed). R2 images may be slow,
-    // and networkidle0 doesn't guarantee they painted. Without this, the
-    // screenshot captures a broken gradient (img.complete=true even on 404).
-    await page.evaluate(() =>
+    // loaded successfully (not just complete=true). R2 images may be slow,
+    // and networkidle0 doesn't guarantee they painted. A failure here used
+    // to only log to the browser's own console (invisible outside
+    // Puppeteer) and the render proceeded anyway, capturing a broken image
+    // icon in place of the real product photo — now it fails the render
+    // instead, same as the page-level check above.
+    const failedImages = await page.evaluate(() =>
       Promise.all(
         Array.from(document.querySelectorAll('img')).map(
           (img) =>
-            new Promise<void>((resolve) => {
+            new Promise<string | null>((resolve) => {
               if (img.complete) {
-                // Image is done loading — check if it actually succeeded.
                 // naturalWidth=0 means the image failed to load (404, CORS, etc.)
-                if (img.naturalWidth === 0) {
-                  console.error(`Image failed to load: ${img.src} (naturalWidth=0)`);
-                }
-                return resolve();
+                resolve(img.naturalWidth === 0 ? img.src : null);
+                return;
               }
-              img.onload = () => resolve();
-              img.onerror = () => {
-                console.error(`Image failed to load: ${img.src}`);
-                resolve();
-              };
+              img.onload = () => resolve(null);
+              img.onerror = () => resolve(img.src);
             }),
         ),
-      ),
+      ).then((results) => results.filter((src): src is string => src !== null))
     );
+    if (failedImages.length > 0) {
+      throw new Error(`Image(s) failed to load during render: ${failedImages.join(', ')}`);
+    }
     await page.evaluate(() => document.fonts.ready);
     const screenshot = await page.screenshot({
       type: 'png',
@@ -115,6 +129,11 @@ export async function POST(request: NextRequest) {
     const key = `renders/${randomUUID()}.png`;
     await uploadBuffer(key, Buffer.from(screenshot), 'image/png');
     return NextResponse.json({ url: getPublicUrl(key) });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : 'render failed' },
+      { status: 502 }
+    );
   } finally {
     await browser.close();
   }
