@@ -19,12 +19,21 @@ def _make_scalar_result(rows):
 
 @pytest.fixture(autouse=True)
 def mock_deps():
+    # _get_approved_concept runs a real session.execute(select(Concept)...)
+    # on every compose_batch() call now — left unmocked, it hijacks the
+    # same call-count-keyed session.execute side_effect each test sets up
+    # for asset/template rows, returning garbage that made
+    # random.choice(concept["headlines"]) raise IndexError (a MagicMock's
+    # auto __len__ is 0). Every real scenario here has no approved concepts
+    # yet (the concepts table is genuinely empty in production too), so
+    # None is also the honest default, not just a test convenience.
     with patch("jobs.compose_batch.SessionLocal") as mock_session_factory, \
-         patch("jobs.compose_batch.write_audit", new_callable=AsyncMock) as mock_write_audit:
+         patch("jobs.compose_batch.write_audit", new_callable=AsyncMock) as mock_write_audit, \
+         patch("jobs.compose_batch._get_approved_concept", new_callable=AsyncMock, return_value=None) as mock_get_concept:
         mock_session = AsyncMock()
         mock_session_factory.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session_factory.return_value.__aexit__ = AsyncMock(return_value=False)
-        yield {"session": mock_session, "write_audit": mock_write_audit}
+        yield {"session": mock_session, "write_audit": mock_write_audit, "get_concept": mock_get_concept}
 
 
 @pytest.mark.asyncio
@@ -324,3 +333,115 @@ async def test_render_props_include_asset_image_url(mock_deps):
         assert props["imageUrl"] == "https://pub-9482aec63df7420bb53018258d2b14ef.r2.dev/photos/chair.jpg"
         assert "brand" in json_data
         assert json_data["brand"]["colors"]["primary"]
+
+
+@pytest.mark.asyncio
+async def test_compose_batch_uses_approved_concept_when_available(mock_deps):
+    """An approved concept's headline/caption must be used verbatim — not
+    silently overwritten by a stale `caption` variable from a previous
+    AI-generation branch, which is what happened before this was fixed
+    (either a NameError on the very first candidate, or the concept's
+    caption_text getting clobbered on later ones)."""
+    from jobs.compose_batch import compose_batch
+
+    mock_asset = MagicMock(id="asset-concept", r2_key="photos/bed.jpg", piece="bed", tier="tier1",
+                           variant="standard", times_used=0, reject_reason=None,
+                           created_at=MagicMock())
+    mock_template = MagicMock(id="tmpl-concept", slug="hero", display_name="Hero", created_at=MagicMock())
+
+    mock_session = mock_deps["session"]
+    call_count = 0
+
+    async def execute_side_effect(stmt, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return _make_scalar_result([mock_asset])
+        return _make_scalar_result([mock_template])
+
+    mock_session.execute = execute_side_effect
+
+    approved_concept = {
+        "id": "concept-1",
+        "headlines": ["Solid Sheesham Bed"],
+        "captions": ["A real, human-approved caption. #sheesham #bed"],
+        "concept_type": "quality",
+        "animation_style": None,
+    }
+
+    with patch("jobs.compose_batch.write_caption", new_callable=AsyncMock) as mock_write, \
+         patch("jobs.compose_batch.embed", new_callable=AsyncMock, return_value=[0.1] * 10), \
+         patch("jobs.compose_batch.anti_repeat.check_asset", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.anti_repeat.check_template", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.anti_repeat.check_caption", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.httpx.AsyncClient") as mock_httpx, \
+         patch("jobs.compose_batch._get_target_platforms", new_callable=AsyncMock, return_value=["instagram"]), \
+         patch("jobs.compose_batch._get_approved_concept", new_callable=AsyncMock, return_value=approved_concept), \
+         patch("jobs.compose_batch.settings.IMAGE_POST_RATIO", 1.0):
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {"url": "https://media.test.com/render.jpg"}
+        mock_httpx_instance = AsyncMock()
+        mock_httpx_instance.__aenter__ = AsyncMock(return_value=mock_httpx_instance)
+        mock_httpx_instance.__aexit__ = AsyncMock(return_value=False)
+        mock_httpx_instance.post = AsyncMock(return_value=mock_resp)
+        mock_httpx.return_value = mock_httpx_instance
+
+        await compose_batch()
+
+        # The concept's own caption must reach the Post row untouched — the
+        # AI writer must never even be called when an approved concept exists.
+        mock_write.assert_not_called()
+        post_call = mock_session.add.call_args_list[0]
+        created_post = post_call[0][0]
+        assert created_post.caption == approved_concept["captions"][0]
+
+
+@pytest.mark.asyncio
+async def test_compose_batch_skips_concept_rejected_by_anti_repeat(mock_deps):
+    """A fixed, human-approved concept can't be regenerated the way an AI
+    draft can — an anti-repeat rejection must skip this candidate (and fall
+    through to the next one), never loop or crash."""
+    from jobs.compose_batch import compose_batch
+
+    mock_asset_1 = MagicMock(id="asset-concept-a", r2_key="photos/a.jpg", piece="bed", tier="tier1",
+                             variant="standard", times_used=0, reject_reason=None,
+                             created_at=MagicMock())
+    mock_asset_2 = MagicMock(id="asset-concept-b", r2_key="photos/b.jpg", piece="bed", tier="tier1",
+                             variant="standard", times_used=0, reject_reason=None,
+                             created_at=MagicMock())
+    mock_template = MagicMock(id="tmpl-concept-2", slug="hero", display_name="Hero", created_at=MagicMock())
+
+    mock_session = mock_deps["session"]
+    call_count = 0
+
+    async def execute_side_effect(stmt, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return _make_scalar_result([mock_asset_1, mock_asset_2])
+        return _make_scalar_result([mock_template])
+
+    mock_session.execute = execute_side_effect
+
+    approved_concept = {
+        "id": "concept-2",
+        "headlines": ["Solid Sheesham Bed"],
+        "captions": ["A caption too similar to a recent one. #sheesham"],
+        "concept_type": "quality",
+        "animation_style": None,
+    }
+
+    with patch("jobs.compose_batch.write_caption", new_callable=AsyncMock) as mock_write, \
+         patch("jobs.compose_batch.embed", new_callable=AsyncMock, return_value=[0.1] * 10), \
+         patch("jobs.compose_batch.anti_repeat.check_asset", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.anti_repeat.check_template", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.anti_repeat.check_caption", new_callable=AsyncMock, return_value=False), \
+         patch("jobs.compose_batch._get_target_platforms", new_callable=AsyncMock, return_value=["instagram"]), \
+         patch("jobs.compose_batch._get_approved_concept", new_callable=AsyncMock, return_value=approved_concept):
+        await compose_batch()
+
+        # No infinite loop, no crash, no post created, no AI fallback for
+        # either candidate — both get skipped and the run just ends.
+        mock_write.assert_not_called()
+        mock_session.add.assert_not_called()

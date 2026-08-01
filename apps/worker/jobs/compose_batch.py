@@ -463,6 +463,7 @@ async def compose_batch():
 
         platform = platforms[attempt % len(platforms)]
         fmt = _choose_format(platform)
+        is_video = fmt in VIDEO_FORMATS
 
         # Intra-batch anti-repeat: prevent reuse within this run since
         # anti-repeat.check_* only looks at 'published' posts, not the
@@ -486,14 +487,25 @@ async def compose_batch():
         # Try to use approved concept for this asset if available
         concept = await _get_approved_concept(asset.id)
         if concept and concept["headlines"] and concept["captions"]:
-            # Use concept's headline/caption options instead of generating
+            # Use concept's headline/caption options instead of generating.
+            # A fixed, human-approved concept can't be "regenerated" the way
+            # an AI draft can (retrying gives the exact same text every
+            # time) — a single anti-repeat check, skip on failure rather
+            # than loop, is the only sane handling here. This branch used
+            # to fall through into the AI-generation retry loop below,
+            # which referenced a bare `caption` variable this branch never
+            # set — either a NameError on the first iteration, or silently
+            # clobbering caption_text with a stale value from a previous
+            # asset's AI-generation path on later iterations.
             headline = random.choice(concept["headlines"])
             caption_text = random.choice(concept["captions"])
+            hashtags = [tag.strip() for tag in caption_text.split() if tag.startswith("#")]
+            caption_vec = await embed(caption_text)
+            if not await anti_repeat.check_caption(caption_vec):
+                logger.warning("Approved concept %s rejected by anti-repeat for asset %s", concept["id"][-8:], asset_id_str)
+                shortfall_reasons.append(f"approved concept anti-repeat rejected for asset {asset_id_str}")
+                continue
             logger.info("Using approved concept %s for asset %s", concept["id"][-8:], asset_id_str[-8:])
-            # Extract hashtags from caption for anti-repeat check
-            hashtags = []
-            if "#" in caption_text:
-                hashtags = [tag.strip() for tag in caption_text.split() if tag.startswith("#")]
         else:
             # Fall back to AI generation if no approved concept
             try:
@@ -521,26 +533,6 @@ async def compose_batch():
                 shortfall_reasons.append(f"caption anti-repeat exhausted for asset {asset_id_str}")
                 continue
 
-            caption_vec = await embed(caption_text)
-
-        caption_vec = None
-        caption_ok = False
-        caption_text = ""
-        for retry in range(settings.ANTI_REPEAT_MAX_RETRIES + 1):
-            caption_text = (caption or "") + ("\n\n" + " ".join(hashtags) if hashtags else "")
-            caption_vec = await embed(caption_text)
-            if await anti_repeat.check_caption(caption_vec):
-                caption_ok = True
-                break
-            logger.warning("Caption rejected by anti-repeat (attempt %d), regenerating", retry)
-            try:
-                caption, headline, hashtags = await write_caption(asset, tmpl, brand=brand_tokens)
-            except Exception:
-                break
-        if not caption_ok:
-            shortfall_reasons.append(f"caption anti-repeat exhausted for asset {asset_id_str}")
-            continue
-
         # r2_key is NOT NULL in the DB, but can be an empty string if the
         # asset record was created without an actual file upload. Empty
         # r2_key means the image doesn't exist in R2 — rendering would
@@ -554,7 +546,6 @@ async def compose_batch():
             asset_image_url = None
         else:
             asset_image_url = f"{settings.R2_PUBLIC_URL}/{asset.r2_key}"
-        is_video = fmt in VIDEO_FORMATS
 
         # Quote template specifically requires a valid thumbnailUrl — it
         # renders a small circular thumbnail + quote text on a solid color
