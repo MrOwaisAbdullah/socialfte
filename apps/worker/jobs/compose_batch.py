@@ -278,7 +278,20 @@ async def _get_target_platforms() -> list[str]:
 async def _pick_candidates() -> list[tuple[Asset, Template]]:
     """Return up to MAX_ASSET_TEMPLATE_COMBOS (asset, template) pairs that pass the
     anti-repeat checks, preferring assets with fewer prior uses and templates in
-    creation order."""
+    creation order.
+
+    Interleaves assets and templates round-robin (asset i%n_assets paired with
+    template i%n_templates) rather than exhausting every template against the
+    first asset before moving to the second. With 20 templates in the DB and
+    only ~2 filtered out as price-focused, the regular-template pool alone
+    (18) already exceeds MAX_ASSET_TEMPLATE_COMBOS (15), so the old nested-fill
+    order (all templates against asset[0], only advance to asset[1] once the
+    cap is hit) built every candidate from a single asset. Confirmed live:
+    compose_batch composing 1 of 5 target posts per run, with the other 14
+    slots all "asset X already used in this batch" against the exact same
+    asset ID — there was only ever one asset in the candidate pool to begin
+    with. Round-robin means one bad asset (anti-repeat rejection, already
+    used) only costs its own slot, not the whole batch's remaining attempts."""
     async with SessionLocal() as session:
         assets = (
             await session.execute(
@@ -309,27 +322,24 @@ async def _pick_candidates() -> list[tuple[Asset, Template]]:
         else:
             templates = regular_templates
 
-    candidates: list[tuple[Asset, Template]] = []
-    rejected_assets: set[str] = set()
+    if not assets or not templates:
+        return []
+
+    # Log asset details for debugging — helps identify which assets have
+    # empty/broken r2_keys when they pass selection but fail render.
     for asset in assets:
-        asset_id_str = str(asset.id)
-        if asset_id_str in rejected_assets:
-            continue
-        # Log asset details for debugging — helps identify which assets
-        # have empty/broken r2_keys when they pass selection but fail render.
         logger.debug(
             "Selected asset %s: r2_key='%s', times_used=%d, kind=%s",
-            asset_id_str,
+            str(asset.id),
             asset.r2_key or "(empty)",
             asset.times_used,
             asset.kind,
         )
-        for tmpl in templates:
-            if len(candidates) >= MAX_ASSET_TEMPLATE_COMBOS:
-                break
-            candidates.append((asset, tmpl))
-        if len(candidates) >= MAX_ASSET_TEMPLATE_COMBOS:
-            break
+
+    candidates: list[tuple[Asset, Template]] = [
+        (assets[i % len(assets)], templates[i % len(templates)])
+        for i in range(MAX_ASSET_TEMPLATE_COMBOS)
+    ]
     return candidates
 
 

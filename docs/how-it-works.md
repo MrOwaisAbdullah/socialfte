@@ -819,3 +819,26 @@ bundle-price/savings row below. Other parts of that pipeline's skills
 different data shape and brand-scraping workflow than SocialFTE's
 single-own-photo-per-post model, and SocialFTE's own render route (after
 the earlier fix above) is already more robust than the reference one.
+
+**`compose_batch` was composing 1 of its 5 target posts per run**, confirmed
+live from production logs: a run would compose exactly one post, then log a
+"batch shortfall" with 14 more shortfall reasons — all of them "asset X
+already used in this batch" or "anti-repeat rejected for asset X", every
+single one naming the *same* asset ID that had already been composed. The
+candidate pool for that entire run was, in other words, one single asset
+paired with 14 different templates — there was nothing else to fall back
+to. Root cause in `_pick_candidates()` (`jobs/compose_batch.py`): it built
+the (asset, template) candidate list with a nested loop — every template
+against `assets[0]` first, only moving on to `assets[1]` once
+`MAX_ASSET_TEMPLATE_COMBOS` (15) was reached. The DB has 20 templates, and
+with only 2 of those price-focused (excluded 80% of the time), the regular
+template pool alone (18) already exceeds 15 — so the inner loop filled the
+entire candidate list from `assets[0]` before the outer loop ever got to
+check `assets[1]`. Any one bad asset (already used, anti-repeat-rejected)
+then burned through the whole batch's remaining attempts instead of just
+its own. Fixed by interleaving round-robin instead: candidate `i` pairs
+`assets[i % len(assets)]` with `templates[i % len(templates)]`, so
+consecutive candidates vary both asset and template. Added
+`test_pick_candidates_interleaves_across_assets` (11 mock assets, 18 mock
+templates — the real prod shape) asserting the candidate pool spans all 11
+distinct assets instead of 1.

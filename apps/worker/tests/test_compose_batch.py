@@ -171,6 +171,49 @@ def test_choose_format(platform, ratio, random_value, expected):
 
 
 @pytest.mark.asyncio
+async def test_pick_candidates_interleaves_across_assets(mock_deps):
+    """When templates alone (18, matching the real 20-minus-2-price-focused
+    count in prod) exceed MAX_ASSET_TEMPLATE_COMBOS (15), the candidate list
+    must not be built entirely from the first asset. The old nested-fill
+    loop exhausted every template against assets[0] before ever considering
+    assets[1], so the whole 15-slot candidate pool was one single asset
+    paired with 15 templates. Confirmed live: compose_batch composing 1 of
+    5 target posts per run, with the other 14 attempts all "asset X already
+    used in this batch" against that exact same asset."""
+    from jobs.compose_batch import MAX_ASSET_TEMPLATE_COMBOS, _pick_candidates
+
+    mock_assets = [
+        MagicMock(id=f"asset-{i}", r2_key=f"photos/{i}.jpg", times_used=0,
+                  reject_reason=None, kind="image", created_at=MagicMock())
+        for i in range(11)
+    ]
+    mock_templates = [
+        MagicMock(id=f"tmpl-{i}", slug=f"template-{i}", created_at=MagicMock())
+        for i in range(18)
+    ]
+
+    mock_session = mock_deps["session"]
+    call_count = 0
+
+    async def execute_side_effect(stmt, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return _make_scalar_result(mock_assets)
+        return _make_scalar_result(mock_templates)
+
+    mock_session.execute = execute_side_effect
+
+    candidates = await _pick_candidates()
+
+    assert len(candidates) == MAX_ASSET_TEMPLATE_COMBOS
+    distinct_assets = {asset.id for asset, _ in candidates}
+    # Round-robin over 11 assets and 15 slots must exhaust all 11 distinct
+    # assets before any repeat — the old bug produced exactly 1.
+    assert len(distinct_assets) == 11
+
+
+@pytest.mark.asyncio
 async def test_platform_rotation_advances_on_failed_attempts_not_successes(mock_deps):
     """Platform selection must rotate per candidate attempted, not per
     successful composition — indexing by `composed` meant a failing first
