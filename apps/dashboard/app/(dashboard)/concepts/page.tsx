@@ -21,10 +21,47 @@ export default function ConceptsPage() {
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [filter, setFilter] = useState<string>("draft");
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchConcepts();
   }, [filter]);
+
+  // Same fire-and-poll pattern as Posts page's Compose button and the Jobs
+  // page's Run Now — the run endpoint only dispatches create_concepts and
+  // returns immediately, so poll until it actually finishes before refetching.
+  const runGenerateConcepts = async () => {
+    setGenerating(true);
+    setGenerateError(null);
+    try {
+      const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: "create_concepts" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setGenerateError(data.detail || "Failed to start create_concepts");
+        return;
+      }
+      const deadline = Date.now() + 120_000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const jobsRes = await fetch("/api/jobs");
+        if (!jobsRes.ok) break;
+        const data = await jobsRes.json();
+        if (!Array.isArray(data)) break;
+        const job = data.find((j: { id: string; last_run: { status: string } | null }) => j.id === "create_concepts");
+        if (job?.last_run?.status && job.last_run.status !== "running") break;
+      }
+      await fetchConcepts();
+    } catch {
+      setGenerateError("Could not reach worker");
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const fetchConcepts = async () => {
     setLoading(true);
@@ -79,13 +116,28 @@ export default function ConceptsPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="font-heading text-3xl text-primary">Creative Concepts</h1>
-        <button
-          onClick={() => fetchConcepts()}
-          className="flex items-center gap-1.5 rounded bg-dark/10 px-3 py-1.5 font-body text-sm text-dark hover:bg-dark/20"
-        >
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={runGenerateConcepts}
+            disabled={generating}
+            className="flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 font-body text-sm text-white hover:bg-primary/90 disabled:opacity-50"
+          >
+            {generating ? "Generating..." : "Generate Concepts"}
+          </button>
+          <button
+            onClick={() => fetchConcepts()}
+            className="flex items-center gap-1.5 rounded bg-dark/10 px-3 py-1.5 font-body text-sm text-dark hover:bg-dark/20"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
+
+      {generateError && (
+        <div className="rounded bg-red-50 p-3 font-body text-sm text-red-700 border border-red-200">
+          {generateError}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         {["draft", "approved", "rejected", "all"].map((s) => (

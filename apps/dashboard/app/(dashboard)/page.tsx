@@ -3,16 +3,51 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+interface ActivityEntry {
+  actor: string;
+  action: string;
+  subjectId: string | null;
+  createdAt: string;
+  payload: Record<string, unknown> | null;
+}
+
 interface Stats {
   totalPosts: number;
   postsByState: Record<string, number>;
   totalAssets: number;
-  recentActivity: {
-    action: string;
-    subjectId: string | null;
-    createdAt: string;
-    payload: Record<string, unknown> | null;
-  }[];
+  recentActivity: ActivityEntry[];
+  activityHasMore: boolean;
+}
+
+const ACTIVITY_PAGE_SIZE = 20;
+
+function actorLabel(actor: string): string {
+  const map: Record<string, string> = {
+    compose_batch: "Compose batch",
+    create_concepts: "Generate concepts",
+    publish_due: "Publish approved posts",
+    collect_metrics: "Collect performance metrics",
+    weekly_digest: "Weekly performance digest",
+    process_footage: "Process uploaded footage",
+    retag_assets: "Retag assets",
+    refresh_tokens: "Refresh platform tokens",
+    notify_review: "Discord approval notify",
+  };
+  return map[actor] ?? actor.replace(/_/g, " ");
+}
+
+// Short inline summary of a payload's own fields — was rendering nothing at
+// all beyond the action label, so a "batch_shortfall" entry with 14 real
+// reasons in its payload looked identical to an empty one. Full JSON stays
+// available on hover (title attr) for anyone who needs the raw shape.
+function payloadSummary(payload: Record<string, unknown> | null): string | null {
+  if (!payload || Object.keys(payload).length === 0) return null;
+  const parts = Object.entries(payload).map(([k, v]) => {
+    const value = Array.isArray(v) ? `${v.length} item${v.length === 1 ? "" : "s"}` : String(v);
+    return `${k}: ${value.length > 60 ? value.slice(0, 60) + "…" : value}`;
+  });
+  const joined = parts.join(" · ");
+  return joined.length > 140 ? joined.slice(0, 140) + "…" : joined;
 }
 
 const STATE_COLORS: Record<string, string> = {
@@ -64,18 +99,60 @@ function actionColor(action: string): string {
   return "bg-blue-100 text-blue-700";
 }
 
+// recentActivity arrives as a flat, newest-first list with no link between
+// entries from the same job run — was rendered as one long undifferentiated
+// list, so a compose_batch run's 6 sub-events (caption generated, anti-repeat
+// checked, post composed...) read identically to 6 unrelated things
+// happening. `actor` (already written by every write_audit() call, just
+// never selected by this page before) is the natural "which pipeline"
+// grouping key — bucket consecutive same-actor entries together instead.
+function groupByActor(entries: ActivityEntry[]): { actor: string; entries: ActivityEntry[] }[] {
+  const groups: { actor: string; entries: ActivityEntry[] }[] = [];
+  for (const entry of entries) {
+    const last = groups[groups.length - 1];
+    if (last && last.actor === entry.actor) {
+      last.entries.push(entry);
+    } else {
+      groups.push({ actor: entry.actor, entries: [entry] });
+    }
+  }
+  return groups;
+}
+
 export default function HomePage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [activityOffset, setActivityOffset] = useState(ACTIVITY_PAGE_SIZE);
 
   const fetchStats = useCallback(async (showSpinner = false) => {
     if (showSpinner) setRefreshing(true);
     try {
-      const res = await fetch("/api/stats");
-      if (res.ok) setStats(await res.json());
+      const res = await fetch(`/api/stats?activityLimit=${ACTIVITY_PAGE_SIZE}&activityOffset=0`);
+      if (res.ok) {
+        setStats(await res.json());
+        setActivityOffset(ACTIVITY_PAGE_SIZE);
+      }
     } catch {}
     setRefreshing(false);
   }, []);
+
+  const loadMoreActivity = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/stats?activityLimit=${ACTIVITY_PAGE_SIZE}&activityOffset=${activityOffset}`);
+      if (res.ok) {
+        const data: Stats = await res.json();
+        setStats((prev) =>
+          prev
+            ? { ...prev, recentActivity: [...prev.recentActivity, ...data.recentActivity], activityHasMore: data.activityHasMore }
+            : data
+        );
+        setActivityOffset((prev) => prev + ACTIVITY_PAGE_SIZE);
+      }
+    } catch {}
+    setLoadingMore(false);
+  }, [activityOffset]);
 
   useEffect(() => {
     fetchStats();
@@ -204,23 +281,58 @@ export default function HomePage() {
       {stats && stats.recentActivity.length > 0 && (
         <div className="rounded-lg border border-dark/10 bg-light p-5">
           <h2 className="font-heading text-lg text-primary">Recent Activity</h2>
-          <div className="mt-3 space-y-2">
-            {stats.recentActivity.map((entry, i) => (
-              <div key={i} className="flex items-center gap-3 text-sm">
-                <span className={`shrink-0 rounded px-2 py-0.5 text-xs font-medium ${actionColor(entry.action)}`}>
-                  {actionLabel(entry.action)}
-                </span>
-                {entry.subjectId && (
-                  <span className="font-body text-xs text-muted truncate max-w-[200px]">
-                    {entry.subjectId.slice(0, 8)}...
+          <div className="mt-3 flex flex-col gap-3">
+            {groupByActor(stats.recentActivity).map((group, gi) => (
+              <div key={gi} className="rounded-md border border-dark/5 bg-dark/[0.02] p-3">
+                <div className="flex items-center gap-2">
+                  <span className="font-body text-xs font-semibold uppercase tracking-wide text-primary">
+                    {actorLabel(group.actor)}
                   </span>
-                )}
-                <span className="ml-auto shrink-0 font-body text-xs text-muted">
-                  {new Date(entry.createdAt).toLocaleString()}
-                </span>
+                  <span className="font-body text-xs text-muted">
+                    {group.entries.length} event{group.entries.length === 1 ? "" : "s"}
+                  </span>
+                  <span className="ml-auto shrink-0 font-body text-xs text-muted">
+                    {new Date(group.entries[0].createdAt).toLocaleString()}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-col gap-1.5">
+                  {group.entries.map((entry, i) => {
+                    const summary = payloadSummary(entry.payload);
+                    return (
+                      <div key={i} className="flex flex-wrap items-start gap-2 text-sm">
+                        <span className={`shrink-0 rounded px-2 py-0.5 text-xs font-medium ${actionColor(entry.action)}`}>
+                          {actionLabel(entry.action)}
+                        </span>
+                        {entry.subjectId && (
+                          <span className="font-body text-xs text-muted">{entry.subjectId.slice(0, 8)}...</span>
+                        )}
+                        {summary && (
+                          <span
+                            className="max-w-[420px] truncate font-body text-xs text-muted/80"
+                            title={JSON.stringify(entry.payload)}
+                          >
+                            {summary}
+                          </span>
+                        )}
+                        <span className="ml-auto shrink-0 font-body text-xs text-muted">
+                          {new Date(entry.createdAt).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ))}
           </div>
+          {stats.activityHasMore && (
+            <button
+              onClick={loadMoreActivity}
+              disabled={loadingMore}
+              className="mt-4 w-full rounded bg-dark/10 px-3 py-1.5 font-body text-sm text-dark hover:bg-dark/20 disabled:opacity-50"
+            >
+              {loadingMore ? "Loading..." : "See more"}
+            </button>
+          )}
         </div>
       )}
     </div>

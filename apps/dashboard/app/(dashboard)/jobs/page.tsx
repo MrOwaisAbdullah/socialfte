@@ -271,34 +271,45 @@ export default function JobsPage() {
     fetchJobs();
   }, [fetchJobs]);
 
-  const runJob = useCallback(
-    async (jobId: string) => {
-      setRunning(jobId);
-      setError(null);
-      try {
-        const res = await fetch("/api/jobs", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ job_id: jobId }),
-        });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          setError(data.detail || `Failed to run ${jobId}`);
-        } else {
-          // Only refresh if we successfully reached the worker AND got valid data
-          // This prevents infinite retry loops when worker is down or returns errors
-          if (jobs.length > 0) {
-            setTimeout(() => fetchJobs(true), 1500);
-          }
-        }
-      } catch {
-        setError(`Could not reach worker for ${jobId}`);
-      } finally {
-        setRunning(null);
+  const runJob = useCallback(async (jobId: string) => {
+    setRunning(jobId);
+    setError(null);
+    try {
+      const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: jobId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.detail || `Failed to run ${jobId}`);
+        return;
       }
-    },
-    [fetchJobs]
-  );
+      // The POST only *dispatches* the job (the worker fires it with
+      // asyncio.create_task and returns immediately) — it does not wait for
+      // the job to finish. A single refetch 1.5s later used to be the only
+      // status check, which caught quick jobs but missed slower ones
+      // entirely (compose_batch commonly runs 30-60s), so the status badge
+      // looked stuck on "Running..." until the next manual page refresh.
+      // Poll every 2s instead, until this specific job's last_run.status
+      // actually leaves "running", with a 2-minute safety cap.
+      const deadline = Date.now() + 120_000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const jobsRes = await fetch("/api/jobs");
+        if (!jobsRes.ok) break;
+        const data = await jobsRes.json();
+        if (!Array.isArray(data)) break;
+        setJobs(data);
+        const job = data.find((j: Job) => j.id === jobId);
+        if (job?.last_run?.status && job.last_run.status !== "running") break;
+      }
+    } catch {
+      setError(`Could not reach worker for ${jobId}`);
+    } finally {
+      setRunning(null);
+    }
+  }, []);
 
   return (
     <div className="flex flex-col gap-6">

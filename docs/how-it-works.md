@@ -932,3 +932,61 @@ migrated live; new `BRAND_SECONDARY_COLOR` (`#9A2A2A`, crimson) /
   along with it, so it silently never rendered even with `badgeText`/
   `badgeValue` set. Split image-clipping onto its own inset layer,
   separate from the container the badge is positioned against.
+
+**Reworked the Jobs page's "Run Now" status tracking, and gave Posts/Concepts
+their own run buttons** — user feedback: "the run job buttons should be on
+top, like on posts page add a compose button... make sure the status will
+change correctly currently its not changing the status of job."
+
+Root cause of the status bug: `/jobs/{id}/run` only *dispatches* the job
+(`asyncio.create_task(job.func())`) and returns immediately — it doesn't
+wait for the job to finish. The Jobs page's old `runJob()` cleared its own
+"Running..." button state the instant that near-instant POST resolved, and
+did a single refetch 1.5s later to pick up the real status. That worked for
+quick jobs but missed slow ones entirely (`compose_batch` commonly runs
+30-60s), so the status badge looked permanently stuck on "Running..." until
+a manual page refresh. Fixed by polling `/api/jobs` every 2s (2-minute cap)
+until the specific job's `last_run.status` actually leaves `"running"`,
+keeping the button's own state in sync with the real job the whole time.
+
+Also added the same fire-and-poll pattern as standalone buttons on the
+pages where each job's output actually shows up, instead of only being
+reachable from `/jobs`: a **Compose** button on the Posts page top bar
+(triggers `compose_batch`, then refetches posts) and a **Generate
+Concepts** button on the Concepts page top bar (triggers `create_concepts`,
+then refetches concepts).
+
+**Gave the Dashboard home page's Recent Activity real detail, pagination,
+and pipeline grouping** — was a flat, undifferentiated list of the last 10
+audit_log rows, each entry showing only its action label, a truncated
+subject ID, and a timestamp; the entry's own `payload` (e.g. a
+`batch_shortfall`'s 14 real reasons) was fetched but never rendered.
+`/api/stats` now also selects `actor` (already written by every
+`write_audit()` call, e.g. `"compose_batch"`, `"create_concepts"` — just
+never selected before) and accepts `activityLimit`/`activityOffset` query
+params for a "See more" button instead of a hard `LIMIT 10`. The dashboard
+groups consecutive same-actor entries together under one heading (so a
+`compose_batch` run's caption-generated/anti-repeat-checked/post-composed
+events read as one pipeline instead of unrelated events) and renders a
+short inline summary of each entry's payload fields, with the full JSON on
+hover. Verified against live production data.
+
+**Fed the user's real headline/caption examples into `skills/caption-writer.md`**,
+the actual prompt `write_caption()` uses — the user first asked for
+sample headings/subheadings and full captions as a one-off writing task,
+then explicitly asked why they hadn't been wired into the agent's own
+prompt. Added: a "no exclamation marks, ever" rule plus curated short
+headline examples in the Headline section; a new "Brand facts (Yousuf
+Living)" reference block (5-piece set pricing, Shaadi Package, 15-day
+build time, 1-year warranty, 30% advance, Manzoor Colony location, custom
+fabric/size, workshop-direct) for the model to draw from only when
+relevant to the specific post; a new "Caption structure — hook, body, CTA"
+section with the exact 4-part shape and 12 curated real hook/body/CTA
+examples spanning product-led, price/value, emotional, curiosity, urgency,
+and trust angles. Also promoted "amazing"/"stunning"/"luxurious" from
+prose-only guidance to real code-enforced entries in
+`HUMANIZER_BANNED_PHRASES` (they were listed in the .md but never actually
+in the enforced list), and added a code-level exclamation-mark check to
+`check_headline()` — fixed one existing "correct usage" example in the doc
+that itself contained an exclamation mark, which directly contradicted the
+new rule.
