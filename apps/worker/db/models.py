@@ -169,6 +169,8 @@ class BrandConfig(Base):
     light_color: Mapped[str | None] = mapped_column(Text)
     dark_color: Mapped[str | None] = mapped_column(Text)
     muted_color: Mapped[str | None] = mapped_column(Text)
+    secondary_color: Mapped[str | None] = mapped_column(Text)
+    ink_color: Mapped[str | None] = mapped_column(Text)
     font_heading: Mapped[str | None] = mapped_column(Text)
     font_body: Mapped[str | None] = mapped_column(Text)
     logo_url: Mapped[str | None] = mapped_column(Text)

@@ -26,6 +26,12 @@ export type ExclusiveBadgeProps = {
 // to a flex column instead: the header's real rendered height — whatever
 // it turns out to be for a given headline — pushes the photo down via
 // normal flow, so this can't recur regardless of headline length.
+//
+// Deliberately run as the black+bone+white+crimson variant (brand.colors.ink
+// + brand.colors.secondary) instead of the usual green+gold — gives real
+// visual variety across a batch of posts instead of every dark template
+// converging on the same green+gold look (user feedback: "why all the
+// posts are black + white + gold, where's the crimson").
 export default function ExclusiveBadge({
   imageUrl,
   headline,
@@ -45,7 +51,7 @@ export default function ExclusiveBadge({
         width,
         height,
         position: 'relative',
-        background: brand.colors.dark,
+        background: brand.colors.ink,
         fontFamily: brand.fonts.body,
         overflow: 'hidden',
         display: 'flex',
@@ -90,7 +96,7 @@ export default function ExclusiveBadge({
             style={{
               marginTop: Math.round(width * 0.012),
               display: 'inline-block',
-              border: `2px solid ${brand.colors.accent}`,
+              border: `2px solid ${brand.colors.secondary}`,
               padding: `${Math.round(width * 0.014)}px ${Math.round(width * 0.026)}px`,
             }}
           >
@@ -101,7 +107,7 @@ export default function ExclusiveBadge({
                 fontSize: Math.round(width * 0.044),
                 letterSpacing: 1,
                 textTransform: 'uppercase',
-                color: brand.colors.accent,
+                color: brand.colors.secondary,
               }}
             >
               {stripEmoji(headline)}
@@ -115,12 +121,17 @@ export default function ExclusiveBadge({
           flex: 1,
           position: 'relative',
           margin: `${Math.round(width * 0.03)}px ${Math.round(width * 0.22)}px ${Math.round(width * 0.03)}px ${Math.round(width * 0.055)}px`,
-          borderRadius: Math.round(width * 0.025),
-          overflow: 'hidden',
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        {/* Image clipping lives on its own inset layer, separate from this
+            container — the badge below floats outside this box on purpose
+            (right is negative), and this container's own overflow must stay
+            visible or the badge gets clipped away with it (confirmed live:
+            badgeText/badgeValue were set but the circle never appeared). */}
+        <div style={{ position: 'absolute', inset: 0, borderRadius: Math.round(width * 0.025), overflow: 'hidden' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        </div>
 
         {badgeText && (
           <div
@@ -132,8 +143,8 @@ export default function ExclusiveBadge({
               width: Math.round(width * 0.17),
               height: Math.round(width * 0.17),
               borderRadius: '50%',
-              border: `1.5px solid ${brand.colors.accent}`,
-              background: `${brand.colors.primary}CC`,
+              border: `1.5px solid ${brand.colors.light}`,
+              background: brand.colors.secondary,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -151,7 +162,7 @@ export default function ExclusiveBadge({
                   fontFamily: brand.fonts.heading,
                   fontWeight: 800,
                   fontSize: Math.round(width * 0.034),
-                  color: brand.colors.accent,
+                  color: brand.colors.light,
                 }}
               >
                 {stripEmoji(badgeValue)}
@@ -177,15 +188,15 @@ export default function ExclusiveBadge({
             fontFamily: brand.fonts.body,
             fontWeight: 700,
             fontSize: Math.round(width * 0.026),
-            color: brand.colors.dark,
-            background: brand.colors.accent,
+            color: brand.colors.light,
+            background: brand.colors.secondary,
             padding: `${Math.round(width * 0.017)}px ${Math.round(width * 0.036)}px`,
             borderRadius: 999,
           }}
         >
           {stripEmoji(ctaLabel)}
         </span>
-        <span style={{ fontFamily: brand.fonts.body, fontSize: Math.round(width * 0.024), color: brand.colors.accent }}>
+        <span style={{ fontFamily: brand.fonts.body, fontSize: Math.round(width * 0.024), color: brand.colors.secondary }}>
           {brand.socialHandle || ''}
         </span>
       </div>

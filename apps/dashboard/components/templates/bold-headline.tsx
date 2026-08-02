@@ -15,6 +15,12 @@ export type BoldHeadlineProps = {
 // two-tone stacked headline top-left, framed photo with a circular discount
 // badge overlapping its corner, CTA pill bottom-left, contact line
 // bottom-right.
+//
+// Deliberately run as the black+bone+white+crimson variant (brand.colors.ink
+// + brand.colors.secondary) instead of the usual green+gold — gives real
+// visual variety across a batch of posts instead of every dark template
+// converging on the same green+gold look (user feedback: "why all the
+// posts are black + white + gold, where's the crimson").
 export default function BoldHeadline({
   imageUrl,
   headline,
@@ -34,7 +40,7 @@ export default function BoldHeadline({
         width,
         height,
         position: 'relative',
-        background: brand.colors.dark,
+        background: brand.colors.ink,
         fontFamily: brand.fonts.body,
         overflow: 'hidden',
       }}
@@ -72,7 +78,7 @@ export default function BoldHeadline({
               lineHeight: 1.05,
               margin: 0,
               textTransform: 'uppercase',
-              color: brand.colors.accent,
+              color: brand.colors.secondary,
             }}
           >
             {line2}
@@ -118,7 +124,7 @@ export default function BoldHeadline({
             width: Math.round(width * 0.16),
             height: Math.round(width * 0.16),
             borderRadius: '50%',
-            background: brand.colors.accent,
+            background: brand.colors.secondary,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -132,7 +138,7 @@ export default function BoldHeadline({
               fontFamily: brand.fonts.body,
               fontWeight: 700,
               fontSize: Math.round(width * 0.017),
-              color: brand.colors.dark,
+              color: brand.colors.light,
               lineHeight: 1.2,
             }}
           >
@@ -149,8 +155,8 @@ export default function BoldHeadline({
           fontFamily: brand.fonts.body,
           fontWeight: 700,
           fontSize: Math.round(width * 0.026),
-          color: brand.colors.dark,
-          background: brand.colors.accent,
+          color: brand.colors.light,
+          background: brand.colors.secondary,
           padding: `${Math.round(width * 0.017)}px ${Math.round(width * 0.036)}px`,
           borderRadius: 999,
         }}
@@ -170,7 +176,7 @@ export default function BoldHeadline({
           }}
         >
           {phone && <div style={{ color: brand.colors.light }}>{phone}</div>}
-          {brand.socialHandle && <div style={{ color: brand.colors.accent }}>{brand.socialHandle}</div>}
+          {brand.socialHandle && <div style={{ color: brand.colors.secondary }}>{brand.socialHandle}</div>}
         </div>
       )}
     </div>

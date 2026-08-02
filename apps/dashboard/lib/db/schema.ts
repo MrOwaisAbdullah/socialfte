@@ -168,6 +168,8 @@ export const brandConfig = pgTable('brand_config', {
   lightColor: text('light_color'),
   darkColor: text('dark_color'),
   mutedColor: text('muted_color'),
+  secondaryColor: text('secondary_color'),
+  inkColor: text('ink_color'),
   fontHeading: text('font_heading'),
   fontBody: text('font_body'),
   logoUrl: text('logo_url'),

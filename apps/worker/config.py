@@ -117,8 +117,27 @@ class Settings(BaseSettings):
     BRAND_PRIMARY_COLOR: str = Field(default="#1B4332")
     BRAND_ACCENT_COLOR: str = Field(default="#C9A227")
     BRAND_LIGHT_COLOR: str = Field(default="#F5F0E8")
-    BRAND_DARK_COLOR: str = Field(default="#1A1A1A")
+    # Was #1A1A1A (near-black) — none of the actual Sample-posts/ reference
+    # designs this brand's templates were built from use black; every one
+    # of them (Bold Headline, Exclusive + Save Badge, Light Circle Frame,
+    # Sweet Dreams) uses this same deep forest green as their dark
+    # background. Since `dark` is the most-used color token across all
+    # templates (37 uses vs. 3 for `primary`, which already held this
+    # correct green value), every dark-background post was rendering
+    # near-black instead of the brand's actual green — confirmed live
+    # ("why are all the posts black + gold" feedback).
+    BRAND_DARK_COLOR: str = Field(default="#1B4332")
     BRAND_MUTED_COLOR: str = Field(default="#6b6b6b")
+    # Second accent hue for occasional highlight-box treatments — see
+    # Sample-posts/post-popup.png's solid-crimson box behind "dulhan" in
+    # the headline. Distinct from BRAND_ACCENT_COLOR (gold), which stays
+    # the everyday CTA/pop color.
+    BRAND_SECONDARY_COLOR: str = Field(default="#9A2A2A")
+    # True near-black, for templates that deliberately want a
+    # black+bone+white+crimson variant instead of the brand's usual deep
+    # green — gives real visual variety across a batch of posts rather
+    # than every dark template looking identical.
+    BRAND_INK_COLOR: str = Field(default="#161616")
     BRAND_FONT_HEADING: str = Field(default="Georgia, serif")
     BRAND_FONT_BODY: str = Field(default="Helvetica, Arial, sans-serif")
     BRAND_LOGO_URL: str = Field(default="")          # empty = no logo mark rendered

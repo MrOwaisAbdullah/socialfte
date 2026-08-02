@@ -128,6 +128,8 @@ async def _build_brand_tokens() -> dict:
             "light": field(row and row.light_color, settings.BRAND_LIGHT_COLOR),
             "dark": field(row and row.dark_color, settings.BRAND_DARK_COLOR),
             "muted": field(row and row.muted_color, settings.BRAND_MUTED_COLOR),
+            "secondary": field(row and row.secondary_color, settings.BRAND_SECONDARY_COLOR),
+            "ink": field(row and row.ink_color, settings.BRAND_INK_COLOR),
         },
         "fonts": {
             "heading": field(row and row.font_heading, settings.BRAND_FONT_HEADING),

@@ -887,3 +887,48 @@ heavy dark gradient scrim (`brand.colors.dark` at ~94%/85% opacity), so
 only the photo's texture and mood come through rather than a clear,
 competing product shot — the quote text stays the focus. Text colors
 flipped to light-on-dark to match the now-dark background.
+
+**Fixed the actual root cause of "why are all the posts black + white +
+gold, where's the forest green or crimson"**: the live `brand_config` DB
+row has every color column `NULL` (the /setup wizard has never been able
+to write brand colors — config.py's own comment already flagged this gap),
+so every render was falling back to `config.py`'s hardcoded defaults.
+`BRAND_DARK_COLOR` defaulted to `#1A1A1A` (near-black) — and `dark` is the
+single most-used color token across all 10 templates (37 uses, vs. 3 for
+`primary`, which already held the correct green). Checked every actual
+design reference this brand's templates were built from
+(`Sample-posts/Bold Headline.png`, `Exclusive + Save Badge.png`, `Light
+Circle Frame.png`, `Sweet Dreams.png`) — every one uses the same deep
+forest green for its dark background, never black. Changed
+`BRAND_DARK_COLOR`'s default to `#1B4332` (matching `primary` and every
+reference), which immediately fixes all 7 dark-background templates (plus
+`quote.tsx`'s new dark background above) without touching a single line
+of template code.
+
+Also added two new brand color tokens (`BrandTokens.colors.secondary`,
+`.ink`; new `secondary_color`/`ink_color` columns on `brand_config`,
+migrated live; new `BRAND_SECONDARY_COLOR` (`#9A2A2A`, crimson) /
+`BRAND_INK_COLOR` (`#161616`) env defaults; wired through
+`_build_brand_tokens()`):
+
+- `secondary` (crimson) — for the occasional highlight-box treatment seen
+  in `Sample-posts/post-popup.png`: a solid-color box behind one
+  emphasized headline word ("Furniture your **dulhan** deserves."), not a
+  base color. `hero.tsx`'s `highlightWord` now renders as a solid
+  `brand.colors.secondary` box with light text instead of italic gold —
+  reproduced the reference almost exactly.
+- `ink` (true near-black) — for templates that deliberately run a
+  black+bone+white+crimson variant instead of the brand's usual green,
+  so a batch of posts shows real visual variety instead of every
+  dark-background template converging on the same look now that `dark`
+  is green. Converted `bold-headline.tsx` and `exclusive-badge.tsx` to
+  this variant (background `ink`, every gold accent swapped to
+  `secondary`); the other 8 templates stay on green+gold+cream.
+  While wiring `exclusive-badge.tsx`'s floating discount badge into this
+  variant, found and fixed a real clipping bug along the way: the badge
+  is a child of the photo container and intentionally floats outside its
+  bounds (negative `right`), but that container also had
+  `overflow: hidden` for the image's rounded corners — clipping the badge
+  along with it, so it silently never rendered even with `badgeText`/
+  `badgeValue` set. Split image-clipping onto its own inset layer,
+  separate from the container the badge is positioned against.

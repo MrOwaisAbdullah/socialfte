@@ -170,6 +170,8 @@ CREATE TABLE brand_config (
   light_color     TEXT,
   dark_color      TEXT,
   muted_color     TEXT,
+  secondary_color TEXT,   -- second accent hue (e.g. crimson) for highlight-box treatments; null = config.py's BRAND_SECONDARY_COLOR
+  ink_color       TEXT,   -- true near-black for templates opting into a black+bone+white+secondary variant; null = config.py's BRAND_INK_COLOR
   font_heading    TEXT,
   font_body       TEXT,
   logo_url        TEXT,

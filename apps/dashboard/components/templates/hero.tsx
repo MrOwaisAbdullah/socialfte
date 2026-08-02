@@ -11,10 +11,10 @@ export type HeroProps = {
 };
 
 // Full-bleed background image, bottom-left-to-transparent gradient scrim,
-// Instrument Serif headline with the highlight word set in italic + accent
-// color rather than a glass box behind it — a type-weight/style contrast
-// reads as more intentional than a background chip, and holds up on any
-// photo behind it since it doesn't depend on backdrop-filter support.
+// Instrument Serif headline with the highlight word set in a solid
+// brand.colors.secondary (crimson) box — matches Sample-posts/post-popup.png's
+// "Furniture your [dulhan] deserves." treatment exactly, a highlighter-style
+// box behind one emphasized word rather than plain color/italic contrast.
 // Archivo body, WhatsApp CTA in brand.colors.primary with
 // brand.colors.accent text.
 export default function Hero({
@@ -84,9 +84,13 @@ export default function Hero({
               {parts[0]}
               <span
                 style={{
+                  display: 'inline-block',
                   fontStyle: 'italic',
-                  fontWeight: 400,
-                  color: brand.colors.accent,
+                  fontWeight: 700,
+                  color: brand.colors.light,
+                  background: brand.colors.secondary,
+                  padding: `0 ${Math.round(width * 0.016)}px`,
+                  borderRadius: 6,
                 }}
               >
                 {cleanHighlightWord}

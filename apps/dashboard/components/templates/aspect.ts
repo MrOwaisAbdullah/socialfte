@@ -22,6 +22,15 @@ export type BrandTokens = {
     light: string;
     dark: string;
     muted: string;
+    // secondary: a second accent hue (e.g. crimson) for occasional
+    // highlight-box treatments (Sample-posts/post-popup.png's "dulhan"
+    // box) — distinct from `accent`, which is the everyday gold pop color.
+    // ink: a true near-black background for templates that want a
+    // black+bone+white+secondary variant instead of the brand's usual
+    // deep-green `dark` — gives real visual variety across a batch rather
+    // than every dark-background template looking identical.
+    secondary: string;
+    ink: string;
   };
   fonts: {
     heading: string;
