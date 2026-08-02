@@ -76,6 +76,14 @@ export default function CarouselSlide({
           right: 0,
           bottom: 0,
           padding: Math.round(width * 0.06),
+          // Was plain `padding` on all sides — no reservation for the
+          // bottom-right corner BrandBadge (the @handle pill), unlike
+          // hero.tsx's own text block, which does reserve paddingRight for
+          // exactly this reason. A short headline never reached far enough
+          // right to notice; a longer one within the same 2-8 word limit
+          // ("Smart style, smart savings") does, and visually collided
+          // with the badge — confirmed live on a real render.
+          paddingRight: Math.round(width * 0.22),
           display: 'flex',
           flexDirection: 'column',
           gap: Math.round(width * 0.015),

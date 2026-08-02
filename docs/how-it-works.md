@@ -1051,3 +1051,16 @@ current code. The `???` pattern, though, had no check at all — added one:
 legitimate punctuation in any real caption) as a "likely garbled emoji"
 violation, so a future occurrence gets caught and regenerated instead of
 published.
+
+**`carousel-slide.tsx` really was still overlapping the corner badge** —
+flagged live again with a fresh (same-day) render, disproving the earlier
+conclusion that this was a stale pre-fix screenshot. The text block had
+`left:0, right:0, padding` with no reservation for the bottom-right corner
+`BrandBadge` (the `@handle` pill), unlike `hero.tsx`'s own text block,
+which does reserve `paddingRight` for exactly this reason. A short
+headline ("Max Savings, Smart Style", the one used to test this earlier)
+never reached far enough right to notice; a longer one within the same
+2-8 word limit ("Smart style, smart savings") does, and visually collided
+with the badge. Added `paddingRight: width * 0.22` matching hero.tsx's
+approach. Verified against the exact headline from the live screenshot —
+clean separation now.
