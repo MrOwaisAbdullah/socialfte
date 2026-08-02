@@ -177,6 +177,16 @@ def check_formatting(caption: str, hashtags: list[str]) -> list[str]:
     emoji_count = sum(len(m) for m in _EMOJI_PATTERN.findall(caption))
     if emoji_count > MAX_EMOJI:
         violations.append(f"{emoji_count} emoji (maximum {MAX_EMOJI})")
+    # Confirmed live: a real published caption stored "???" (three literal
+    # ASCII question marks, verified against the raw UTF-8 bytes — not a
+    # terminal/display artifact) exactly where an emoji clearly belonged
+    # ("...breaking the bank. ??? Yousuf Living"). Nothing here catches a
+    # model call that garbles an emoji into literal '?' characters instead
+    # of actually emitting it. Two or more consecutive '?' is not
+    # legitimate punctuation in any real caption, so it's a safe signal to
+    # reject and regenerate rather than publish garbled text.
+    if re.search(r"\?{2,}", caption):
+        violations.append("caption contains repeated '?' characters (likely a garbled emoji)")
     return violations
 
 

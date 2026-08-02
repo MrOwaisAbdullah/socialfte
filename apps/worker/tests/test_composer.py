@@ -68,6 +68,21 @@ def test_check_formatting_passes_clean_input():
     assert violations == []
 
 
+def test_check_formatting_flags_repeated_question_marks():
+    """Confirmed live: a real published caption stored '???' (verified
+    against the raw UTF-8 bytes, not a display artifact) exactly where an
+    emoji clearly belonged — a model call garbling an emoji into literal
+    '?' characters instead of emitting it. A single '?' (real punctuation)
+    must still pass."""
+    from brain.composer import check_formatting
+
+    violations = check_formatting("Great quality, low price. ??? Shop now.", ["#a", "#b", "#c"])
+    assert any("?" in v for v in violations)
+
+    violations = check_formatting("Is this available in blue?", ["#a", "#b", "#c"])
+    assert violations == []
+
+
 def test_clean_headline_strips_markdown_asterisks():
     from brain.composer import clean_headline
 

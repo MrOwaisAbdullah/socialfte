@@ -1035,3 +1035,19 @@ all tied at `times_used=0`, that tiebreaker is deterministic upload
 order — exactly "line by line". Changed the tiebreak to `func.random()`
 in all three places: still prioritizes least-used assets, but randomizes
 which of the tied ones comes first each run.
+
+**Investigated the garbled captions flagged from live posts** — one
+post's caption contained Nastaliq Urdu script mid-caption, another
+contained a literal `???` exactly where an emoji clearly belonged. Traced
+both against the actual DB rows (raw UTF-8 bytes, not a terminal display
+artifact — `??` really is three ASCII `0x3F` bytes) and their audit_log
+history. Scanned all posts: each pattern occurs in exactly 1 of 29
+posts — rare, not systemic. Directly tested `check_humanizer()` against
+the exact leaked Nastaliq text with the current code: it correctly
+rejects it, so that specific post is very likely a historical artifact
+from before this pipeline was fully wired up, not a reproducible gap in
+current code. The `???` pattern, though, had no check at all — added one:
+`check_formatting()` now rejects 2+ consecutive `?` characters (not
+legitimate punctuation in any real caption) as a "likely garbled emoji"
+violation, so a future occurrence gets caught and regenerated instead of
+published.
