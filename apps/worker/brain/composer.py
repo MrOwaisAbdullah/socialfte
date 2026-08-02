@@ -61,6 +61,9 @@ HUMANIZER_BANNED_PHRASES = [
     "breathtaking",
     "must-have",
     "must have",
+    "amazing",
+    "stunning",
+    "luxurious",
 ]
 
 
@@ -198,6 +201,11 @@ def check_headline(headline: str) -> list[str]:
         violations.append(f"headline is {word_count} words (must be {MIN_HEADLINE_WORDS}-{MAX_HEADLINE_WORDS})")
     if re.search(r"[\u0900-\u097F\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]", headline):
         violations.append("headline contains Devanagari/Nastaliq/Arabic script (use Roman Urdu only)")
+    # caption-writer.md: "No exclamation marks, ever" \u2014 a headline overlaid
+    # on a photo reads as a product label, not an ad; "Book Now!" is ad
+    # copy, "Book Now" is a brand talking to you.
+    if "!" in headline:
+        violations.append("headline contains an exclamation mark (not allowed)")
     return violations
 
 

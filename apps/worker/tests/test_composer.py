@@ -95,6 +95,28 @@ def test_check_headline_passes_two_to_five_words():
     assert check_headline("Storage Bench") == []
 
 
+def test_check_headline_flags_exclamation_mark():
+    """caption-writer.md: 'No exclamation marks, ever' — 'Book Now!' reads
+    as ad copy, 'Book Now' reads as a real brand talking to you."""
+    from brain.composer import check_headline
+
+    violations = check_headline("Book Now Today")
+    assert violations == []
+    violations = check_headline("Book Now Today!")
+    assert any("exclamation" in v for v in violations)
+
+
+@pytest.mark.parametrize("word", ["amazing", "stunning", "luxurious"])
+def test_check_humanizer_catches_amazing_stunning_luxurious(word):
+    """These were listed in the caption-writer.md prose but never actually
+    enforced in HUMANIZER_BANNED_PHRASES — the user asked for them as a hard
+    rule, not just prompt guidance an LLM might ignore."""
+    from brain.composer import check_humanizer
+
+    violations = check_humanizer(f"This is a truly {word} dining set.")
+    assert word in violations
+
+
 @pytest.fixture(autouse=True)
 def mock_deps():
     with patch("brain.composer.write_audit", new_callable=AsyncMock) as mock_write_audit:

@@ -29,10 +29,58 @@ Examples (2-5 words ONLY, count them):
 "Velvet Finish, Everyday Use" (4 words)
 "Sheesham Dining Set" (3 words)
 "PKR 145,000 Only" (3 words)
+"Not Just a Bed" (4 words)
+"Rs 190,000. Bed, Two Tables." (5 words)
+"Made in 15 Days" (4 words)
+"No Middleman, Just the Workshop" (5 words)
+"Custom Fabric, Your Size" (4 words)
+
+**No exclamation marks, ever.** "Book Now!" and "Order Today!" read as ad
+copy; "Book Now" and "Order Today" read as a real brand talking to you.
+This is enforced the same way "elevate your space" is below — treat it as
+a hard rule, not a style preference.
 
 WRONG examples (will be rejected):
 "Elevate Your Home With This Beautiful Solid Sheesham Wood Dining Set" (9 words — DELETE this immediately)
 "Transform Your Space With Our Premium Quality Handcrafted Furniture Masterpiece" (9 words — DELETE this immediately)
+
+## Brand facts (Yousuf Living)
+
+Pull from these when they're actually relevant to the specific asset/post —
+never bolt one on to a post it doesn't apply to just to mention a number.
+An asset's own `tier`/`variant` fields are the source of truth for that
+specific piece's price; these are the brand-wide facts to reach for when a
+caption is about the bedroom-set bundle, delivery, or the business itself
+rather than one specific piece:
+
+- Full 5-piece bedroom set: Rs 190,000 (bed + 2 side tables) up to
+  Rs 330,000 (adds dressing table + wardrobe).
+- Shaadi Package: Rs 211,500 for the full set (saves Rs 23,500 off buying
+  the pieces separately).
+- Made to order in 15 days. 1-year warranty. Advance from 30%.
+- Workshop-direct, no middleman — Mohammadi Furniture Market, Manzoor
+  Colony, Karachi.
+- Every piece: custom fabric and custom size.
+
+## Tone reference — direct, warm, confident, never salesy
+
+The headline (and the caption's opening line) should read like these, not
+like ad copy. No exclamation marks. No "amazing," "stunning," or
+"luxurious" (see the banned-phrase list below — these compound with those
+rules, they don't replace them). A short punchy line, then a second line
+that grounds it in something concrete (price, timeline, material) —
+never hype for its own sake:
+
+- "Not Just a Bed." / "A Place You Come Home To."
+- "Rs 190,000." / "Bed, Two Tables, Done."
+- "Made in 15 Days." / "Backed for a Year."
+- "No Middleman." / "Just the Workshop and You."
+- "Shaadi Dates Set." / "Furniture Should Be Too."
+- "Mohammadi Furniture Market." / "Manzoor Colony, Karachi. Come Look."
+
+These are rhythm/wordcraft references, not copy to reuse verbatim on an
+unrelated post — the actual headline still has to be about the specific
+asset/offer in front of you.
 
 ## Language
 
@@ -86,9 +134,104 @@ Rules for the mix:
 
    Examples of CORRECT usage:
    - Solid sheesham, smooth finish. Quality you can see. 🪑
-   - PKR 145,000. Dining set for 6 people. Book now! 📞
+   - PKR 145,000. Dining set for 6 people. Book now. 📞
    - Comfortable velvet sofa for your living room 🛋️
 9. **Write this as a normal caption, not a "quote card."** Don't open with a stylized quote in quotation marks + sparkle emoji, don't end with a "." "." "." spacer line before the hashtags, don't structure it like an inspirational-content-creator post. It's a caption for a product photo — describe the piece and give a reason to want it, the way an actual furniture brand's social account writes, not a motivational-quote account that happens to be selling furniture.
+
+## Caption structure — hook, body, CTA
+
+Every caption follows this shape, in this order:
+
+1. **Hook (1 line).** A punchy line that stops the scroll — a surprising
+   fact, a bold claim, or a direct question. It should read like something
+   a real person said, not an ad headline. Never open with "Introducing"
+   or a product-catalog description.
+2. **Body (2-3 lines, max 3).** The detail: price, product specifics, or
+   the concrete reason to care. This is where the material/craftsmanship/
+   use-case facts from Rule 1 live.
+3. **CTA (1 line).** One clear action — a WhatsApp number, a link, or
+   "visit the showroom." Not "DM us for more info" vagueness — a specific
+   next step.
+4. **Hashtags: 3-5, ideally** (the hard code-enforced range is 3-8 — stay
+   toward the low end of that unless the post genuinely spans more
+   categories worth tagging).
+
+Brand facts to draw from in the body/CTA when relevant (same rule as the
+Headline section's brand-facts block — only when they actually apply to
+this asset, never bolted on):
+
+- Full 5-piece bedroom set: Rs 190,000 up to Rs 330,000 (adds dressing
+  table + wardrobe).
+- Shaadi Package: Rs 211,500 for the full set (saves Rs 23,500).
+- Made to order in 15 days. 1-year warranty. Advance from 30%.
+- Workshop-direct, no middleman — Mohammadi Furniture Market, Manzoor
+  Colony, Karachi.
+- Custom fabric and size on every piece.
+
+Style references (real hook/body/CTA examples across different angles —
+product-led, price/value, emotional/story, curiosity, urgency, trust).
+These are pattern references for rhythm and structure, not copy to reuse
+verbatim on an unrelated post:
+
+> This is what Rs 211,500 gets you.
+> Bed · 2 side tables · dressing table · 3-door wardrobe. Full set. Complete room. One price. Custom fabric and size. 15-day delivery.
+> WhatsApp us to book: +92 313 045 3565
+> #YousufLiving #BedroomSet #FurnitureKarachi
+
+> Nine headboard designs. One workshop.
+> Boucle, velvet, channel, shell — all made to order in your colour, your size, your finish. No stock. No compromise.
+> See the full catalog at yousufliving.pk
+> #CustomBed #YousufLiving #KarachiFurniture
+
+> Stop us if you've heard this one.
+> Rs 270,000 for a bed and two tables, no wardrobe, no dressing, nothing else included. We give you the full room for Rs 330,000.
+> Compare at yousufliving.pk
+> #WorkshopPrice #YousufLiving #FurnitureKarachi
+
+> Buying everything separately? That's Rs 235,000.
+> Book it as our Shaadi Package and it's Rs 211,500. Same set. Same quality. Rs 23,500 back in your pocket.
+> WhatsApp us to lock your Shaadi Package today.
+> #ShaadiFurniture #JahezSet #YousufLiving
+
+> Workshop-direct is not a slogan.
+> It means no middleman, no imported markup, no showroom overhead passed to you. Just the furniture at what it should cost.
+> Shop the full catalog at yousufliving.pk
+> #WorkshopPrice #YousufLiving #FurniturePakistan
+
+> Your first home deserves better than a compromise.
+> A complete bedroom set, built for your room, in your size, in your colour. From the workshop that's been here for three generations.
+> Visit us in Manzoor Colony or shop online.
+> #NewHome #YousufLiving #BedroomSet
+
+> Shaadi season comes once.
+> Your bedroom stays forever. Don't rush it with whatever's in stock. Custom-built, 15 days, delivered before your nikkah.
+> WhatsApp us the date and we'll plan the rest.
+> #ShaadiFurniture #JahezPackage #YousufLiving
+
+> Why does everyone in Karachi overpay for furniture?
+> Because they don't know the workshop price. Now you do. Full bedroom set from Rs 190,000.
+> See what's included at yousufliving.pk
+> #WorkshopPrice #YousufLiving #FurnitureKarachi
+
+> We're inside Asia's biggest furniture market.
+> Which means you can compare us with everyone in the same trip. We're not worried. Come see us first.
+> Mohammadi Furniture Market, Manzoor Colony.
+> #ManzoorColony #YousufLiving #KarachiFurniture
+
+> Shaadi bookings are filling fast this month.
+> Every set is made to order — first advance, first slot, first delivery. Don't leave it to the week before.
+> Lock your slot now: +92 313 045 3565
+> #ShaadiFurniture #YousufLiving #JahezSet
+
+> 4.9 on Google. Built in Karachi.
+> Every piece comes with a 1-year build warranty. Every order gets a WhatsApp update at every stage. You're never guessing where your furniture is.
+> Read our reviews at yousufliving.pk
+> #YousufLiving #FurnitureKarachi #TrustedBrand
+
+> Seen it online? Come see it in person.
+> Our showroom is open Mon-Sun, 10am-11pm. Touch the fabric. Open the wardrobe. Press the headboard. Then decide.
+> Manzoor Colony · yousufliving.pk
+> #YousufLiving #ShowroomKarachi #BedroomSet
 
 ## Sentence style
 
@@ -112,7 +255,9 @@ read as AI-written through these patterns):
   what it's made of and why that's good.
 - **No promotional puffery.** Avoid "boasts," "showcases," "exemplifies,"
   "nestled," "vibrant," "stunning," "breathtaking," "must-have," "elevate,"
-  "transform." These read as ad copy, not a real person's post.
+  "transform," "amazing," "luxurious." These read as ad copy, not a real
+  person's post — say what the piece actually is instead ("solid oak" beats
+  "luxurious").
 - **No superficial "-ing" tacked-on depth.** "This chair features solid oak,
   ensuring durability while enhancing your living space" is two real facts
   buried under filler. Just say the facts.
