@@ -12,7 +12,7 @@ import random
 from datetime import datetime, timezone
 
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from audit import write_audit
 from brain.base import embed
@@ -57,9 +57,17 @@ def _choose_format(platform: str) -> str:
 
 async def _pick_distinct_images(primary_asset: Asset, count: int) -> list[str]:
     """Pick up to `count-1` distinct asset URLs (excluding the primary asset).
-    Favors underused assets (times_used ASC, created_at DESC) to rotate through
-    the catalog. Returns URLs (R2_PUBLIC_URL/r2_key). May return fewer than
-    requested if the catalog is small."""
+    Favors underused assets (times_used ASC, random tiebreak) to rotate
+    through the catalog. Returns URLs (R2_PUBLIC_URL/r2_key). May return
+    fewer than requested if the catalog is small.
+
+    Was `created_at DESC` as the tiebreak — with a large batch of assets
+    all at times_used=0, that's deterministic upload order, so a
+    multi-image composition (BentoReel, etc.) kept picking the same
+    handful of most-recently-uploaded assets, which for a bulk upload of
+    the same item in different variants meant near-duplicate images side
+    by side. `func.random()` keeps the times_used priority but randomizes
+    which of the tied assets comes first."""
     if count <= 1:
         return []
     async with SessionLocal() as session:
@@ -70,7 +78,7 @@ async def _pick_distinct_images(primary_asset: Asset, count: int) -> list[str]:
                     Asset.id != primary_asset.id,
                     Asset.reject_reason.is_(None),
                 )
-                .order_by(Asset.times_used.asc(), Asset.created_at.desc())
+                .order_by(Asset.times_used.asc(), func.random())
                 .limit(count - 1)
             )
         ).scalars().all()
@@ -293,13 +301,21 @@ async def _pick_candidates() -> list[tuple[Asset, Template]]:
     slots all "asset X already used in this batch" against the exact same
     asset ID — there was only ever one asset in the candidate pool to begin
     with. Round-robin means one bad asset (anti-repeat rejection, already
-    used) only costs its own slot, not the whole batch's remaining attempts."""
+    used) only costs its own slot, not the whole batch's remaining attempts.
+
+    Tiebreak within the times_used ASC ordering is func.random(), not
+    created_at DESC — with 150+ assets uploaded in one batch (several the
+    same item in different colors/variants), a deterministic
+    most-recently-uploaded tiebreak meant every run picked from the same
+    handful of assets in upload order instead of a genuine spread across
+    the catalog (confirmed live: same-variant assets landing in the
+    candidate pool together run after run)."""
     async with SessionLocal() as session:
         assets = (
             await session.execute(
                 select(Asset)
                 .where(Asset.reject_reason.is_(None))
-                .order_by(Asset.times_used.asc(), Asset.created_at.desc())
+                .order_by(Asset.times_used.asc(), func.random())
                 .limit(MAX_ASSET_TEMPLATE_COMBOS)
             )
         ).scalars().all()
@@ -507,7 +523,12 @@ async def compose_batch():
             rejected_template_ids.add(tmpl_id_str)
             continue
 
-        # Try to use approved concept for this asset if available
+        # Try to use approved concept for this asset if available. Recorded on
+        # the Post below (concept_id) so the dashboard can retire the concept
+        # to state='used' once this post is approved — posts previously had
+        # no link back to the concept they came from at all, so an approved
+        # concept just kept getting reused by compose_batch indefinitely.
+        used_concept_id: str | None = None
         concept = await _get_approved_concept(asset.id)
         if concept and concept["headlines"] and concept["captions"]:
             # Use concept's headline/caption options instead of generating.
@@ -528,6 +549,7 @@ async def compose_batch():
                 logger.warning("Approved concept %s rejected by anti-repeat for asset %s", concept["id"][-8:], asset_id_str)
                 shortfall_reasons.append(f"approved concept anti-repeat rejected for asset {asset_id_str}")
                 continue
+            used_concept_id = concept["id"]
             logger.info("Using approved concept %s for asset %s", concept["id"][-8:], asset_id_str[-8:])
         else:
             # Fall back to AI generation if no approved concept
@@ -593,6 +615,7 @@ async def compose_batch():
                     state="draft",
                     template_id=tmpl.id,
                     asset_id=asset.id,
+                    concept_id=used_concept_id,
                     caption=caption_text,
                     caption_vec=caption_vec,
                 )
@@ -649,6 +672,7 @@ async def compose_batch():
                     state="review",
                     template_id=tmpl.id,
                     asset_id=asset.id,
+                    concept_id=used_concept_id,
                     caption=caption_text,
                     caption_vec=caption_vec,
                     render_url=render_url,

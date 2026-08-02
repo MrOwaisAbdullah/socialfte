@@ -990,3 +990,48 @@ in the enforced list), and added a code-level exclamation-mark check to
 `check_headline()` — fixed one existing "correct usage" example in the doc
 that itself contained an exclamation mark, which directly contradicted the
 new rule.
+
+**Concepts now get retired once their post is approved** — user feedback:
+"if a post is generated from a concept and also approved, the concept
+should also be removed... we have to remove it after post approval."
+Root gap: `posts` had no link back to the concept it was composed from at
+all (no `concept_id` column) — `schema.sql` was even missing the
+`concepts` table definition entirely, despite being declared the source
+of truth for models.py/schema.ts (added it, matching what was already
+live in the DB and in models.py). Added `posts.concept_id` (nullable FK
+to `concepts.id`), set by `compose_batch.py` whenever `_get_approved_concept()`
+supplied the caption/headline. When the dashboard approves a post
+(`PATCH /api/posts/[id]`) and that post has a `concept_id`, the concept is
+soft-retired to a new `state='used'` — the row and its headlines/captions
+stay for history, but it drops out of `_get_approved_concept()`'s
+`state = 'approved'` query so it can never be reused. Before this, an
+approved concept stayed in the reusable pool forever, generating more and
+more posts off the same creative indefinitely. Added a "Used" filter tab
+to the Concepts page.
+
+**Manual approve/reject override + bulk actions on Posts and Concepts** —
+user feedback that anti-repeat/render rejections were leaving posts stuck
+with no way to manually push them through. The Approve/Reject buttons on
+the Posts page were gated to `state === "review"` only — a post that
+landed in draft/render/failed/skipped (an anti-repeat rejection, a render
+hiccup) had no path back to approved at all from the UI. Both buttons are
+now always available except on already-terminal states (`approved`/`publish`
+hides Approve, `failed`/`publish` hides Reject). Same fix on the Concepts
+page (was gated to `state === "draft"` only). Added bulk "Approve
+selected"/"Reject selected" next to the existing bulk delete on both
+pages — implemented as parallel per-item PATCH calls (not a dedicated
+bulk-state endpoint) so bulk approval on Posts gets the concept-retirement
+side effect above for free instead of duplicating that logic.
+
+**Asset selection was picking "line by line" instead of randomly** — user
+added 150+ new assets in one batch, several the same item in different
+colors/variants, and noticed compose_batch/create_concepts kept picking
+near-duplicate variants back to back. Root cause: both
+`compose_batch.py`'s `_pick_candidates()`/`_pick_distinct_images()` and
+`create_concepts.py`'s `_pick_assets_needing_concepts()` order assets by
+`times_used ASC` (correct — prefer under-used assets) but used
+`created_at DESC` as the tiebreaker. With a large batch of fresh uploads
+all tied at `times_used=0`, that tiebreaker is deterministic upload
+order — exactly "line by line". Changed the tiebreak to `func.random()`
+in all three places: still prioritizes least-used assets, but randomizes
+which of the tied ones comes first each run.

@@ -53,3 +53,5 @@ too large to be useful (it is not the source of truth; the `audit_log` table is)
 2026-08-02 08:47:33 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
 2026-08-02 08:47:35 UTC | dispatch_render | dispatch_rejected | None | {'composition_id': 'HeroReveal', 'reason': 'GITHUB_TOKEN or GITHUB_REPO not configured'}
 2026-08-02 11:33:08 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
+2026-08-02 12:25:33 UTC | collect_metrics | metrics_collected | post-1 | {'platform': 'facebook', 'window_24h': True, 'window_7d': True}
+2026-08-02 12:25:36 UTC | dispatch_render | dispatch_rejected | None | {'composition_id': 'HeroReveal', 'reason': 'GITHUB_TOKEN or GITHUB_REPO not configured'}

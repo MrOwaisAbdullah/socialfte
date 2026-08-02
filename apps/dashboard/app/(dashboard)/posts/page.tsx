@@ -150,6 +150,7 @@ export default function PostsPage() {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkUpdating, setBulkUpdating] = useState<"approved" | "failed" | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [composing, setComposing] = useState(false);
   const [composeError, setComposeError] = useState<string | null>(null);
@@ -240,6 +241,36 @@ export default function PostsPage() {
       alert("Network error");
     }
   }, []);
+
+  // Reuses the same per-post PATCH the individual Approve/Reject buttons use
+  // (parallel calls, not a dedicated bulk-state endpoint) so bulk approval
+  // gets the concept-retirement side effect (see /api/posts/[id]) for free
+  // instead of duplicating that logic in a second code path.
+  const bulkUpdateState = useCallback(async (state: "approved" | "failed") => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    setBulkUpdating(state);
+    try {
+      const results = await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/posts/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ state }),
+          }).then((res) => ({ id, ok: res.ok }))
+        )
+      );
+      const succeeded = new Set(results.filter((r) => r.ok).map((r) => r.id));
+      setPosts((prev) => prev.map((p) => (succeeded.has(p.id) ? { ...p, state } : p)));
+      const failedCount = results.length - succeeded.size;
+      if (failedCount > 0) alert(`${failedCount} post(s) failed to update.`);
+      setSelected(new Set());
+    } catch {
+      alert("Network error during bulk update");
+    } finally {
+      setBulkUpdating(null);
+    }
+  }, [selected]);
 
   const bulkDelete = useCallback(async () => {
     const ids = Array.from(selected);
@@ -340,6 +371,20 @@ export default function PostsPage() {
           <div className="ml-auto flex items-center gap-2">
             <span className="font-body text-sm text-muted">{selected.size} selected</span>
             <button
+              onClick={() => bulkUpdateState("approved")}
+              disabled={bulkUpdating !== null}
+              className="rounded bg-green-600 px-3 py-1 font-body text-sm text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              {bulkUpdating === "approved" ? "Approving..." : "Approve selected"}
+            </button>
+            <button
+              onClick={() => bulkUpdateState("failed")}
+              disabled={bulkUpdating !== null}
+              className="rounded bg-dark/60 px-3 py-1 font-body text-sm text-white hover:bg-dark/70 disabled:opacity-50"
+            >
+              {bulkUpdating === "failed" ? "Rejecting..." : "Reject selected"}
+            </button>
+            <button
               onClick={bulkDelete}
               disabled={bulkDeleting}
               className="rounded bg-red-600 px-3 py-1 font-body text-sm text-white hover:bg-red-700 disabled:opacity-50"
@@ -401,21 +446,26 @@ export default function PostsPage() {
                 )}
               </div>
               <div className="flex shrink-0 flex-col gap-1">
-                {post.state === "review" && (
-                  <>
-                    <button
-                      onClick={() => updatePostState(post.id, "approved")}
-                      className="rounded bg-green-600 px-2 py-1 font-body text-xs text-white hover:bg-green-700"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => updatePostState(post.id, "failed")}
-                      className="rounded bg-red-600 px-2 py-1 font-body text-xs text-white hover:bg-red-700"
-                    >
-                      Reject
-                    </button>
-                  </>
+                {/* Manual override, not gated to state === "review" — a post
+                    that landed in draft/render/failed/skipped (an anti-repeat
+                    rejection, a render hiccup, a manual reject) had no way
+                    back to approved from here at all before; the operator
+                    should always be able to push a post through by hand. */}
+                {post.state !== "approved" && post.state !== "publish" && (
+                  <button
+                    onClick={() => updatePostState(post.id, "approved")}
+                    className="rounded bg-green-600 px-2 py-1 font-body text-xs text-white hover:bg-green-700"
+                  >
+                    Approve
+                  </button>
+                )}
+                {post.state !== "failed" && post.state !== "publish" && (
+                  <button
+                    onClick={() => updatePostState(post.id, "failed")}
+                    className="rounded bg-red-600 px-2 py-1 font-body text-xs text-white hover:bg-red-700"
+                  >
+                    Reject
+                  </button>
                 )}
                 <button
                   onClick={() => deletePost(post.id)}

@@ -61,6 +61,7 @@ class Post(Base):
     state: Mapped[str] = mapped_column(Text, nullable=False)
     template_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("templates.id"))
     asset_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("assets.id"))
+    concept_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("concepts.id"))
     caption: Mapped[str | None] = mapped_column(Text)
     caption_vec: Mapped[list[float] | None] = mapped_column(Vector(EMBED_DIMENSIONS))
     render_url: Mapped[str | None] = mapped_column(Text)

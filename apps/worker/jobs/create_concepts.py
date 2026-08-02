@@ -10,7 +10,7 @@ import logging
 import random
 from types import SimpleNamespace
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from brain.composer import write_caption
 from db.models import Asset, Concept
@@ -51,13 +51,22 @@ async def _pick_assets_needing_concepts(limit: int = MAX_CONCEPTS_PER_RUN) -> li
     1. New assets (times_used = 0)
     2. Assets with few concepts
     3. Random selection from under-represented concept types
+
+    Was `ORDER BY times_used ASC, created_at DESC` — with a large batch of
+    freshly uploaded assets (times_used=0 for all of them), that tiebreaker
+    is deterministic upload order, so a bulk upload of the same item in
+    different colors/variants (confirmed live: 150+ new assets, several
+    same-item variants uploaded back to back) got picked "line by line" in
+    upload order instead of a genuine spread. `func.random()` as the
+    tiebreak keeps the times_used priority (still-unused assets always sort
+    before reused ones) but randomizes which of the tied assets comes first.
     """
     async with SessionLocal() as session:
         # Get assets that have few or no concepts yet
         result = await session.execute(
             select(Asset)
             .where(Asset.reject_reason.is_(None))
-            .order_by(Asset.times_used.asc(), Asset.created_at.desc())
+            .order_by(Asset.times_used.asc(), func.random())
             .limit(limit * 2)  # Get more than needed to filter
         )
         assets = list(result.scalars().all())

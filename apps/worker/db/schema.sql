@@ -49,6 +49,37 @@ CREATE INDEX idx_assets_times_used ON assets (times_used);  -- overuse detection
 CREATE INDEX idx_assets_kind_processed ON assets (kind, processed);  -- process_footage.py's polling query
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- concepts — AI-drafted creative direction (headlines/captions/template
+-- suggestions) for an asset, reviewed on the dashboard's Concepts page before
+-- compose_batch.py's _get_approved_concept() reuses one instead of generating
+-- fresh copy. state: draft (awaiting review) -> approved (reusable) ->
+-- rejected (never reused) or used (its resulting post was approved — retired
+-- from the pool so compose_batch stops picking it, but the row stays for
+-- history; see posts.concept_id below). No CHECK constraint, same convention
+-- as posts.state.
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE concepts (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  asset_id             UUID NOT NULL REFERENCES assets(id),
+  concept_type         TEXT NOT NULL,      -- price-focused | lifestyle | quality | exclusive | comfort
+  headlines            JSONB NOT NULL,     -- 5 short (2-8 word) headline options
+  captions             JSONB NOT NULL,     -- 3 full caption options
+  creative_direction   TEXT,
+  suggested_templates  TEXT[],
+  animation_style      TEXT,
+  state                TEXT NOT NULL DEFAULT 'draft',  -- draft | approved | rejected | used
+  approved_by          UUID,
+  approved_at          TIMESTAMPTZ,
+  usage_count          INTEGER NOT NULL DEFAULT 0,  -- times compose_batch has picked this concept — deprioritizes overused ones
+  performance_score    NUMERIC,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_concepts_asset_id     ON concepts (asset_id);
+CREATE INDEX idx_concepts_state        ON concepts (state);
+CREATE INDEX idx_concepts_type_state   ON concepts (concept_type, state);
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- posts — moves through AGENTS.md's draft -> render -> review -> approved ->
 -- publish lifecycle, plus 'failed'. Also: 'tiktok_ready' (TikTok draft-only mode,
 -- see publishers/tiktok.py) and 'skipped' (Discord webhook Skip button, see
@@ -62,6 +93,9 @@ CREATE TABLE posts (
   state         TEXT NOT NULL,            -- draft | render | review | approved | published | failed | tiktok_ready | skipped
   template_id   UUID REFERENCES templates(id),
   asset_id      UUID REFERENCES assets(id),
+  concept_id    UUID REFERENCES concepts(id),  -- set when composed from an approved concept (null = AI-generated fresh);
+                                                -- when this post is approved, the dashboard retires the concept to
+                                                -- state='used' so compose_batch stops reusing it
   caption       TEXT,
   caption_vec   vector(1536),             -- dimension = EMBED_DIMENSIONS env var (docs/socialfte-spec-v2.md §7,
                                            -- currently openai/text-embedding-3-small @ 1536). NEVER change after

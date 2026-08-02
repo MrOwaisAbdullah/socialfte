@@ -438,6 +438,59 @@ async def test_compose_batch_uses_approved_concept_when_available(mock_deps):
         post_call = mock_session.add.call_args_list[0]
         created_post = post_call[0][0]
         assert created_post.caption == approved_concept["captions"][0]
+        # concept_id must be recorded — posts previously had no link back to
+        # the concept they came from at all, so the dashboard had no way to
+        # retire a concept once its post was approved (it just stayed in
+        # compose_batch's reusable pool forever).
+        assert created_post.concept_id == approved_concept["id"]
+
+
+@pytest.mark.asyncio
+async def test_compose_batch_leaves_concept_id_none_without_approved_concept(mock_deps):
+    """A freshly AI-generated post (no approved concept available) must not
+    get a stray concept_id from a previous iteration or a wrong default."""
+    from jobs.compose_batch import compose_batch
+
+    mock_asset = MagicMock(id="asset-1", r2_key="photos/test.jpg", piece="chair", tier="tier1",
+                           variant="standard", times_used=0, reject_reason=None,
+                           created_at=MagicMock())
+    mock_template = MagicMock(id="tmpl-1", slug="hero", display_name="Hero", created_at=MagicMock())
+
+    mock_session = mock_deps["session"]
+    call_count = 0
+
+    async def execute_side_effect(stmt, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return _make_scalar_result([mock_asset])
+        return _make_scalar_result([mock_template])
+
+    mock_session.execute = execute_side_effect
+
+    with patch("jobs.compose_batch.write_caption", new_callable=AsyncMock) as mock_write, \
+         patch("jobs.compose_batch.embed", new_callable=AsyncMock, return_value=[0.1] * 10), \
+         patch("jobs.compose_batch.anti_repeat.check_asset", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.anti_repeat.check_template", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.anti_repeat.check_caption", new_callable=AsyncMock, return_value=True), \
+         patch("jobs.compose_batch.httpx.AsyncClient") as mock_httpx, \
+         patch("jobs.compose_batch._get_target_platforms", new_callable=AsyncMock, return_value=["instagram"]), \
+         patch("jobs.compose_batch.settings.IMAGE_POST_RATIO", 1.0):
+        mock_write.return_value = ("Solid chair.", "Solid Sheesham Chair", ["#chair"])
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {"url": "https://media.test.com/render.jpg"}
+        mock_httpx_instance = AsyncMock()
+        mock_httpx_instance.__aenter__ = AsyncMock(return_value=mock_httpx_instance)
+        mock_httpx_instance.__aexit__ = AsyncMock(return_value=False)
+        mock_httpx_instance.post = AsyncMock(return_value=mock_resp)
+        mock_httpx.return_value = mock_httpx_instance
+
+        await compose_batch()
+
+        post_call = mock_session.add.call_args_list[0]
+        created_post = post_call[0][0]
+        assert created_post.concept_id is None
 
 
 @pytest.mark.asyncio

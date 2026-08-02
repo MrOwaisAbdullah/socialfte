@@ -86,6 +86,7 @@ export const posts = pgTable(
     state: text().notNull(),
     templateId: uuid('template_id').references(() => templates.id),
     assetId: uuid('asset_id').references(() => assets.id),
+    conceptId: uuid('concept_id').references(() => concepts.id),
     caption: text(),
     captionVec: vector('caption_vec', { dimensions: EMBED_DIMENSIONS }),
     renderUrl: text('render_url'),

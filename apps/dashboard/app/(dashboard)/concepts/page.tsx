@@ -23,9 +23,12 @@ export default function ConceptsPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkUpdating, setBulkUpdating] = useState<"approved" | "rejected" | null>(null);
 
   useEffect(() => {
     fetchConcepts();
+    setSelected(new Set());
   }, [filter]);
 
   // Same fire-and-poll pattern as Posts page's Compose button and the Jobs
@@ -87,8 +90,14 @@ export default function ConceptsPage() {
       });
 
       if (res.ok) {
-        // Remove from list
-        setConcepts((prev) => prev.filter((c) => c.id !== id));
+        // On a specific-state tab (draft/approved/rejected/used), the item no
+        // longer belongs there once its state changes — remove it. On "all"
+        // it should stay visible with its new state, not vanish.
+        setConcepts((prev) =>
+          filter === "all"
+            ? prev.map((c) => (c.id === id ? { ...c, state: newState } : c))
+            : prev.filter((c) => c.id !== id)
+        );
       } else {
         alert("Failed to update concept");
       }
@@ -97,6 +106,55 @@ export default function ConceptsPage() {
       alert("Network error");
     }
   };
+
+  const bulkUpdateConceptState = async (newState: "approved" | "rejected") => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    setBulkUpdating(newState);
+    try {
+      const results = await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/concepts/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ state: newState }),
+          }).then((res) => ({ id, ok: res.ok }))
+        )
+      );
+      const succeeded = new Set(results.filter((r) => r.ok).map((r) => r.id));
+      setConcepts((prev) =>
+        filter === "all"
+          ? prev.map((c) => (succeeded.has(c.id) ? { ...c, state: newState } : c))
+          : prev.filter((c) => !succeeded.has(c.id))
+      );
+      const failedCount = results.length - succeeded.size;
+      if (failedCount > 0) alert(`${failedCount} concept(s) failed to update.`);
+      setSelected(new Set());
+    } catch {
+      alert("Network error during bulk update");
+    } finally {
+      setBulkUpdating(null);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === concepts.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(concepts.map((c) => c.id)));
+    }
+  };
+
+  const hasSelection = selected.size > 0;
 
   const typeColors: Record<string, string> = {
     "price-focused": "bg-green-100 text-green-700",
@@ -110,6 +168,7 @@ export default function ConceptsPage() {
     draft: "bg-yellow-100 text-yellow-700",
     approved: "bg-green-100 text-green-700",
     rejected: "bg-red-100 text-red-700",
+    used: "bg-dark/10 text-dark",
   };
 
   return (
@@ -140,7 +199,7 @@ export default function ConceptsPage() {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        {["draft", "approved", "rejected", "all"].map((s) => (
+        {["draft", "approved", "rejected", "used", "all"].map((s) => (
           <button
             key={s}
             onClick={() => setFilter(s)}
@@ -151,6 +210,26 @@ export default function ConceptsPage() {
             {s}
           </button>
         ))}
+
+        {hasSelection && (
+          <div className="ml-auto flex items-center gap-2">
+            <span className="font-body text-sm text-muted">{selected.size} selected</span>
+            <button
+              onClick={() => bulkUpdateConceptState("approved")}
+              disabled={bulkUpdating !== null}
+              className="rounded bg-green-600 px-3 py-1 font-body text-sm text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              {bulkUpdating === "approved" ? "Approving..." : "Approve selected"}
+            </button>
+            <button
+              onClick={() => bulkUpdateConceptState("rejected")}
+              disabled={bulkUpdating !== null}
+              className="rounded bg-red-600 px-3 py-1 font-body text-sm text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {bulkUpdating === "rejected" ? "Rejecting..." : "Reject selected"}
+            </button>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -159,11 +238,29 @@ export default function ConceptsPage() {
         <p className="font-body text-muted">No concepts found. Run the create_concepts job first.</p>
       ) : (
         <div className="grid gap-4">
+          <div className="flex items-center gap-3 rounded-lg border border-dark/10 bg-dark/5 px-4 py-2">
+            <input
+              type="checkbox"
+              checked={selected.size === concepts.length && concepts.length > 0}
+              onChange={toggleSelectAll}
+              className="h-4 w-4 rounded border-dark/30"
+            />
+            <span className="font-body text-xs text-muted">Select all</span>
+          </div>
           {concepts.map((concept) => (
             <div
               key={concept.id}
-              className="rounded-lg border border-dark/10 bg-light p-6"
+              className={`flex gap-3 rounded-lg border bg-light p-6 ${
+                selected.has(concept.id) ? "border-primary" : "border-dark/10"
+              }`}
             >
+              <input
+                type="checkbox"
+                checked={selected.has(concept.id)}
+                onChange={() => toggleSelect(concept.id)}
+                className="mt-1 h-4 w-4 shrink-0 rounded border-dark/30"
+              />
+              <div className="min-w-0 flex-1">
               <div className="mb-4 flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <span className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${typeColors[concept.conceptType]}`}>
@@ -230,23 +327,29 @@ export default function ConceptsPage() {
                   Asset: {concept.assetFilename || concept.assetKind}
                 </span>
                 <div className="ml-auto flex items-center gap-2">
-                  {concept.state === "draft" && (
-                    <>
-                      <button
-                        onClick={() => updateConceptState(concept.id, "rejected")}
-                        className="rounded bg-red-600 px-3 py-1 font-body text-xs text-white hover:bg-red-700"
-                      >
-                        Reject
-                      </button>
-                      <button
-                        onClick={() => updateConceptState(concept.id, "approved")}
-                        className="rounded bg-green-600 px-3 py-1 font-body text-xs text-white hover:bg-green-700"
-                      >
-                        Approve
-                      </button>
-                    </>
+                  {/* Manual override, not gated to state === "draft" — a
+                      rejected concept had no way back to approved from here,
+                      and vice versa. "used" (its post was already approved)
+                      is excluded from re-approval since that state means it
+                      already did its job. */}
+                  {concept.state !== "rejected" && (
+                    <button
+                      onClick={() => updateConceptState(concept.id, "rejected")}
+                      className="rounded bg-red-600 px-3 py-1 font-body text-xs text-white hover:bg-red-700"
+                    >
+                      Reject
+                    </button>
+                  )}
+                  {concept.state !== "approved" && concept.state !== "used" && (
+                    <button
+                      onClick={() => updateConceptState(concept.id, "approved")}
+                      className="rounded bg-green-600 px-3 py-1 font-body text-xs text-white hover:bg-green-700"
+                    >
+                      Approve
+                    </button>
                   )}
                 </div>
+              </div>
               </div>
             </div>
           ))}

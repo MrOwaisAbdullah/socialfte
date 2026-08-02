@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, gte, lt } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { posts, auditLog } from "@/lib/db/schema";
+import { posts, auditLog, concepts } from "@/lib/db/schema";
 import { getDailyCap } from "@/lib/cap-limits";
 
 const ACTIVE_STATES = ["review", "approved", "tiktok_ready"];
@@ -38,6 +38,27 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       subjectId: id,
       payload: { previousState: existing.state, newState: body.state },
     });
+
+    // Retire the concept this post was composed from — an approved concept
+    // used to stay in compose_batch's reusable pool forever, so the same
+    // concept kept generating more posts indefinitely even after one of
+    // them was already approved. Soft-retire (state='used') rather than
+    // delete: the row (and its headlines/captions) stays for history, it
+    // just drops out of _get_approved_concept()'s `state = 'approved'`
+    // query so it can never be picked again.
+    if (body.state === "approved" && existing.conceptId) {
+      await db
+        .update(concepts)
+        .set({ state: "used", updatedAt: new Date() })
+        .where(eq(concepts.id, existing.conceptId));
+
+      await db.insert(auditLog).values({
+        actor: "dashboard",
+        action: "concept_retired",
+        subjectId: existing.conceptId,
+        payload: { reason: "post_approved", postId: id },
+      });
+    }
 
     return NextResponse.json({ id, state: body.state });
   }
