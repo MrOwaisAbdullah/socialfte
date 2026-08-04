@@ -1064,3 +1064,63 @@ never reached far enough right to notice; a longer one within the same
 with the badge. Added `paddingRight: width * 0.22` matching hero.tsx's
 approach. Verified against the exact headline from the live screenshot —
 clean separation now.
+
+**`publish_due` and `notify_review` never picked up any post that hadn't
+been explicitly scheduled** — surfaced while connecting real Facebook/
+Instagram credentials for the first time: the operator approved ~44
+posts, `publish_due` kept running every 15 minutes reporting "No posts
+due for publishing," and none of them ever went out. Root cause,
+confirmed directly against the live DB: every one of those 44 approved
+posts has `scheduled_at = NULL` — approving a post via the dashboard or a
+Discord approval card never sets `scheduled_at` at all; only dragging a
+post onto the Calendar does. Both jobs' queries used a bare
+`Post.scheduled_at <= <cutoff>` comparison, and in SQL a NULL comparison
+is neither true nor false, so it's silently excluded from the `WHERE`
+clause — every approved-but-unscheduled post was invisible to
+`publish_due` forever, and the same bug meant `notify_review` never sent
+a Discord approval card for an unscheduled review post either. Fixed
+both to `or_(Post.scheduled_at.is_(None), Post.scheduled_at <= <cutoff>)`
+— NULL now means "due now" (approve with no explicit schedule = publish
+on the next tick), the same convention this codebase already uses for
+credential expiry (`None` => not expiring, not excluded). Added a
+regression test to each job asserting the compiled query actually
+contains `IS NULL`, since the existing mocked tests all stub
+`session.execute()` directly and wouldn't otherwise exercise the real
+WHERE-clause semantics.
+
+One side effect worth noting for whoever reads this later: one of the 44
+approved posts had previously failed for a real reason and was swept
+into `approved` by a bulk-approve (this session's own bulk-action
+feature doesn't distinguish *why* something failed) — once this fix
+deploys, it'll be retried and may fail again for its original reason.
+`publish_due.py` still records that as `state='failed'` + `post.error` +
+an audit_log entry regardless of Discord — the failure is never lost,
+just not proactively pushed anywhere.
+
+**Connected real Facebook Page + Instagram credentials for the first
+time** — confirmed via direct read-only Graph API calls against the live
+token (fetching Page name, then Instagram Business Account name/username)
+that `META_APP_ID`/`META_APP_SECRET`/`META_PAGE_ID`/`META_PAGE_TOKEN`/
+`META_IG_USER_ID` are all correctly wired. Also corrected a stated-but-
+unverified claim from earlier in this same conversation: `DISCORD_BOT_TOKEN`/
+`DISCORD_CHANNEL_ID` are both blank in `.env`, and `notify/discord.py`'s
+`send()` raises immediately when either is missing — `publish_due.py`
+catches that and only logs it, so no Discord notification actually goes
+out on a publish failure right now, despite an earlier message in this
+session asserting one would. The failure itself is still fully recorded
+(state, error, audit_log) regardless; only the proactive Discord ping is
+missing until that's connected separately.
+
+**Added `alt_text` to Facebook/Instagram image publishing** — the one
+concrete "social SEO" lever the Graph API supports that wasn't wired up:
+Meta indexes `alt_text_custom` (Facebook Page photos) and `alt_text`
+(Instagram image posts only — not Reels/Stories, confirmed against
+Meta's Content Publishing docs) for accessibility and discoverability.
+Built from real asset data only: `asset.piece` (a structural field like
+"bed"/"wardrobe") is used, but `asset.tier`/`asset.variant` are
+deliberately excluded — those are pricing labels ("Premium", "Save 40%"),
+not visual descriptors, so including them would produce nonsense like
+"Save 40% Premium bed". No `piece` on record means no `alt_text` sent at
+all, never a generic placeholder — same no-fabricated-content rule this
+codebase already applies everywhere else (set-breakdown's bar
+proportions, the caption-writer's brand-facts block, etc.).

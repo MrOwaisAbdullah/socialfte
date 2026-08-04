@@ -187,6 +187,85 @@ async def test_post_image_facebook_simple_flow(mock_deps):
             image_url="https://media.yousufliving.com/image.jpg",
             caption="Test Facebook post",
         )
-        
+
         assert result == "fb_post_101"
         assert mock_post.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_post_image_includes_alt_text_when_given(mock_deps):
+    """alt_text_custom should reach the Graph API request when alt_text is
+    passed, using Graph API's actual field name for Page photos."""
+    from publishers.meta import post_image
+
+    mock_container_response = MagicMock()
+    mock_container_response.json.return_value = {"id": "container_1"}
+    mock_container_response.raise_for_status = MagicMock()
+    mock_publish_response = MagicMock()
+    mock_publish_response.json.return_value = {"id": "fb_post_1"}
+    mock_publish_response.raise_for_status = MagicMock()
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [mock_container_response, mock_publish_response]
+        await post_image(
+            page_id="page_123",
+            image_url="https://media.yousufliving.com/image.jpg",
+            caption="Test",
+            alt_text="Bed by Yousuf Living",
+        )
+        first_call = mock_post.call_args_list[0]
+        assert first_call[1]["data"]["alt_text_custom"] == "Bed by Yousuf Living"
+
+
+@pytest.mark.asyncio
+async def test_post_image_omits_alt_text_when_not_given(mock_deps):
+    """No alt_text passed (asset had no `piece` on record) must mean the
+    field is left out of the request entirely, not sent as an empty string."""
+    from publishers.meta import post_image
+
+    mock_container_response = MagicMock()
+    mock_container_response.json.return_value = {"id": "container_1"}
+    mock_container_response.raise_for_status = MagicMock()
+    mock_publish_response = MagicMock()
+    mock_publish_response.json.return_value = {"id": "fb_post_1"}
+    mock_publish_response.raise_for_status = MagicMock()
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [mock_container_response, mock_publish_response]
+        await post_image(
+            page_id="page_123",
+            image_url="https://media.yousufliving.com/image.jpg",
+            caption="Test",
+        )
+        first_call = mock_post.call_args_list[0]
+        assert "alt_text_custom" not in first_call[1]["data"]
+
+
+@pytest.mark.asyncio
+async def test_post_ig_image_includes_alt_text_when_given(mock_deps):
+    """alt_text should reach the Graph API request using Instagram's actual
+    field name (different from Facebook's alt_text_custom)."""
+    from publishers.meta import post_ig_image
+
+    mock_container_response = MagicMock()
+    mock_container_response.json.return_value = {"id": "container_1"}
+    mock_container_response.raise_for_status = MagicMock()
+    mock_status_response = MagicMock()
+    mock_status_response.json.return_value = {"status_code": "FINISHED"}
+    mock_status_response.raise_for_status = MagicMock()
+    mock_publish_response = MagicMock()
+    mock_publish_response.json.return_value = {"id": "ig_media_1"}
+    mock_publish_response.raise_for_status = MagicMock()
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, \
+         patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_post.side_effect = [mock_container_response, mock_publish_response]
+        mock_get.return_value = mock_status_response
+        await post_ig_image(
+            ig_user_id="ig_user_123",
+            image_url="https://media.yousufliving.com/image.jpg",
+            caption="Test",
+            alt_text="Bed by Yousuf Living",
+        )
+        first_call = mock_post.call_args_list[0]
+        assert first_call[1]["data"]["alt_text"] == "Bed by Yousuf Living"

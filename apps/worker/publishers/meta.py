@@ -37,32 +37,39 @@ async def _write_audit(actor: str, action: str, subject_id: str, payload: dict):
     await write_audit(actor, action, subject_id, payload)
 
 
-async def post_image(page_id: str, image_url: str, caption: str) -> str:
+async def post_image(page_id: str, image_url: str, caption: str, alt_text: str | None = None) -> str:
     """Post an image to a Facebook Page.
-    
+
     Args:
         page_id: Facebook Page ID
         image_url: Public URL of the image (R2 public URL)
         caption: Post caption text
-    
+        alt_text: Accessible image description (Graph API's `alt_text_custom`
+            field on /photos) — indexed for accessibility and discoverability.
+            Optional; omitted from the request entirely if not given, never
+            defaulted to a generic placeholder.
+
     Returns:
         The Facebook post ID (external_id)
-    
+
     Raises:
         httpx.HTTPStatusError: If the API call fails
     """
     token = await _get_page_token()
-    
+
     try:
         async with httpx.AsyncClient() as client:
             # Step 1: Create the photo container
+            container_data_payload = {
+                "url": image_url,
+                "caption": caption,
+                "access_token": token,
+            }
+            if alt_text:
+                container_data_payload["alt_text_custom"] = alt_text
             container_response = await client.post(
                 f"{GRAPH_API}/{page_id}/photos",
-                data={
-                    "url": image_url,
-                    "caption": caption,
-                    "access_token": token,
-                },
+                data=container_data_payload,
                 timeout=60.0,
             )
             container_response.raise_for_status()
@@ -218,36 +225,43 @@ async def post_reel(page_id: str, video_url: str, caption: str) -> str:
         raise
 
 
-async def post_ig_image(ig_user_id: str, image_url: str, caption: str) -> str:
+async def post_ig_image(ig_user_id: str, image_url: str, caption: str, alt_text: str | None = None) -> str:
     """Post an image to Instagram.
-    
+
     Instagram image publishing requires a two-step flow:
     1. Create a container (POST /{ig-user-id}/media)
     2. Publish the container (POST /{ig-user-id}/media_publish)
-    
+
     Args:
         ig_user_id: Instagram Business Account ID
         image_url: Public URL of the image (R2 public URL)
         caption: Post caption text
-    
+        alt_text: Accessible image description (`alt_text` field, image
+            posts only — Instagram does not support it on Reels/Stories,
+            per Meta's Content Publishing docs). Optional; omitted from the
+            request entirely if not given.
+
     Returns:
         The Instagram media ID (external_id)
-    
+
     Raises:
         httpx.HTTPStatusError: If the API call fails
     """
     token = await _get_page_token()
-    
+
     try:
         async with httpx.AsyncClient() as client:
             # Step 1: Create the container
+            container_data_payload = {
+                "image_url": image_url,
+                "caption": caption,
+                "access_token": token,
+            }
+            if alt_text:
+                container_data_payload["alt_text"] = alt_text
             container_response = await client.post(
                 f"{GRAPH_API}/{ig_user_id}/media",
-                data={
-                    "image_url": image_url,
-                    "caption": caption,
-                    "access_token": token,
-                },
+                data=container_data_payload,
                 timeout=60.0,
             )
             container_response.raise_for_status()

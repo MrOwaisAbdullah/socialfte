@@ -69,6 +69,72 @@ async def test_publish_due_publishes_past_scheduled(mock_deps):
 
 
 @pytest.mark.asyncio
+async def test_build_alt_text_uses_only_piece_not_tier_variant(mock_deps):
+    """tier/variant are pricing labels ("Premium", "Save 40%"), not visual
+    descriptors — mixing them into alt_text would read as nonsense ("Save
+    40% Premium bed"). Only asset.piece (a real structural field) should
+    ever appear."""
+    from jobs.publish_due import _build_alt_text
+
+    mock_asset = MagicMock()
+    mock_asset.piece = "bed"
+    mock_asset.tier = "Premium"
+    mock_asset.variant = "Save 40%"
+    mock_deps["session"].get = AsyncMock(return_value=mock_asset)
+
+    with patch("jobs.publish_due.settings.BRAND_NAME", "Yousuf Living"):
+        result = await _build_alt_text("asset-1")
+
+    assert result == "Bed by Yousuf Living"
+    assert "Premium" not in result
+    assert "40%" not in result
+
+
+@pytest.mark.asyncio
+async def test_build_alt_text_none_without_piece(mock_deps):
+    """No piece on record means no alt_text at all — never a generic
+    placeholder, same no-fabricated-content rule as everywhere else."""
+    from jobs.publish_due import _build_alt_text
+
+    mock_asset = MagicMock()
+    mock_asset.piece = None
+    mock_deps["session"].get = AsyncMock(return_value=mock_asset)
+
+    result = await _build_alt_text("asset-1")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_build_alt_text_none_without_asset_id(mock_deps):
+    from jobs.publish_due import _build_alt_text
+
+    result = await _build_alt_text(None)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_publish_due_query_includes_null_scheduled_at(mock_deps):
+    """The query's WHERE clause must treat NULL scheduled_at as due-now, not
+    silently exclude it. Approving a post via the dashboard/Discord never
+    sets scheduled_at at all — only dragging it onto the Calendar does — so
+    a bare `scheduled_at <= now` comparison (SQL NULL comparisons are
+    neither true nor false) dropped every approved-but-unscheduled post
+    forever. Confirmed live: 44 approved posts, every one NULL, 0 ever
+    picked up despite the job running every 15 minutes."""
+    from jobs.publish_due import publish_due
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_deps["session"].execute.return_value = mock_result
+
+    await publish_due()
+
+    called_stmt = mock_deps["session"].execute.call_args[0][0]
+    compiled = str(called_stmt.compile(compile_kwargs={"literal_binds": True}))
+    assert "IS NULL" in compiled
+
+
+@pytest.mark.asyncio
 async def test_publish_due_skips_cap_exceeded(mock_deps):
     """Post that exceeds platform cap should be skipped."""
     from jobs.publish_due import publish_due

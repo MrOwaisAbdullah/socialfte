@@ -9,15 +9,36 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import select, func
+from sqlalchemy import or_, select, func
 
 from audit import write_audit
 from config import settings
-from db.models import Post
+from db.models import Asset, Post
 from db.session import SessionLocal
 from notify.discord import send
 
 logger = logging.getLogger("worker.publish_due")
+
+
+async def _build_alt_text(asset_id: Optional[str]) -> str | None:
+    """Accessible image description for Facebook/Instagram (Graph API's
+    alt_text_custom/alt_text fields — indexed for accessibility and image
+    discoverability). Built only from real asset data: `piece` is a
+    structural field ("bed", "wardrobe", "side table"); `tier`/`variant`
+    are pricing labels (e.g. "Premium", "Save 40%"), not visual
+    descriptors, so mixing them in would read as nonsense ("Save 40%
+    Premium bed"). No piece on record means no alt_text at all — never a
+    generic placeholder, same no-fabricated-content rule as everywhere
+    else in this codebase."""
+    if not asset_id:
+        return None
+    async with SessionLocal() as session:
+        asset = await session.get(Asset, asset_id)
+    if not asset or not asset.piece or not asset.piece.strip():
+        return None
+    piece = asset.piece.strip().capitalize()
+    wordmark = settings.BRAND_NAME
+    return f"{piece} by {wordmark}" if wordmark else piece
 
 # Platform-specific cap env vars
 CAP_VARS = {
@@ -91,20 +112,22 @@ async def _dispatch_publisher(post: Post) -> str:
             raise ValueError("META_PAGE_ID not configured")
         
         if format_type == "image":
-            return await post_image(page_id, post.render_url, post.caption)
+            alt_text = await _build_alt_text(post.asset_id)
+            return await post_image(page_id, post.render_url, post.caption, alt_text)
         elif format_type == "reel":
             return await post_reel(page_id, post.render_url, post.caption)
         else:
             raise ValueError(f"Unsupported Facebook format: {format_type}")
-    
+
     elif platform == "instagram":
         from publishers.meta import post_ig_image, post_ig_reel, post_story
         ig_user_id = settings.META_IG_USER_ID
         if not ig_user_id:
             raise ValueError("META_IG_USER_ID not configured")
-        
+
         if format_type == "image":
-            return await post_ig_image(ig_user_id, post.render_url, post.caption)
+            alt_text = await _build_alt_text(post.asset_id)
+            return await post_ig_image(ig_user_id, post.render_url, post.caption, alt_text)
         elif format_type == "reel":
             return await post_ig_reel(ig_user_id, post.render_url, post.caption)
         elif format_type == "story":
@@ -156,12 +179,22 @@ async def publish_due():
     now = datetime.now(timezone.utc)
     
     async with SessionLocal() as session:
-        # Query posts that are approved and past their scheduled time
+        # Query posts that are approved and past their scheduled time.
+        # NULL scheduled_at means "approved with no explicit schedule" (the
+        # normal case — approving a post via the dashboard/Discord doesn't
+        # set scheduled_at at all, only dragging it onto the Calendar does),
+        # not "never publish". `scheduled_at <= now` alone silently drops
+        # every NULL row (SQL NULL comparisons are neither true nor false),
+        # so every approved-but-unscheduled post sat invisible to this query
+        # forever — confirmed live: 44 approved posts, all NULL scheduled_at,
+        # 0 ever picked up despite the job running every 15 minutes. Treat
+        # NULL as "due now", same convention already used for credential
+        # expiry (None => not expiring, not excluded).
         result = await session.execute(
             select(Post).where(
                 Post.state == "approved",
-                Post.scheduled_at <= now,
-            ).order_by(Post.scheduled_at)
+                or_(Post.scheduled_at.is_(None), Post.scheduled_at <= now),
+            ).order_by(Post.scheduled_at.asc().nulls_first())
         )
         posts = result.scalars().all()
     

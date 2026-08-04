@@ -38,6 +38,26 @@ def mock_deps():
 
 
 @pytest.mark.asyncio
+async def test_notify_review_query_includes_null_scheduled_at(mock_deps):
+    """The query's WHERE clause must treat NULL scheduled_at as due-now, not
+    silently exclude it. A review post created by compose_batch never has
+    scheduled_at set at all — only dragging it onto the Calendar does — so
+    `scheduled_at <= tomorrow` alone dropped every one of them from ever
+    getting a Discord approval card, same bug as publish_due.py."""
+    from jobs.notify_review import notify_review
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_deps["session"].execute.return_value = mock_result
+
+    await notify_review()
+
+    called_stmt = mock_deps["session"].execute.call_args[0][0]
+    compiled = str(called_stmt.compile(compile_kwargs={"literal_binds": True}))
+    assert "IS NULL" in compiled
+
+
+@pytest.mark.asyncio
 async def test_notify_review_no_posts(mock_deps):
     """When no posts are pending review, no cards should be sent."""
     from jobs.notify_review import notify_review

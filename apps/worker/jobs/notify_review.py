@@ -7,7 +7,7 @@ Batch limit: 10 per run. If more than 10, send one summary card first.
 import logging
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from audit import write_audit
 from config import settings
@@ -39,12 +39,18 @@ async def notify_review():
     tomorrow = now + timedelta(days=1)
     
     async with SessionLocal() as session:
-        # Query posts that are in review state and scheduled within the next 24 hours
+        # Query posts that are in review state and scheduled within the next
+        # 24 hours. Same NULL-scheduled_at bug as publish_due.py: a review
+        # post created by compose_batch never has scheduled_at set at all
+        # (only dragging it onto the Calendar does), so `scheduled_at <=
+        # tomorrow` alone silently excluded every one of them from ever
+        # getting a Discord approval card. Treat NULL as due-now, same
+        # convention as publish_due.py's fix.
         result = await session.execute(
             select(Post).where(
                 Post.state == "review",
-                Post.scheduled_at <= tomorrow,
-            ).order_by(Post.scheduled_at)
+                or_(Post.scheduled_at.is_(None), Post.scheduled_at <= tomorrow),
+            ).order_by(Post.scheduled_at.asc().nulls_first())
         )
         posts = result.scalars().all()
     
