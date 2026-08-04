@@ -139,7 +139,19 @@ def get_creds():
         creds.refresh(Request())
     else:
         if not CLIENT_SECRET.exists():
-            sys.exit(f"missing {CLIENT_SECRET} — see docs/youtube-oauth.md (step 2)")
+            # Was sys.exit(...) — fine for the CLI entry point below (main()),
+            # fatal for the live worker: get_creds() is also called from the
+            # publish_due.py -> upload_video() path on every scheduled/manual
+            # run, and SystemExit is a BaseException, not an Exception, so it
+            # skips publish_due.py's `except Exception` entirely and crashes
+            # the whole job — every post queued after the YouTube one in that
+            # run never got attempted, and since the YouTube post's state
+            # never reached "failed" (the crash happened before that could
+            # run), the next run hit the exact same post and crashed again,
+            # permanently wedging the queue. Confirmed live. A normal
+            # exception lets publish_due.py catch it, mark just this one
+            # post as failed, and continue to the next post as designed.
+            raise RuntimeError(f"missing {CLIENT_SECRET} — see docs/youtube-oauth.md (step 2)")
         creds = InstalledAppFlow.from_client_secrets_file(str(CLIENT_SECRET), SCOPES).run_local_server(port=0)
     TOKEN.parent.mkdir(exist_ok=True)
     TOKEN.write_text(creds.to_json())

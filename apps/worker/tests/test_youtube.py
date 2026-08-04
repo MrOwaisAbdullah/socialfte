@@ -3,7 +3,31 @@
 Verifies #Shorts addition and privacy read from env var.
 """
 import pytest
+from pathlib import Path
 from unittest.mock import patch, MagicMock
+
+
+def test_get_creds_raises_normal_exception_not_systemexit(tmp_path):
+    """get_creds() must raise a real Exception, not call sys.exit(), when
+    client_secret.json is missing. sys.exit() raises SystemExit, a
+    BaseException, which is NOT caught by publish_due.py's `except
+    Exception` — confirmed live: a YouTube post with no client_secret
+    crashed the entire publish_due job instead of just failing that one
+    post, permanently wedging every post queued after it (the crashed post
+    never reached state='failed', so the next run hit the same post and
+    crashed again)."""
+    from publishers import youtube
+
+    missing_secret = tmp_path / "client_secret.json"
+    missing_token = tmp_path / "token.json"
+    assert not missing_secret.exists()
+
+    with patch.object(youtube, "CLIENT_SECRET", missing_secret), \
+         patch.object(youtube, "TOKEN", missing_token):
+        with pytest.raises(Exception) as exc_info:
+            youtube.get_creds()
+        assert not isinstance(exc_info.value, SystemExit)
+        assert "client_secret.json" in str(exc_info.value)
 
 
 def test_build_body_adds_shorts_tag():

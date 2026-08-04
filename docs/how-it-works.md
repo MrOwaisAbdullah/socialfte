@@ -1124,3 +1124,41 @@ not visual descriptors, so including them would produce nonsense like
 all, never a generic placeholder — same no-fabricated-content rule this
 codebase already applies everywhere else (set-breakdown's bar
 proportions, the caption-writer's brand-facts block, etc.).
+
+**First live production run of the fixed `publish_due` surfaced two more
+real bugs**, both diagnosed against the live worker logs and the actual
+Graph API:
+
+- **A YouTube post with no `client_secret.json` crashed the entire job**,
+  not just that one post. `publishers/youtube.py`'s `get_creds()` called
+  `sys.exit(...)` when the credentials file was missing — appropriate for
+  its CLI entry point (`main()`), fatal here: `get_creds()` is also
+  called from the live `publish_due.py -> upload_video()` path, and
+  `SystemExit` is a `BaseException`, not an `Exception`, so it skips
+  `publish_due.py`'s `except Exception` entirely. Confirmed live: the
+  job's traceback showed exactly this, and because the crash happened
+  before the post's state could be set to `failed`, every subsequent run
+  hit the same post and crashed again — permanently wedging every post
+  queued after it (Facebook, Instagram, TikTok, all of them) behind one
+  unconfigured YouTube post. Fixed by raising a normal `RuntimeError`
+  instead — `publish_due.py` now catches it, marks just that one post
+  failed, and continues to the next as designed.
+- **Every Facebook publish attempt failed with a 403** — `"(#200) The
+  permission(s) publish_actions are not available. It has been
+  deprecated."` Diagnosed live (a direct, unpublished-container Graph API
+  call reproduced the exact failure, then confirmed the fix before
+  touching any code) that `META_PAGE_TOKEN` held the Business Manager
+  System User's own identity token — valid for proving the System User
+  manages the Page, but not itself a token Graph API will accept for
+  posting *as* that Page. The actual required token is a further-derived
+  Page-scoped token (`GET /{page-id}?fields=access_token`, authenticated
+  with the System User token) — a well-documented, common trap (Meta's
+  own developer forum has several open threads about exactly this
+  token-type confusion). Fixed `_get_page_token()` in
+  `publishers/meta.py` to auto-derive the real page token on every call
+  rather than trusting whatever's configured is already page-scoped, with
+  a graceful fallback to the configured token as-is if the derivation
+  call itself fails (covers the case where an operator *does* paste an
+  already-page-scoped token in some future setup). Verified against the
+  live Page with real (unpublished, then deleted) test posts before and
+  after the fix.

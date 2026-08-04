@@ -19,17 +19,54 @@ GRAPH_API = f"https://graph.facebook.com/{settings.META_GRAPH_VERSION}"
 
 
 async def _get_page_token() -> str:
-    """Get the Facebook Page token from config or credentials."""
-    if settings.META_PAGE_TOKEN:
-        return settings.META_PAGE_TOKEN
-    
-    # Fallback: try to get from credentials table
-    from db.credentials import get_token
-    cred = await get_token("facebook")
-    if cred and cred.get("access_token"):
-        return cred["access_token"]
-    
-    raise ValueError("META_PAGE_TOKEN not configured and no facebook credential found")
+    """Get the Facebook Page access token from config or credentials.
+
+    A System User (or regular User) token that manages a Page is NOT
+    itself a valid token for posting to /{page-id}/photos — Graph API
+    needs the derived PAGE-scoped token for that specific page. Confirmed
+    live: pasting a System User's own token into META_PAGE_TOKEN made
+    every publish attempt fail with a 403 "(#200) The permission(s)
+    publish_actions are not available. It has been deprecated." — a
+    known, common Graph API trap (Meta's own dev forum has multiple open
+    threads about exactly this token-type confusion). Auto-derive the
+    real page token via GET /{page-id}?fields=access_token so this can't
+    recur regardless of which token type ends up configured; if that
+    derivation call itself fails (e.g. the configured token is already
+    page-scoped, which doesn't support this same derivation), fall back
+    to using the configured token as-is rather than hard-failing.
+    """
+    raw_token = settings.META_PAGE_TOKEN
+    if not raw_token:
+        # Fallback: try to get from credentials table
+        from db.credentials import get_token
+        cred = await get_token("facebook")
+        raw_token = cred.get("access_token") if cred else None
+
+    if not raw_token:
+        raise ValueError("META_PAGE_TOKEN not configured and no facebook credential found")
+
+    page_id = settings.META_PAGE_ID
+    if not page_id:
+        # Can't derive a page-scoped token without knowing which page —
+        # use the configured token as-is (existing behavior).
+        return raw_token
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{GRAPH_API}/{page_id}",
+                params={"fields": "access_token", "access_token": raw_token},
+                timeout=15.0,
+            )
+            resp.raise_for_status()
+            derived = resp.json().get("access_token")
+            return derived or raw_token
+    except Exception as e:
+        logger.warning(
+            "Could not derive a page-scoped token from the configured META_PAGE_TOKEN "
+            "(may already be page-scoped) — using it as-is: %s", e,
+        )
+        return raw_token
 
 
 async def _write_audit(actor: str, action: str, subject_id: str, payload: dict):
