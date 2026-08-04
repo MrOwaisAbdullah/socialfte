@@ -175,6 +175,8 @@ export const brandConfig = pgTable('brand_config', {
   fontBody: text('font_body'),
   logoUrl: text('logo_url'),
   socialHandle: text('social_handle'),
+  phone: text(),
+  website: text(),
   showBrandMark: boolean('show_brand_mark').notNull().default(true),
   captionLanguage: text('caption_language'),
   // Mirrors schema.sql's target_platforms exactly — was missing here entirely

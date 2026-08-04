@@ -210,6 +210,8 @@ CREATE TABLE brand_config (
   font_body       TEXT,
   logo_url        TEXT,
   social_handle   TEXT,
+  phone           TEXT,   -- real contact number for the caption CTA; null = caption omits the line rather than inventing one
+  website         TEXT,   -- real site URL for the caption CTA; null = caption omits the line rather than inventing one
   show_brand_mark BOOLEAN NOT NULL DEFAULT true,
   caption_language TEXT,   -- 'roman-urdu-english' | 'english' | 'urdu'; null = caption-writer.md's own default (Roman Urdu + English)
   target_platforms TEXT[] DEFAULT ARRAY['facebook', 'instagram', 'youtube_shorts', 'tiktok'],  -- platforms to create posts for

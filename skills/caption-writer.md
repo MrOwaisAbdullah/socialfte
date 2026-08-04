@@ -114,6 +114,9 @@ Rules for the mix:
    Option 2, Option 3). Do NOT label your output with "Option 1:", "Caption:",
    or similar prefixes. Write one caption and return it. The system will reject
    any output that contains multiple options or numbered alternatives.
+   The headline and hashtags are separate output fields — never echo them
+   back into the caption body with a "Headline: ..." or "Hashtags: ..."
+   label. The caption is the post text only.
 1. Describe what makes the piece worth buying — material, craftsmanship, use case, exclusivity. Be concrete, not vague ("solid sheesham wood, hand-finished joints" beats "premium quality").
 2. Keep captions between 80-300 characters.
 3. Add exactly 3-8 relevant hashtags about the product and category, each one different — never repeat a hashtag, and never write the hashtag list twice.
@@ -149,9 +152,14 @@ Every caption follows this shape, in this order:
 2. **Body (2-3 lines, max 3).** The detail: price, product specifics, or
    the concrete reason to care. This is where the material/craftsmanship/
    use-case facts from Rule 1 live.
-3. **CTA (1 line).** One clear action — a WhatsApp number, a link, or
-   "visit the showroom." Not "DM us for more info" vagueness — a specific
-   next step.
+3. **CTA (1 line).** One clear action — a specific next step, not "DM us
+   for more info" vagueness. Use the real `Contact:` line given in the
+   prompt: if a phone number is set, include it (📞 +92 313 045 3565
+   style); if a website is set, include it (🌐 yousufliving.pk style).
+   **If the prompt says a phone/website is "not set," do not mention one
+   at all** — never invent a number or URL, and never reuse one from a
+   different post's example. If neither is set, fall back to "visit the
+   showroom."
 4. **Hashtags: 3-5, ideally** (the hard code-enforced range is 3-8 — stay
    toward the low end of that unless the post genuinely spans more
    categories worth tagging).

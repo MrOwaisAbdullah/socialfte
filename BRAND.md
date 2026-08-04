@@ -240,7 +240,8 @@ Always mention showroom location at least once a day across all platforms combin
 
 ## 9. Contact and Location
 
-**WhatsApp:** [to be filled — from env or BOOTSTRAP]
+**WhatsApp:** +92 313 045 3565 (also `BRAND_PHONE` in env / `brand_config.phone`)
+**Website:** yousufliving.pk (also `BRAND_WEBSITE` in env / `brand_config.website`)
 **Showroom:** Karachi (exact address from env)
 **Instagram:** @yousufliving [to be confirmed]
 **Facebook:** Yousuf Living [page URL from env]

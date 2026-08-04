@@ -1189,3 +1189,33 @@ Neon) so they can't be re-approved into duplicates; the other 15
 `failed` Facebook posts from that run (8 pre-token-fix 403s, 7
 unsupported-video-format errors) were confirmed via the same Page fetch
 to never have gone live, and are safe to re-approve once resolved.
+
+**A real caption came back with "Headline: ..." and "Hashtags:" showing up
+as literal text inside the post body.** Same category of bug as the
+already-fixed inline-hashtag duplication above, just with explicit
+labels: the model sometimes echoes its own separate `headline`/
+`hashtags` output fields back into the `caption` field's text, even
+though both already exist independently (the headline is rendered on
+the image itself; the real hashtags get appended after the caption by
+`compose_batch.py`). `clean_caption_output()` in `brain/composer.py` now
+strips any `Headline: ...` line outright and drops a bare `Hashtags:`
+label (the actual tags on that line still get picked up by the existing
+inline-hashtag pass). `skills/caption-writer.md`'s rule 0 now also says
+explicitly not to echo either field back into the caption.
+
+**Added a real phone/website mention to the caption CTA.** `BRAND.md`'s
+own Contact section had WhatsApp listed as "to be filled" and no website
+field at all, and `_build_brand_tokens()` never passed a phone number or
+URL to the caption prompt — so implementing this properly meant getting
+the actual number (`+92 313 045 3565`) and site (`yousufliving.pk`) from
+the operator rather than inventing one, the same no-fabrication rule
+`alt_text` already follows. Both now live in `brand_config.phone`/
+`.website` (falling back to `BRAND_PHONE`/`BRAND_WEBSITE` env vars,
+matching every other brand token's DB-then-env fallback), reach the
+caption prompt as an explicit `Contact: phone=..., website=...` line
+(same reasoning as `language` getting called out on its own line rather
+than left buried in the raw context dict), and `skills/caption-writer.md`'s
+CTA rule now uses them when set. Critically, the prompt states outright
+when either is "not set" — the model is told not to mention a phone/
+website at all in that case, never to reuse an example from elsewhere in
+the prompt or invent one.

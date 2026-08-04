@@ -46,6 +46,33 @@ def test_clean_caption_output_dedupes_and_caps_hashtags():
     assert len([t for t in cleaned if t.lower() == "#a"]) == 1
 
 
+def test_clean_caption_output_strips_echoed_headline_and_hashtags_labels():
+    """Confirmed live: a real caption body ended with a literal
+    'Headline: Smart Luxury, Timeless Value ✨' line and a 'Hashtags:'
+    label above the real hashtag block — the model echoing its own
+    separate headline/hashtags output fields back into the caption text.
+    Both are redundant (the headline is rendered on the image, the
+    hashtags get appended by compose_batch.py) and must not survive
+    cleanup."""
+    from brain.composer import clean_caption_output
+
+    raw = (
+        "Yeh navy blue channel tufted bed sirf style nahi, ek savvy "
+        "investment hai.\n"
+        "DM karein ya abhi order karein.\n"
+        "Headline: Smart Luxury, Timeless Value ✨\n"
+        "Hashtags:\n"
+        "#YousufLiving #LuxuryBedroom #SmartSpending #NavyBlueBed #HomeUpgrade"
+    )
+    caption, hashtags = clean_caption_output(raw, [])
+    assert "Headline" not in caption
+    assert "Hashtags" not in caption
+    assert "Smart Luxury, Timeless Value" not in caption
+    assert "#" not in caption
+    assert "#YousufLiving" in hashtags
+    assert len(hashtags) == 5
+
+
 def test_check_formatting_flags_too_few_hashtags():
     from brain.composer import check_formatting
 
@@ -201,6 +228,39 @@ async def test_write_caption_passes_brand_language_into_prompt(mock_deps):
         await write_caption(asset, template, brand={})
         prompt = mock_run.call_args_list[0][0][1]
         assert "Roman Urdu + English" in prompt
+
+
+@pytest.mark.asyncio
+async def test_write_caption_passes_brand_phone_and_website_into_prompt(mock_deps):
+    """brand.phone/brand.website must reach the model explicitly, and the
+    prompt must say outright when either isn't set — skills/caption-writer.md
+    is told to never mention a phone/website unless the prompt gives it a
+    real one, so a silently-missing field here would let the model invent
+    one instead."""
+    from brain.composer import CaptionOutput, ReviewOutput, write_caption
+
+    asset = MagicMock(id="asset-1", piece="dining set", tier="tier1", variant="standard")
+    template = MagicMock(slug="hero", display_name="Hero")
+    result = MagicMock()
+    result.final_output = CaptionOutput(
+        caption="Solid sheesham dining set.", hashtags=["#furniture", "#homedecor", "#pakistan"], headline="Solid Sheesham Dining Set"
+    )
+    review_result = MagicMock()
+    review_result.final_output = ReviewOutput(
+        reads_like_ai=False, issues=[], revised_caption="", revised_hashtags=[], revised_headline=""
+    )
+
+    with patch("brain.composer.Runner.run", new_callable=AsyncMock, side_effect=[result, review_result]) as mock_run:
+        await write_caption(asset, template, brand={"phone": "+92 313 045 3565", "website": "yousufliving.pk"})
+        prompt = mock_run.call_args_list[0][0][1]
+        assert "phone=+92 313 045 3565" in prompt
+        assert "website=yousufliving.pk" in prompt
+
+    with patch("brain.composer.Runner.run", new_callable=AsyncMock, side_effect=[result, review_result]) as mock_run:
+        await write_caption(asset, template, brand={})
+        prompt = mock_run.call_args_list[0][0][1]
+        assert "do not mention a phone number" in prompt
+        assert "do not mention a website" in prompt
 
 
 @pytest.mark.asyncio

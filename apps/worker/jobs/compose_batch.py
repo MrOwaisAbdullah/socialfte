@@ -151,6 +151,12 @@ async def _build_brand_tokens() -> dict:
         # brand.language — empty/unset means the prompt's own default
         # (Roman Urdu + English) applies.
         "language": field(row and row.caption_language, settings.CAPTION_LANGUAGE) or None,
+        # Read by the same prompt as brand.phone/brand.website for the CTA
+        # line — None means the caption omits that line entirely rather
+        # than the model inventing a number or URL (same no-fabrication
+        # rule as alt_text's asset.piece-only sourcing in publish_due.py).
+        "phone": field(row and row.phone, settings.BRAND_PHONE) or None,
+        "website": field(row and row.website, settings.BRAND_WEBSITE) or None,
     }
 
 

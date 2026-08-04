@@ -541,3 +541,38 @@ async def test_compose_batch_skips_concept_rejected_by_anti_repeat(mock_deps):
         # either candidate — both get skipped and the run just ends.
         mock_write.assert_not_called()
         mock_session.add.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_build_brand_tokens_includes_phone_and_website(mock_deps):
+    """No brand_config row yet (fresh deploy) — phone/website fall back to
+    settings.BRAND_PHONE/BRAND_WEBSITE, the same env fallback every other
+    brand token already uses."""
+    from jobs.compose_batch import _build_brand_tokens
+
+    mock_deps["session"].get = AsyncMock(return_value=None)
+
+    with patch("jobs.compose_batch.settings.BRAND_PHONE", "+92 313 045 3565"), \
+         patch("jobs.compose_batch.settings.BRAND_WEBSITE", "yousufliving.pk"):
+        tokens = await _build_brand_tokens()
+
+    assert tokens["phone"] == "+92 313 045 3565"
+    assert tokens["website"] == "yousufliving.pk"
+
+
+@pytest.mark.asyncio
+async def test_build_brand_tokens_phone_website_none_when_unset(mock_deps):
+    """Neither a brand_config row nor a settings value — must come back as
+    None (not an empty string), matching logoUrl/socialHandle's own
+    'or None' convention, so write_caption's prompt says "not set" instead
+    of leaving an empty-but-truthy value the model could still echo."""
+    from jobs.compose_batch import _build_brand_tokens
+
+    mock_deps["session"].get = AsyncMock(return_value=None)
+
+    with patch("jobs.compose_batch.settings.BRAND_PHONE", ""), \
+         patch("jobs.compose_batch.settings.BRAND_WEBSITE", ""):
+        tokens = await _build_brand_tokens()
+
+    assert tokens["phone"] is None
+    assert tokens["website"] is None

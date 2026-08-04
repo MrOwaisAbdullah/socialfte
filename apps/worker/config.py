@@ -144,6 +144,11 @@ class Settings(BaseSettings):
     BRAND_SOCIAL_HANDLE: str = Field(default="")     # e.g. "@yousufliving" — empty = not shown
     BRAND_SHOW_MARK: bool = Field(default=True)      # toggle: logo + handle on posts/reels
     CAPTION_LANGUAGE: str = Field(default="")         # 'roman-urdu-english' | 'english' | 'urdu' — empty = skills/caption-writer.md's own default (Roman Urdu + English)
+    # Real contact facts for the caption CTA (skills/caption-writer.md reads
+    # these as brand.phone/brand.website) — empty means the caption omits
+    # that line rather than the model inventing a number or URL.
+    BRAND_PHONE: str = Field(default="")
+    BRAND_WEBSITE: str = Field(default="")
 
     # ─────────────────────────────────────────────
     # PUBLISHING RULES

@@ -176,6 +176,8 @@ class BrandConfig(Base):
     font_body: Mapped[str | None] = mapped_column(Text)
     logo_url: Mapped[str | None] = mapped_column(Text)
     social_handle: Mapped[str | None] = mapped_column(Text)
+    phone: Mapped[str | None] = mapped_column(Text)
+    website: Mapped[str | None] = mapped_column(Text)
     show_brand_mark: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     caption_language: Mapped[str | None] = mapped_column(Text)
     target_platforms: Mapped[list[str] | None] = mapped_column(ARRAY(Text))  # platforms to create posts for

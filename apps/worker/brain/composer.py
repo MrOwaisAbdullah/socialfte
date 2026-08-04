@@ -146,13 +146,27 @@ def clean_caption_output(caption: str, hashtags: list[str]) -> tuple[str, list[s
         flags=re.IGNORECASE,
     )
 
+    # Confirmed live: the model sometimes echoes the separate headline/
+    # hashtags fields back into the caption body with literal "Headline:"
+    # and "Hashtags:" labels, even though both already exist as their own
+    # structured output fields — the headline gets rendered on the image
+    # itself, and the real hashtags get appended after the caption by
+    # compose_batch.py. Left in, the published post shows the headline
+    # text twice and a "Hashtags:" label sitting above the real hashtag
+    # block. The whole "Headline: ..." line is dropped outright; only the
+    # "Hashtags:" label itself is stripped so the actual tags on that line
+    # (or the next) still get picked up by the inline-hashtag pass below.
+    caption = re.sub(r"(?im)^\s*Headline\s*:.*$\n?", "", caption)
+    caption = re.sub(r"(?im)^\s*Hashtags?\s*:\s*", "", caption)
+
     inline_tags = _INLINE_HASHTAG_PATTERN.findall(caption)
     if inline_tags:
         caption = _INLINE_HASHTAG_PATTERN.sub("", caption)
-        caption = _DOT_SPACER_LINE.sub("", caption)
-        caption = re.sub(r"[ \t]+\n", "\n", caption)  # trailing spaces left by removed tags
-        caption = re.sub(r"\n{3,}", "\n\n", caption).strip()
         hashtags = hashtags + inline_tags
+
+    caption = _DOT_SPACER_LINE.sub("", caption)
+    caption = re.sub(r"[ \t]+\n", "\n", caption)  # trailing spaces left by removed tags/labels
+    caption = re.sub(r"\n{3,}", "\n\n", caption).strip()
 
     seen = set()
     deduped = []
@@ -347,11 +361,18 @@ async def write_caption(
     # explicitly checks for (brand.language), so it needs to be legible to
     # the model, not just present somewhere in a repr.
     language = brand.get("language")
+    phone = brand.get("phone")
+    website = brand.get("website")
+    contact_line = (
+        f"Contact: phone={phone or 'not set — do not mention a phone number'}, "
+        f"website={website or 'not set — do not mention a website'}\n"
+    )
     prompt = (
         f"Write a social media caption and hashtags for this post.\n"
         f"Asset: piece={asset.piece}, tier={asset.tier}, variant={asset.variant}\n"
         f"Template: {getattr(template, 'display_name', None) or getattr(template, 'slug', None)}\n"
         f"Language: {language or 'not set — use your default (Roman Urdu + English)'}\n"
+        + contact_line
         + (f"Creative direction: {creative_direction}\n" if creative_direction else "")
         + f"Context: {brand}"
     )
