@@ -114,7 +114,15 @@ async def _dispatch_publisher(post: Post) -> str:
         if format_type == "image":
             alt_text = await _build_alt_text(post.asset_id)
             return await post_image(page_id, post.render_url, post.caption, alt_text)
-        elif format_type == "reel":
+        elif format_type in ("reel", "video"):
+            # compose_batch.py's PLATFORM_FORMATS calls Facebook's video
+            # format "video", not "reel" — but post_reel() is the only
+            # Facebook video publisher that exists (it uses the dedicated
+            # /video_reels edge; there's no separate plain-feed-video
+            # function). That vocabulary mismatch meant every composed
+            # Facebook video post hit the `else` below and failed with
+            # "Unsupported Facebook format: video" before ever reaching
+            # the API — confirmed live, 7 posts failed exactly this way.
             return await post_reel(page_id, post.render_url, post.caption)
         else:
             raise ValueError(f"Unsupported Facebook format: {format_type}")
@@ -128,7 +136,11 @@ async def _dispatch_publisher(post: Post) -> str:
         if format_type == "image":
             alt_text = await _build_alt_text(post.asset_id)
             return await post_ig_image(ig_user_id, post.render_url, post.caption, alt_text)
-        elif format_type == "reel":
+        elif format_type in ("reel", "video"):
+            # Same "video" vs "reel" vocabulary mismatch as the Facebook
+            # branch above — compose_batch.py's PLATFORM_FORMATS calls
+            # Instagram's video format "video" too, and post_ig_reel() is
+            # the only Instagram video publisher that exists.
             return await post_ig_reel(ig_user_id, post.render_url, post.caption)
         elif format_type == "story":
             return await post_story(ig_user_id, post.render_url)

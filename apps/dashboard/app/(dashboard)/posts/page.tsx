@@ -20,6 +20,7 @@ interface Post {
 }
 
 const STATES = ["draft", "render", "review", "approved", "publish", "failed"];
+const PLATFORMS = ["facebook", "instagram", "youtube_shorts", "tiktok"];
 const VIDEO_FORMATS = new Set(["reel", "short", "video"]);
 
 function stateColor(state: string): string {
@@ -146,6 +147,7 @@ function PostDetailModal({ post, onClose, onDelete }: { post: Post; onClose: () 
 export default function PostsPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [filter, setFilter] = useState<string>("");
+  const [platformFilter, setPlatformFilter] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -307,14 +309,20 @@ export default function PostsPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selected.size === posts.length) {
+    if (selected.size === visiblePosts.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(posts.map((p) => p.id)));
+      setSelected(new Set(visiblePosts.map((p) => p.id)));
     }
   };
 
   const hasSelection = selected.size > 0;
+
+  // Client-side on top of the server-side state filter — platform has no
+  // separate query param since the full (state-filtered) list is already
+  // in memory here, same "cheapest correct approach" the calendar's own
+  // week-refetch comment already uses for this dashboard's scale.
+  const visiblePosts = platformFilter ? posts.filter((p) => p.platform === platformFilter) : posts;
 
   return (
     <div className="flex flex-col gap-6">
@@ -367,6 +375,28 @@ export default function PostsPage() {
           </button>
         ))}
 
+        <span className="mx-1 h-5 w-px bg-dark/10" aria-hidden />
+
+        <button
+          onClick={() => setPlatformFilter("")}
+          className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
+            platformFilter === "" ? "bg-primary text-white" : "bg-dark/10 text-dark hover:bg-dark/20"
+          }`}
+        >
+          All platforms
+        </button>
+        {PLATFORMS.map((p) => (
+          <button
+            key={p}
+            onClick={() => setPlatformFilter(p)}
+            className={`rounded-full px-3 py-1 text-sm font-medium capitalize transition-colors ${
+              platformFilter === p ? "bg-primary text-white" : "bg-dark/10 text-dark hover:bg-dark/20"
+            }`}
+          >
+            {p.replace("_", " ")}
+          </button>
+        ))}
+
         {hasSelection && (
           <div className="ml-auto flex items-center gap-2">
             <span className="font-body text-sm text-muted">{selected.size} selected</span>
@@ -397,20 +427,20 @@ export default function PostsPage() {
 
       {loading ? (
         <p className="font-body text-muted">Loading...</p>
-      ) : posts.length === 0 ? (
+      ) : visiblePosts.length === 0 ? (
         <p className="font-body text-muted">No posts found.</p>
       ) : (
         <div className="grid gap-3">
           <div className="flex items-center gap-3 rounded-lg border border-dark/10 bg-dark/5 px-4 py-2">
             <input
               type="checkbox"
-              checked={selected.size === posts.length && posts.length > 0}
+              checked={selected.size === visiblePosts.length && visiblePosts.length > 0}
               onChange={toggleSelectAll}
               className="h-4 w-4 rounded border-dark/30"
             />
             <span className="font-body text-xs text-muted">Select all</span>
           </div>
-          {posts.map((post) => (
+          {visiblePosts.map((post) => (
             <div
               key={post.id}
               className={`flex items-start gap-4 rounded-lg border bg-light p-4 transition-colors ${

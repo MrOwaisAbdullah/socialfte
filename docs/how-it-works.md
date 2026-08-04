@@ -1219,3 +1219,40 @@ CTA rule now uses them when set. Critically, the prompt states outright
 when either is "not set" — the model is told not to mention a phone/
 website at all in that case, never to reuse an example from elsewhere in
 the prompt or invent one.
+
+**Facebook/Instagram video posts were failing with "Unsupported Facebook
+format: video."** `compose_batch.py`'s `PLATFORM_FORMATS` labels
+Facebook/Instagram's video format `"video"`; `publish_due.py`'s
+`_dispatch_publisher()` only recognized the literal string `"reel"` for
+those two platforms. Not a real platform limitation — `post_reel()` and
+`post_ig_reel()` (in `publishers/meta.py`) are already the only Facebook/
+Instagram video publishers that exist (their own docstrings call
+themselves "reel/video"), so this was purely a naming mismatch between
+the two modules. Fixed by having both branches treat `"video"` as an
+alias for `"reel"`.
+
+**The Calendar screen wasn't showing published posts, and looked stuck.**
+`app/api/posts/route.ts`'s week view filtered and bucketed every post by
+`scheduledAt` alone. `scheduledAt` is commonly NULL — `compose_batch.py`
+doesn't always set one, and neither the manually-reconciled Facebook
+posts nor their Instagram cross-post drafts ever got one — and
+`column >= x` is NULL (excluded), not true, when `column IS NULL`. Same
+NULL-comparison trap already fixed twice on the worker side
+(`publish_due.py`, `notify_review.py`), just not yet on the dashboard
+side: every post with a NULL `scheduledAt` was invisible on every week
+view, forever, including the 27 confirmed-live Facebook posts. Fixed
+with a `displayDate()` helper — `publishedAt` if the post has one (shows
+on the day it actually went out), else `scheduledAt`, else `createdAt` —
+so nothing with a NULL `scheduledAt` disappears. The cap-progress bar's
+count was also missing `published` from the states it counts (it only
+counted queued `review`/`approved`/`tiktok_ready`), which didn't match
+what the worker's `_check_platform_cap()` actually counts — added.
+
+**Added a platform filter to the Posts page.** Client-side on top of the
+existing (server-side, state-filtered) list — the full list is already
+in memory, so a second query param wasn't needed. Checked the Concepts
+page for the same request first: concepts have no `platform` column at
+all (`db/models.py`'s `Concept` — a concept is one asset + creative
+direction, reused across whichever platform a later post composes it
+for), so there's nothing to filter by there without inventing a field
+that doesn't reflect anything real.
