@@ -163,25 +163,27 @@ async def test_post_ig_image_writes_audit_on_failure(mock_deps):
 
 
 @pytest.mark.asyncio
-async def test_post_image_facebook_simple_flow(mock_deps):
-    """Facebook image posting should use a simpler flow (container → publish)."""
+async def test_post_image_facebook_single_call_flow(mock_deps):
+    """Facebook Page Photos publish immediately on a single POST (url +
+    caption, no `published` param — defaults to true). There is no real
+    two-step container-then-publish model here, unlike Instagram. A
+    second "publish the container" call used to exist and was actively
+    harmful: it sometimes 400'd on a photo that had already published
+    from the first call, making this function raise for an already-live
+    post — publish_due.py then marked a successful publish as `failed`.
+    Confirmed live: 33 real posts went out in ~6 minutes because the
+    daily cap (which only counts state='published') never engaged, since
+    posts never reached that state despite actually being live."""
     from publishers.meta import post_image
-    
-    # Mock container creation
-    mock_container_response = MagicMock()
-    mock_container_response.status_code = 200
-    mock_container_response.json.return_value = {"id": "container_789"}
-    mock_container_response.raise_for_status = MagicMock()
-    
-    # Mock publish
-    mock_publish_response = MagicMock()
-    mock_publish_response.status_code = 200
-    mock_publish_response.json.return_value = {"id": "fb_post_101"}
-    mock_publish_response.raise_for_status = MagicMock()
-    
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "fb_post_101"}
+    mock_response.raise_for_status = MagicMock()
+
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-        mock_post.side_effect = [mock_container_response, mock_publish_response]
-        
+        mock_post.return_value = mock_response
+
         result = await post_image(
             page_id="page_123",
             image_url="https://media.yousufliving.com/image.jpg",
@@ -189,7 +191,11 @@ async def test_post_image_facebook_simple_flow(mock_deps):
         )
 
         assert result == "fb_post_101"
-        assert mock_post.call_count == 2
+        assert mock_post.call_count == 1
+        call = mock_post.call_args_list[0]
+        assert "page_123/photos" in call[0][0]
+        assert call[1]["data"]["url"] == "https://media.yousufliving.com/image.jpg"
+        assert "published" not in call[1]["data"]
 
 
 @pytest.mark.asyncio
@@ -198,15 +204,12 @@ async def test_post_image_includes_alt_text_when_given(mock_deps):
     passed, using Graph API's actual field name for Page photos."""
     from publishers.meta import post_image
 
-    mock_container_response = MagicMock()
-    mock_container_response.json.return_value = {"id": "container_1"}
-    mock_container_response.raise_for_status = MagicMock()
-    mock_publish_response = MagicMock()
-    mock_publish_response.json.return_value = {"id": "fb_post_1"}
-    mock_publish_response.raise_for_status = MagicMock()
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"id": "fb_post_1"}
+    mock_response.raise_for_status = MagicMock()
 
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-        mock_post.side_effect = [mock_container_response, mock_publish_response]
+        mock_post.return_value = mock_response
         await post_image(
             page_id="page_123",
             image_url="https://media.yousufliving.com/image.jpg",
@@ -223,15 +226,12 @@ async def test_post_image_omits_alt_text_when_not_given(mock_deps):
     field is left out of the request entirely, not sent as an empty string."""
     from publishers.meta import post_image
 
-    mock_container_response = MagicMock()
-    mock_container_response.json.return_value = {"id": "container_1"}
-    mock_container_response.raise_for_status = MagicMock()
-    mock_publish_response = MagicMock()
-    mock_publish_response.json.return_value = {"id": "fb_post_1"}
-    mock_publish_response.raise_for_status = MagicMock()
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"id": "fb_post_1"}
+    mock_response.raise_for_status = MagicMock()
 
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-        mock_post.side_effect = [mock_container_response, mock_publish_response]
+        mock_post.return_value = mock_response
         await post_image(
             page_id="page_123",
             image_url="https://media.yousufliving.com/image.jpg",

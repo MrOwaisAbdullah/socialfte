@@ -1162,3 +1162,30 @@ Graph API:
   already-page-scoped token in some future setup). Verified against the
   live Page with real (unpublished, then deleted) test posts before and
   after the fix.
+
+**With both of those fixed, `publish_due` posted 33 real Facebook posts
+in about 6 minutes — 27 of them in an 11-second-apart burst.** Root cause
+was a redundant second Graph API call in `post_image()`
+(`publishers/meta.py`): unlike Instagram's genuine two-step
+container-then-publish model, Facebook's `/{page-id}/photos` endpoint
+publishes immediately on the *first* POST (`url` + `caption`, no
+`published` param — defaults to `true`). The old code always made a
+second "publish the container" call anyway. That call sometimes returned
+400 for a photo that had already gone live from the first call, which
+made `post_image()` raise — so `publish_due.py` marked an
+already-successfully-published post as `failed`. Two compounding
+effects: the daily cap check (`CAP_FACEBOOK_PER_DAY`, counts only
+`state='published'`) never engaged, since posts never reached that
+state despite being live, and every one of those wrongly-`failed` posts
+was sitting in the dashboard's approval queue ready to be re-approved
+into a live duplicate. Diagnosed by cross-referencing the actual
+worker logs, a live paginated fetch of the real Facebook Page's post
+history (33 posts, timestamps matched exactly), and the DB's `error`
+column — not by guessing. Fixed by removing the second call entirely;
+`post_image()` now does one POST and reads the post ID straight from
+that response. The 27 posts confirmed live were manually reconciled to
+`state='published'` in the DB (SQL run directly by the operator against
+Neon) so they can't be re-approved into duplicates; the other 15
+`failed` Facebook posts from that run (8 pre-token-fix 403s, 7
+unsupported-video-format errors) were confirmed via the same Page fetch
+to never have gone live, and are safe to re-approve once resolved.

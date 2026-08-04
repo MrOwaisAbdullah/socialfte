@@ -96,41 +96,41 @@ async def post_image(page_id: str, image_url: str, caption: str, alt_text: str |
 
     try:
         async with httpx.AsyncClient() as client:
-            # Step 1: Create the photo container
-            container_data_payload = {
+            # A single POST to /{page-id}/photos with url+caption and no
+            # `published` param already publishes the photo immediately
+            # (Meta's Page Photos API defaults `published` to true) — this
+            # is NOT the same two-step container-then-publish model
+            # Instagram uses. There used to be a second "publish the
+            # container" POST here, redundant at best and actively harmful
+            # in practice: confirmed live, that second call sometimes
+            # returned 400 for a photo that was already live from this
+            # first call, which made this whole function raise — so
+            # publish_due.py marked a post that had ALREADY published
+            # successfully as `failed`. Two serious downstream effects:
+            # the daily cap check (which only counts state='published')
+            # never engaged since posts never reached that state, and a
+            # human re-approving one of those "failed" posts later would
+            # have posted a live duplicate. 33 real posts went out in
+            # ~6 minutes before this was caught.
+            payload = {
                 "url": image_url,
                 "caption": caption,
                 "access_token": token,
             }
             if alt_text:
-                container_data_payload["alt_text_custom"] = alt_text
-            container_response = await client.post(
+                payload["alt_text_custom"] = alt_text
+            response = await client.post(
                 f"{GRAPH_API}/{page_id}/photos",
-                data=container_data_payload,
+                data=payload,
                 timeout=60.0,
             )
-            container_response.raise_for_status()
-            container_data = container_response.json()
-            container_id = container_data.get("id")
-            
-            if not container_id:
-                raise ValueError(f"No container ID returned: {container_data}")
-            
-            # Step 2: Publish the container
-            publish_response = await client.post(
-                f"{GRAPH_API}/{page_id}/photos",
-                data={
-                    "published": "true",
-                    "id": container_id,
-                    "access_token": token,
-                },
-                timeout=60.0,
-            )
-            publish_response.raise_for_status()
-            publish_data = publish_response.json()
-            
-            post_id = publish_data.get("id", container_id)
-            
+            response.raise_for_status()
+            response_data = response.json()
+            post_id = response_data.get("id")
+
+            if not post_id:
+                raise ValueError(f"No photo ID returned: {response_data}")
+
             # Write audit log
             await _write_audit(
                 actor="meta_publisher",
