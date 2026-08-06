@@ -98,6 +98,68 @@ async def test_dispatch_rejects_missing_github_token(mock_deps):
 
 
 @pytest.mark.asyncio
+async def test_known_compositions_includes_all_registry_entries(mock_deps):
+    """Confirmed live: CardConverge, PromoHighlight, and ShaderDissolve are
+    all registered real compositions (packages/remotion/src/registry.gen.tsx)
+    that compose_batch.py already builds props for (exclusive-badge,
+    shader-dissolve, card-converge templates), but this allowlist never got
+    updated when they were added — every post using one of those three
+    templates was rejected with "Unknown composition_id" and never
+    dispatched a render at all."""
+    from jobs.dispatch_render import KNOWN_COMPOSITIONS
+
+    for composition_id in ("CardConverge", "PromoHighlight", "ShaderDissolve"):
+        assert composition_id in KNOWN_COMPOSITIONS
+
+
+@pytest.mark.asyncio
+async def test_dispatch_retries_on_5xx_then_succeeds(mock_deps):
+    """A transient 500 from GitHub's own dispatches endpoint (confirmed
+    live) should be retried, not fail the whole render dispatch outright."""
+    from jobs.dispatch_render import dispatch_video_render
+
+    error_response = MagicMock()
+    error_response.status_code = 500
+
+    success_response = MagicMock()
+    success_response.status_code = 200
+    success_response.content = b'{"workflow_run_id": 99}'
+    success_response.json.return_value = {"workflow_run_id": 99}
+    success_response.raise_for_status = MagicMock()
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, \
+         patch("asyncio.create_task"), \
+         patch("asyncio.sleep", new_callable=AsyncMock):
+        mock_post.side_effect = [error_response, success_response]
+
+        run_id = await dispatch_video_render("post-1", "HeroReveal", {})
+
+        assert run_id == "99"
+        assert mock_post.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_dispatch_does_not_retry_on_4xx(mock_deps):
+    """A 4xx (bad ref, bad token) is a real configuration problem a retry
+    won't fix — must raise immediately, not burn retries on it."""
+    from jobs.dispatch_render import dispatch_video_render
+
+    error_response = MagicMock()
+    error_response.status_code = 422
+    error_response.raise_for_status = MagicMock(side_effect=Exception("422 error"))
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, \
+         patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        mock_post.return_value = error_response
+
+        with pytest.raises(Exception, match="422 error"):
+            await dispatch_video_render("post-1", "HeroReveal", {})
+
+        assert mock_post.call_count == 1
+        mock_sleep.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_dispatch_rejects_missing_github_repo(mock_deps):
     from jobs.dispatch_render import dispatch_video_render
 

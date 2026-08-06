@@ -1291,3 +1291,73 @@ phone bottom-right): that density fits its actual use case (photos that
 get reshared off-platform without caption context, like OLX listings),
 but would be redundant clutter on a native Instagram/Facebook post where
 the caption right below the image already carries the phone/website line.
+
+**Audited every template using BrandBadge's `'corner'` variant for the
+same overlap risk, after two real ones surfaced live** (`carousel-slide`'s
+headline, confirmed by a real render; `set-breakdown`'s bundle-price/
+savings row, found by inspection — its savings pill sits flush right via
+`justify-content: space-between` in the exact same corner, with zero
+clearance reserved). Fixed both with a `paddingRight` reservation, same
+pattern `hero.tsx` already used. `before-after.tsx` is safe by
+construction (Before/After labels sit bottom-left, nothing near
+bottom-right). `bold-headline.tsx`, `light-circle-frame.tsx`, and
+`sweet-dreams.tsx` all use BrandBadge's `'lockup'` variant (top-left) —
+structurally unaffected by anything about the corner badge. `quote.tsx`
+is vertically centered with 11% padding on all sides rather than
+bottom-anchored — judged low-risk, not changed, flagged as a judgment
+call rather than a verified-safe claim (this sandbox has no working
+headless browser to screenshot against — see below).
+
+**Fixed a real text-clipping bug in `bold-headline.tsx`**, unrelated to
+the badge work: confirmed live, a real 2-word second headline line
+("Floor Mirror") wrapped to two lines at the template's 0.078×width font
+size within its 70%-wide box, and the framed-image box below (painted
+after the headline in DOM order, so it visually covers whatever
+overflows into its space) cut the wrapped line off mid-word. Reduced to
+0.062×width (matching the more conservative sizing `set-breakdown`/
+`carousel-slide` already use) and pushed the framed-image box down
+(0.41 → 0.46× height) for extra headroom against an 8-word headline's
+worst case (`skills/caption-writer.md` allows 2-8 words); shifted the
+circular discount badge down by the same amount so it still overlaps the
+image's corner as designed rather than floating above it.
+
+**Verification note**: this sandbox has no working headless browser —
+the `chrome-devtools` MCP tool fails immediately here regardless of dev
+server state, and downloading Puppeteer's own bundled Chromium (the same
+one `apps/dashboard/node_modules/puppeteer` ships, used to attempt a
+real bounding-box check via a small throwaway script) kept timing out /
+producing corrupted partial downloads. Every fix above was verified by
+fetching the actual server-rendered HTML/CSS from a real `/render-preview`
+request and confirming the exact computed values (font-size, padding,
+flex-direction) match what the fix intends — real output, not a guess —
+but that's not the same guarantee as a pixel screenshot. Also note:
+Turbopack's file watcher does not reliably pick up edits made from WSL
+against this repo's Windows-mounted `/mnt/d` path — a full dev-server
+restart was needed after every template edit in this session to see it
+reflected in a fresh request; a `curl` against a stale server previously
+"confirmed" the OLD carousel-slide padding value, which would have been a
+false negative had it not been caught.
+
+**Fixed a stale composition allowlist that silently dropped renders for
+three templates.** `jobs/dispatch_render.py`'s `KNOWN_COMPOSITIONS` set
+(meant to mirror `packages/remotion/src/registry.gen.tsx` exactly) was
+missing `CardConverge`, `PromoHighlight`, and `ShaderDissolve` — all
+three are real, registered compositions that `compose_batch.py` already
+builds real props for (`exclusive-badge` → PromoHighlight,
+`shader-dissolve` → ShaderDissolve, `card-converge` → CardConverge), but
+because the allowlist was never updated when they were added to the
+Remotion registry, every post using one of those three templates hit
+`dispatch_video_render()`'s own "Unknown composition_id" guard and never
+dispatched a render at all. Added all three.
+
+**Added retry-with-backoff for transient 5xx failures from GitHub's own
+dispatches endpoint**, prompted by a live `500 Internal Server Error`
+from `POST .../actions/workflows/render-video.yml/dispatches`. This isn't
+something our code causes (GitHub's own API occasionally 500s
+transiently) or can fully prevent, but a single transient failure
+shouldn't fail the whole render dispatch when a retry would very plausibly
+succeed. Retries up to twice with a short backoff, but only for 5xx — a
+4xx (bad `ref`, bad workflow file, bad token) is a real configuration
+problem a retry won't fix, so those still raise immediately, same
+reasoning as the unknown-composition and missing-token checks that
+already fail fast rather than wasting a network round-trip.

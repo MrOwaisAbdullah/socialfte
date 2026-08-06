@@ -59,7 +59,14 @@ export default function BoldHeadline({
           style={{
             fontFamily: brand.fonts.heading,
             fontWeight: 800,
-            fontSize: Math.round(width * 0.078),
+            // Was 0.078 — confirmed live, a real 2-word line2 ("Floor
+            // Mirror") already wrapped to two lines at that size within
+            // this 70%-wide box, and the framed-image box below (painted
+            // after this in DOM order, so it visually covers anything
+            // that overflows into its space) cut the wrapped second line
+            // off mid-word. 0.062 matches the more conservative headline
+            // sizing already used elsewhere (set-breakdown, carousel-slide).
+            fontSize: Math.round(width * 0.062),
             letterSpacing: -1,
             lineHeight: 1.05,
             margin: 0,
@@ -74,7 +81,7 @@ export default function BoldHeadline({
             style={{
               fontFamily: brand.fonts.heading,
               fontWeight: 800,
-              fontSize: Math.round(width * 0.078),
+              fontSize: Math.round(width * 0.062),
               lineHeight: 1.05,
               margin: 0,
               textTransform: 'uppercase',
@@ -105,7 +112,10 @@ export default function BoldHeadline({
           position: 'absolute',
           left: Math.round(width * 0.055),
           right: Math.round(width * 0.055),
-          top: Math.round(height * 0.41),
+          // Was 0.41 — extra headroom for the headline block above
+          // (worst case: an 8-word headline splits into two 4-word lines,
+          // each of which can itself wrap), on top of the font-size fix.
+          top: Math.round(height * 0.46),
           bottom: Math.round(height * 0.13),
           borderRadius: Math.round(width * 0.025),
           overflow: 'hidden',
@@ -120,7 +130,10 @@ export default function BoldHeadline({
           style={{
             position: 'absolute',
             right: Math.round(width * 0.04),
-            top: Math.round(height * 0.36),
+            // Shifted down by the same 0.05 the framed-image box moved
+            // (0.41 -> 0.46) so this still overlaps the image's top-right
+            // corner as designed, rather than floating above it.
+            top: Math.round(height * 0.41),
             width: Math.round(width * 0.16),
             height: Math.round(width * 0.16),
             borderRadius: '50%',
