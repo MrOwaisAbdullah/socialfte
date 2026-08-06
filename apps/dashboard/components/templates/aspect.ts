@@ -43,6 +43,12 @@ export type BrandTokens = {
   logoUrl?: string;
   socialHandle?: string;
   showBrandMark?: boolean;
+  // Real contact facts (brand_config.phone/.website via compose_batch.py's
+  // _build_brand_tokens() — same no-fabrication source as the caption CTA).
+  // Undefined/empty means BrandBadge omits that line rather than a
+  // placeholder ever reaching a rendered image.
+  phone?: string;
+  website?: string;
 };
 
 // Splits a short (2-5 word) generated headline into two roughly-even word

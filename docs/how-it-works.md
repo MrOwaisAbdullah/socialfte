@@ -1256,3 +1256,38 @@ all (`db/models.py`'s `Concept` — a concept is one asset + creative
 direction, reused across whichever platform a later post composes it
 for), so there's nothing to filter by there without inventing a field
 that doesn't reflect anything real.
+
+**Adopted a glassmorphism price/CTA card and an on-image contact badge**,
+prompted by comparing this repo's render output against a different
+agent's (Antigravity) hero-graphic pipeline. That pipeline turned out to
+use the same core technique this repo already has — an HTML/CSS layout
+screenshotted by headless Chrome — just Node.js instead of Python (the
+worker never touches pixels; it's `POST /api/internal/render` on the
+dashboard that renders a `components/templates/*.tsx` component at
+`/render-preview` and screenshots it with Puppeteer). Two real
+differences were worth taking: `hero.tsx`'s price/CTA block is now a
+frosted-glass panel (`backdrop-filter: blur`, translucent background,
+warm hairline border) instead of a flat pill, staying inside `BRAND.md`'s
+existing depth rules rather than introducing a new visual language. Did
+**not** copy the AI-generated-background half of that pipeline — `BRAND.md`
+explicitly treats real product photos as a trust signal over AI content
+for this brand ("Real showroom footage > AI room renders for trust," "not
+a faceless dropshipper"), so swapping in an AI mood-board background
+would cut against that positioning.
+
+Separately, `.claude/skills/product-image-branding` (a standalone script
+for batch-branding OLX/catalog photos with a logo + website + phone pill
+in three different corners) prompted adding an on-image contact badge to
+`brand-badge.tsx`'s existing `'corner'` variant — a second pill (globe +
+website, phone + phone icon) stacked above the existing logo/handle pill,
+using `brand.colors`/`brand.fonts` tokens rather than that skill's
+hardcoded hex values, since this is a shared multi-tenant component (see
+`clients/` for the isolation boundary), not a Yousuf-Living-only script.
+Reads `brand.phone`/`.website` — the same `brand_config` fields the
+caption CTA already uses — and renders nothing when neither is set, same
+no-fabrication rule as everywhere else this session. Not a full port of
+that skill's four-corner layout (logo top-left, website bottom-left,
+phone bottom-right): that density fits its actual use case (photos that
+get reshared off-platform without caption context, like OLX listings),
+but would be redundant clutter on a native Instagram/Facebook post where
+the caption right below the image already carries the phone/website line.

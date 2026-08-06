@@ -101,33 +101,60 @@ export default function Hero({
             cleanHeadline
           )}
         </h1>
-        {price && (
-          <p
+        {(price || ctaLabel) && (
+          // Frosted-glass info card instead of a flat price line + solid
+          // pill — same glassmorphism idea as antigravity's overlay agent
+          // (semi-transparent backdrop-blur panel), staying inside BRAND.md's
+          // existing depth rules (soft shadow, warm hairline border, no
+          // stark black) rather than introducing a new visual language.
+          // backgroundColor alone (no blur) is a safe degrade for any
+          // Chromium build without backdrop-filter support.
+          <div
             style={{
-              fontFamily: brand.fonts.body,
-              fontSize: Math.round(width * 0.032),
-              color: brand.colors.light,
-              margin: 0,
+              marginTop: Math.round(width * 0.02),
+              alignSelf: 'flex-start',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: Math.round(width * 0.012),
+              padding: `${Math.round(width * 0.022)}px ${Math.round(width * 0.03)}px`,
+              borderRadius: 18,
+              background: `${brand.colors.light}26`,
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
+              border: `1px solid ${brand.colors.light}40`,
+              boxShadow: `0 8px 32px ${brand.colors.dark}33`,
             }}
           >
-            {stripEmoji(price)}
-          </p>
+            {price && (
+              <p
+                style={{
+                  fontFamily: brand.fonts.body,
+                  fontSize: Math.round(width * 0.032),
+                  color: brand.colors.light,
+                  margin: 0,
+                }}
+              >
+                {stripEmoji(price)}
+              </p>
+            )}
+            {ctaLabel && (
+              <span
+                style={{
+                  alignSelf: 'flex-start',
+                  fontFamily: brand.fonts.body,
+                  fontWeight: 600,
+                  fontSize: Math.round(width * 0.026),
+                  color: brand.colors.accent,
+                  background: brand.colors.primary,
+                  padding: `${Math.round(width * 0.014)}px ${Math.round(width * 0.028)}px`,
+                  borderRadius: 999,
+                }}
+              >
+                {stripEmoji(ctaLabel)}
+              </span>
+            )}
+          </div>
         )}
-        <span
-          style={{
-            marginTop: Math.round(width * 0.015),
-            alignSelf: 'flex-start',
-            fontFamily: brand.fonts.body,
-            fontWeight: 600,
-            fontSize: Math.round(width * 0.026),
-            color: brand.colors.accent,
-            background: brand.colors.primary,
-            padding: `${Math.round(width * 0.014)}px ${Math.round(width * 0.028)}px`,
-            borderRadius: 999,
-          }}
-        >
-          {stripEmoji(ctaLabel)}
-        </span>
       </div>
       <BrandBadge brand={brand} width={width} />
     </div>
