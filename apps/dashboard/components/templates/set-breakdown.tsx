@@ -135,6 +135,14 @@ export default function SetBreakdown({
       <div
         style={{
           marginTop: Math.round(width * 0.04),
+          // The `savings` pill sits flush right via justify-content:
+          // space-between, in the same bottom-right corner BrandBadge
+          // occupies, with no clearance reserved between them — same class
+          // of bug already confirmed live on carousel-slide.tsx. Reserving
+          // paddingRight here (rather than shrinking the whole card's
+          // content width the way a wider fix would) keeps the headline/
+          // image/piece-bars at full width and only pulls in this one row.
+          paddingRight: Math.round(width * 0.28),
           display: 'flex',
           alignItems: 'baseline',
           justifyContent: 'space-between',
