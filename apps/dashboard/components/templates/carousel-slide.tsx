@@ -83,7 +83,14 @@ export default function CarouselSlide({
           // right to notice; a longer one within the same 2-8 word limit
           // ("Smart style, smart savings") does, and visually collided
           // with the badge — confirmed live on a real render.
-          paddingRight: Math.round(width * 0.22),
+          //
+          // Bumped from 0.22 to 0.28: BrandBadge's corner variant grew a
+          // second row (website/phone contact pill, stacked above the
+          // @handle pill) — confirmed live again, this time overlapping
+          // "Roz ka end chahiye". This template has no maxWidth safety net
+          // like hero.tsx's 82%, so paddingRight alone has to clear
+          // whatever width the badge cluster reaches.
+          paddingRight: Math.round(width * 0.28),
           display: 'flex',
           flexDirection: 'column',
           gap: Math.round(width * 0.015),

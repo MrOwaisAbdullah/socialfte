@@ -91,13 +91,22 @@ export default function BrandBadge({ brand, width, variant = 'corner', textColor
       }}
     >
       {(brand.website || brand.phone) && (
+        // Stacked rows (website above phone), not one wide row — a
+        // combined "yousufliving.pk  +92 313 045 3565" pill grew far
+        // wider than the corner clearance existing templates already
+        // reserve for the (much shorter) logo/handle pill it stacks
+        // above, and overlapped headline text on real renders
+        // (carousel-slide.tsx confirmed live). Each row alone is roughly
+        // the same width as "@yousufliving", so it fits the clearance
+        // every template using BrandBadge already has.
         <div
           style={{
             display: 'flex',
-            alignItems: 'center',
-            gap: Math.round(width * 0.018),
-            padding: `${Math.round(width * 0.01)}px ${Math.round(width * 0.018)}px`,
-            borderRadius: 999,
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            gap: Math.round(width * 0.006),
+            padding: `${Math.round(width * 0.012)}px ${Math.round(width * 0.018)}px`,
+            borderRadius: Math.round(width * 0.014),
             background: `${brand.colors.primary}EE`,
             border: `1.5px solid ${brand.colors.accent}`,
           }}
