@@ -6,6 +6,7 @@
 // it (PATCH /api/posts/[id]). Native HTML5 drag-and-drop — no extra
 // dependency needed for a grid this simple.
 import { useEffect, useState } from 'react';
+import AddToCalendarModal from './AddToCalendarModal';
 
 type PostSummary = {
   id: string;
@@ -64,6 +65,7 @@ export default function CalendarBoard({ initialWeekStart }: { initialWeekStart: 
   const [selected, setSelected] = useState<PostSummary | null>(null);
   const [dragOverCell, setDragOverCell] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +82,13 @@ export default function CalendarBoard({ initialWeekStart }: { initialWeekStart: 
       cancelled = true;
     };
   }, [weekStart]);
+
+  async function refetchWeek() {
+    setLoading(true);
+    const refreshed = await fetch(`/api/posts?weekStart=${weekStart}`).then((r) => r.json());
+    setData(refreshed);
+    setLoading(false);
+  }
 
   async function handleDrop(date: string, platform: string, postId: string) {
     setDragOverCell(null);
@@ -112,10 +121,7 @@ export default function CalendarBoard({ initialWeekStart }: { initialWeekStart: 
 
     // Refetch to reflect the move (cheapest correct approach for a low-traffic
     // single-operator dashboard — no optimistic-update bookkeeping needed).
-    setLoading(true);
-    const refreshed = await fetch(`/api/posts?weekStart=${weekStart}`).then((r) => r.json());
-    setData(refreshed);
-    setLoading(false);
+    await refetchWeek();
   }
 
   if (loading && !data) {
@@ -140,6 +146,12 @@ export default function CalendarBoard({ initialWeekStart }: { initialWeekStart: 
             className="rounded-md border border-dark/20 px-3 py-1.5 font-body text-sm text-dark hover:bg-dark/5"
           >
             Next week →
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="rounded-md bg-primary px-3 py-1.5 font-body text-sm font-semibold text-light hover:opacity-90"
+          >
+            + Add to calendar
           </button>
         </div>
         <span className="font-body text-sm text-muted">
@@ -266,6 +278,18 @@ export default function CalendarBoard({ initialWeekStart }: { initialWeekStart: 
             {PLATFORM_LABELS[selected.platform] ?? selected.platform} · {selected.format}
           </p>
         </div>
+      )}
+
+      {showAddModal && (
+        <AddToCalendarModal
+          platforms={data.platforms}
+          defaultDate={weekStart}
+          onClose={() => setShowAddModal(false)}
+          onAdded={async () => {
+            setShowAddModal(false);
+            await refetchWeek();
+          }}
+        />
       )}
     </div>
   );

@@ -64,17 +64,17 @@ export default function BrandBadge({ brand, width, variant = 'corner', textColor
     );
   }
 
-  // 'corner': small bottom-right mark, logo image (if brand.logoUrl is set)
-  // + social handle text (if brand.socialHandle is set), plus an optional
-  // website/phone contact pill stacked above it (only when set — same
-  // no-fabrication rule as the caption CTA: never a placeholder on a
-  // rendered image). Renders nothing if none of the four are set — every
+  // 'corner': small bottom-right website/phone contact pill (only when set —
+  // same no-fabrication rule as the caption CTA: never a placeholder on a
+  // rendered image). Used to also stack a second logo+@handle pill below
+  // this one, but that duplicated the brand identity the contact pill
+  // already carries and cluttered the corner — dropped, contact info alone
+  // is enough. Renders nothing if neither website nor phone is set — every
   // template places this last, inside a position:'relative' outer
   // container, so it always overlays in the bottom-right corner regardless
   // of the template's own layout.
-  if (!brand.logoUrl && !brand.socialHandle && !brand.website && !brand.phone) return null;
+  if (!brand.website && !brand.phone) return null;
 
-  const logoSize = Math.round(width * 0.09);
   const contactFontSize = Math.round(width * 0.022);
   const iconSize = Math.round(width * 0.02);
 
@@ -90,84 +90,45 @@ export default function BrandBadge({ brand, width, variant = 'corner', textColor
         gap: Math.round(width * 0.012),
       }}
     >
-      {(brand.website || brand.phone) && (
-        // Stacked rows (website above phone), not one wide row — a
-        // combined "yousufliving.pk  +92 313 045 3565" pill grew far
-        // wider than the corner clearance existing templates already
-        // reserve for the (much shorter) logo/handle pill it stacks
-        // above, and overlapped headline text on real renders
-        // (carousel-slide.tsx confirmed live). Each row alone is roughly
-        // the same width as "@yousufliving", so it fits the clearance
-        // every template using BrandBadge already has.
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-            gap: Math.round(width * 0.006),
-            padding: `${Math.round(width * 0.012)}px ${Math.round(width * 0.018)}px`,
-            borderRadius: Math.round(width * 0.014),
-            background: `${brand.colors.primary}EE`,
-            border: `1.5px solid ${brand.colors.accent}`,
-          }}
-        >
-          {brand.website && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: Math.round(width * 0.006) }}>
-              <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke={brand.colors.accent} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-                <path d="M2 12h20" />
-              </svg>
-              <span style={{ fontFamily: brand.fonts.body, fontWeight: 700, fontSize: contactFontSize, color: brand.colors.light }}>
-                {brand.website}
-              </span>
+      {/* Stacked rows (website above phone), not one wide row — a combined
+          "yousufliving.pk  +92 313 045 3565" pill grew far wider than the
+          corner clearance existing templates reserve, and overlapped
+          headline text on real renders (carousel-slide.tsx confirmed live). */}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          gap: Math.round(width * 0.006),
+          padding: `${Math.round(width * 0.012)}px ${Math.round(width * 0.018)}px`,
+          borderRadius: Math.round(width * 0.014),
+          background: `${brand.colors.primary}EE`,
+          border: `1.5px solid ${brand.colors.accent}`,
+        }}
+      >
+        {brand.website && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: Math.round(width * 0.006) }}>
+            <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke={brand.colors.accent} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+              <path d="M2 12h20" />
+            </svg>
+            <span style={{ fontFamily: brand.fonts.body, fontWeight: 700, fontSize: contactFontSize, color: brand.colors.light }}>
+              {brand.website}
             </span>
-          )}
-          {brand.phone && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: Math.round(width * 0.006) }}>
-              <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke={brand.colors.accent} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-              </svg>
-              <span style={{ fontFamily: brand.fonts.body, fontWeight: 700, fontSize: contactFontSize, color: brand.colors.light }}>
-                {brand.phone}
-              </span>
+          </span>
+        )}
+        {brand.phone && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: Math.round(width * 0.006) }}>
+            <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke={brand.colors.accent} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+            </svg>
+            <span style={{ fontFamily: brand.fonts.body, fontWeight: 700, fontSize: contactFontSize, color: brand.colors.light }}>
+              {brand.phone}
             </span>
-          )}
-        </div>
-      )}
-      {(brand.logoUrl || brand.socialHandle) && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: Math.round(width * 0.015),
-            padding: `${Math.round(width * 0.012)}px ${Math.round(width * 0.02)}px`,
-            borderRadius: 999,
-            background: `${brand.colors.dark}66`,
-          }}
-        >
-          {brand.logoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={brand.logoUrl}
-              alt=""
-              style={{ width: logoSize, height: logoSize, borderRadius: '50%', objectFit: 'cover' }}
-            />
-          )}
-          {brand.socialHandle && (
-            <span
-              style={{
-                fontFamily: brand.fonts.body,
-                fontWeight: 600,
-                fontSize: Math.round(width * 0.024),
-                color: brand.colors.light,
-              }}
-            >
-              {brand.socialHandle}
-            </span>
-          )}
-        </div>
-      )}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

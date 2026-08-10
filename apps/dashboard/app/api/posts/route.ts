@@ -1,7 +1,10 @@
 // GET /api/posts — list all posts (with optional state filter).
 // GET /api/posts?weekStart=YYYY-MM-DD — Calendar week data (Week 5, US4, T039/T040).
+// GET /api/posts?schedulable=1&platform=<platform|all> — posts eligible to be
+// manually placed on the calendar (Add to Calendar picker): excludes
+// published and failed (the state the dashboard's "Reject" button writes).
 import { NextRequest, NextResponse } from 'next/server';
-import { and, desc, eq, gte, lt, or } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, ne, or } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { posts, templates } from '@/lib/db/schema';
 import { getDailyCap } from '@/lib/cap-limits';
@@ -37,6 +40,41 @@ function mondayOf(date: Date): Date {
 export async function GET(request: NextRequest) {
   const weekStartParam = request.nextUrl.searchParams.get('weekStart');
   const stateFilter = request.nextUrl.searchParams.get('state');
+  const schedulable = request.nextUrl.searchParams.get('schedulable');
+
+  if (schedulable) {
+    const platformFilter = request.nextUrl.searchParams.get('platform');
+    const conditions = [ne(posts.state, 'published'), ne(posts.state, 'failed')];
+    if (platformFilter && platformFilter !== 'all') {
+      conditions.push(eq(posts.platform, platformFilter));
+    }
+    const schedulablePosts = await db
+      .select({
+        id: posts.id,
+        platform: posts.platform,
+        format: posts.format,
+        state: posts.state,
+        caption: posts.caption,
+        renderUrl: posts.renderUrl,
+        scheduledAt: posts.scheduledAt,
+        createdAt: posts.createdAt,
+        templateId: posts.templateId,
+        templateSlug: templates.slug,
+        templateDisplayName: templates.displayName,
+      })
+      .from(posts)
+      .leftJoin(templates, eq(posts.templateId, templates.id))
+      .where(and(...conditions))
+      .orderBy(desc(posts.createdAt))
+      .limit(200);
+    return NextResponse.json(
+      schedulablePosts.map((p) => ({
+        ...p,
+        scheduledAt: p.scheduledAt?.toISOString() ?? null,
+        createdAt: p.createdAt?.toISOString() ?? null,
+      }))
+    );
+  }
 
   // If no weekStart param, return all posts (for the /posts management page)
   if (!weekStartParam && !stateFilter) {
