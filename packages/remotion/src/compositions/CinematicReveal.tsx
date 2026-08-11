@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT, RADIUS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP, stripEmoji, MusicBed } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji, MusicBed, useSquareRevealPan } from '../lib/kit';
 
 // =============================================================================
 // CinematicReveal — Film-inspired dramatic reveal with letterbox
@@ -31,6 +31,7 @@ const CinematicReveal: React.FC<Props> = ({
   tagline
 }) => {
   const frame = useCurrentFrame();
+  const pan = useSquareRevealPan(1080, 1920, compositionConfig.durationInSeconds * compositionConfig.fps);
 
   // Letterbox reveal animation
   const letterboxOpen = spring({
@@ -96,13 +97,16 @@ const CinematicReveal: React.FC<Props> = ({
       <AbsoluteFill style={{
         transform: `translate(${camX}px, ${camY}px) scale(${camScale})`,
       }}>
-        <AbsoluteFill style={{ opacity: imageOp }}>
+        <AbsoluteFill style={{ opacity: imageOp, overflow: 'hidden' }}>
           <Img
             src={imageUrl}
             maxRetries={3}
             style={{
-              width: '100%',
-              height: '100%',
+              position: 'absolute',
+              top: 0,
+              left: pan.left,
+              width: pan.width,
+              height: pan.height,
               objectFit: 'cover',
               transform: `scale(${imageScale})`,
             }}

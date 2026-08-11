@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from 'remotion';
 import { BRAND, COLORS, EASINGS, GRADIENT } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP, stripEmoji, MusicBed } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji, MusicBed, useSquareRevealPan } from '../lib/kit';
 
 // =============================================================================
 // PriceReveal — builds anticipation on a hook line, then wipes in the price.
@@ -19,6 +19,7 @@ type Props = {
 
 const PriceReveal: React.FC<Props> = ({ imageUrl, price, hookText = 'Ye kitne ka hoga?' }) => {
   const frame = useCurrentFrame();
+  const pan = useSquareRevealPan(1080, 1920, compositionConfig.durationInSeconds * compositionConfig.fps);
 
   const hookOp = interpolate(frame, [0, 35], [0, 1], { ...CLAMP, easing: EASINGS.overshoot });
   const hookScale = interpolate(frame, [0, 35], [0.8, 1], { ...CLAMP, easing: EASINGS.overshoot });
@@ -34,7 +35,13 @@ const PriceReveal: React.FC<Props> = ({ imageUrl, price, hookText = 'Ye kitne ka
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.d900 }}>
       <MusicBed trackId="PriceReveal" />
-      <Img src={imageUrl} maxRetries={3} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      <AbsoluteFill style={{ overflow: 'hidden' }}>
+        <Img
+          src={imageUrl}
+          maxRetries={3}
+          style={{ position: 'absolute', top: 0, left: pan.left, width: pan.width, height: pan.height, objectFit: 'cover' }}
+        />
+      </AbsoluteFill>
 
       {/* Enhanced vignette overlay */}
       <AbsoluteFill

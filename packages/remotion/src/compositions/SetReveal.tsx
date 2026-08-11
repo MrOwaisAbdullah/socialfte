@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from 'remotion';
 import { BRAND, COLORS, EASINGS, SHADOW } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP, MusicBed } from '../lib/kit';
+import { BrandBadge, CLAMP, MusicBed, useSquareRevealPan } from '../lib/kit';
 
 // =============================================================================
 // SetReveal — two "wardrobe door" panels slide open (CSS transform) to reveal
@@ -22,6 +22,7 @@ type Props = {
 
 const SetReveal: React.FC<Props> = ({ imageUrl, setName, bundlePrice }) => {
   const frame = useCurrentFrame();
+  const pan = useSquareRevealPan(1080, 1920, compositionConfig.durationInSeconds * compositionConfig.fps);
 
   const doorProgress = interpolate(frame, [DOOR_OPEN_START, DOOR_OPEN_END], [0, 1], {
     ...CLAMP,
@@ -37,7 +38,13 @@ const SetReveal: React.FC<Props> = ({ imageUrl, setName, bundlePrice }) => {
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.d900 }}>
       <MusicBed trackId="SetReveal" />
-      <Img src={imageUrl} maxRetries={3} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      <AbsoluteFill style={{ overflow: 'hidden' }}>
+        <Img
+          src={imageUrl}
+          maxRetries={3}
+          style={{ position: 'absolute', top: 0, left: pan.left, width: pan.width, height: pan.height, objectFit: 'cover' }}
+        />
+      </AbsoluteFill>
 
       {/* the two door panels, styled from brand tokens, sliding fully off-screen */}
       <AbsoluteFill

@@ -1,10 +1,16 @@
 'use client';
 
-// "Add to calendar" picker — lets an operator manually place an existing
-// post (one that wasn't auto-slotted onto this week, e.g. drafted before the
-// week existed, or previously rescheduled off it) onto a chosen day. Reuses
-// the same PATCH /api/posts/[id] { scheduledAt } reschedule path CalendarBoard's
-// drag-and-drop already uses.
+// "Add to calendar" picker — opened from a specific day×platform cell on the
+// calendar grid, so the target date and platform are fixed by which cell you
+// clicked, not picked separately (a separate date/platform picker let you
+// schedule a post onto a week you weren't looking at, so a successful
+// reschedule could look like nothing happened). Two sections:
+//  - Reschedule: same-platform posts not yet published/rejected, moved onto
+//    this exact date via the same PATCH /api/posts/[id] path drag-and-drop uses.
+//  - Cross-publish: posts from OTHER platforms whose render format this
+//    platform actually supports (see lib/platform-formats.ts) — duplicates
+//    the post onto this platform/date via POST /api/posts/[id]/duplicate
+//    instead of moving it, since the source post's own slot must stay put.
 import { useEffect, useState } from 'react';
 
 type SchedulablePost = {
@@ -33,31 +39,78 @@ const STATE_COLORS: Record<string, string> = {
   skipped: 'bg-dark/10 text-muted',
 };
 
+function formatScheduled(iso: string | null): string {
+  if (!iso) return 'Not yet scheduled';
+  const d = new Date(iso);
+  return `Currently: ${d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', timeZone: 'UTC' })}`;
+}
+
+function PostRow({
+  post,
+  busy,
+  onAdd,
+  crossPublish,
+}: {
+  post: SchedulablePost;
+  busy: boolean;
+  onAdd: () => void;
+  crossPublish?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-md border border-dark/10 px-3 py-2">
+      {post.renderUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={post.renderUrl} alt="" className="h-12 w-12 flex-none rounded object-cover" />
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-body text-sm text-dark">{post.caption?.slice(0, 60) || post.format}</p>
+        <p className="font-body text-xs text-muted">
+          {crossPublish ? `From ${PLATFORM_LABELS[post.platform] ?? post.platform} · ` : ''}
+          <span className={`rounded px-1.5 py-0.5 ${STATE_COLORS[post.state] ?? 'bg-dark/10 text-dark'}`}>{post.state}</span>
+          {' · '}
+          {formatScheduled(post.scheduledAt)}
+        </p>
+      </div>
+      <button
+        onClick={onAdd}
+        disabled={busy}
+        className="flex-none rounded-md bg-primary px-3 py-1.5 font-body text-xs font-semibold text-light hover:opacity-90 disabled:opacity-50"
+      >
+        {busy ? 'Adding…' : crossPublish ? 'Cross-publish' : 'Add'}
+      </button>
+    </div>
+  );
+}
+
 export default function AddToCalendarModal({
-  platforms,
-  defaultDate,
+  date,
+  platform,
   onClose,
   onAdded,
 }: {
-  platforms: string[];
-  defaultDate: string;
+  date: string;
+  platform: string;
   onClose: () => void;
   onAdded: () => void;
 }) {
-  const [platformFilter, setPlatformFilter] = useState('all');
-  const [date, setDate] = useState(defaultDate);
   const [posts, setPosts] = useState<SchedulablePost[]>([]);
+  const [crossPosts, setCrossPosts] = useState<SchedulablePost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [addingId, setAddingId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetch(`/api/posts?schedulable=1&platform=${platformFilter}`)
-      .then((r) => r.json())
-      .then((json: SchedulablePost[]) => {
-        if (!cancelled) setPosts(json);
+    Promise.all([
+      fetch(`/api/posts?schedulable=1&platform=${platform}`).then((r) => r.json()),
+      fetch(`/api/posts?schedulable=1&crossPublishTo=${platform}`).then((r) => r.json()),
+    ])
+      .then(([same, cross]: [SchedulablePost[], SchedulablePost[]]) => {
+        if (!cancelled) {
+          setPosts(same);
+          setCrossPosts(cross);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -65,26 +118,49 @@ export default function AddToCalendarModal({
     return () => {
       cancelled = true;
     };
-  }, [platformFilter]);
+  }, [platform]);
 
-  async function handleAdd(postId: string) {
-    setAddingId(postId);
+  async function handleReschedule(post: SchedulablePost) {
+    setBusyId(post.id);
     setError(null);
-    // Keep the post's existing time-of-day if it had one, noon UTC otherwise.
-    const existing = posts.find((p) => p.id === postId);
-    const time = existing?.scheduledAt ? existing.scheduledAt.slice(11, 19) : '12:00:00';
-    const resp = await fetch(`/api/posts/${postId}`, {
+    const time = post.scheduledAt ? post.scheduledAt.slice(11, 19) : '12:00:00';
+    const resp = await fetch(`/api/posts/${post.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ scheduledAt: `${date}T${time}Z` }),
     });
-    setAddingId(null);
+    setBusyId(null);
     if (!resp.ok) {
       setError('Failed to add post to calendar.');
       return;
     }
     onAdded();
   }
+
+  async function handleCrossPublish(post: SchedulablePost) {
+    setBusyId(post.id);
+    setError(null);
+    const time = post.scheduledAt ? post.scheduledAt.slice(11, 19) : '12:00:00';
+    const resp = await fetch(`/api/posts/${post.id}/duplicate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform, scheduledAt: `${date}T${time}Z` }),
+    });
+    setBusyId(null);
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      setError(body.error || 'Failed to cross-publish post.');
+      return;
+    }
+    onAdded();
+  }
+
+  const dateLabel = new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
 
   return (
     <div
@@ -98,86 +174,54 @@ export default function AddToCalendarModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h2 className="font-heading text-xl text-primary">Add post to calendar</h2>
+          <h2 className="font-heading text-xl text-primary">
+            Add to {PLATFORM_LABELS[platform] ?? platform} · {dateLabel}
+          </h2>
           <button onClick={onClose} className="font-body text-sm text-muted hover:text-dark">
             Close
           </button>
-        </div>
-
-        <label className="flex items-center gap-2 font-body text-sm text-dark">
-          Date
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="rounded-md border border-dark/20 px-2 py-1 font-body text-sm"
-          />
-        </label>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setPlatformFilter('all')}
-            className={`rounded-full border px-3 py-1 font-body text-xs ${
-              platformFilter === 'all' ? 'border-primary bg-primary text-light' : 'border-dark/20 text-dark hover:bg-dark/5'
-            }`}
-          >
-            All platforms
-          </button>
-          {platforms.map((platform) => (
-            <button
-              key={platform}
-              onClick={() => setPlatformFilter(platform)}
-              className={`rounded-full border px-3 py-1 font-body text-xs ${
-                platformFilter === platform ? 'border-primary bg-primary text-light' : 'border-dark/20 text-dark hover:bg-dark/5'
-              }`}
-            >
-              {PLATFORM_LABELS[platform] ?? platform}
-            </button>
-          ))}
         </div>
 
         {error && <p className="font-body text-sm text-red-700">{error}</p>}
 
         {loading ? (
           <p className="font-body text-sm text-muted">Loading posts…</p>
-        ) : posts.length === 0 ? (
-          <p className="font-body text-sm text-muted">No eligible posts for this filter.</p>
         ) : (
-          <div className="flex flex-col gap-2">
-            {posts.map((post) => (
-              <div
-                key={post.id}
-                className="flex items-center gap-3 rounded-md border border-dark/10 px-3 py-2"
-              >
-                {post.renderUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={post.renderUrl}
-                    alt=""
-                    className="h-12 w-12 flex-none rounded object-cover"
+          <>
+            <div className="flex flex-col gap-2">
+              <h3 className="font-body text-xs font-semibold uppercase tracking-wider text-muted">
+                {PLATFORM_LABELS[platform] ?? platform} posts
+              </h3>
+              {posts.length === 0 ? (
+                <p className="font-body text-sm text-muted">No eligible posts for this platform.</p>
+              ) : (
+                posts.map((post) => (
+                  <PostRow key={post.id} post={post} busy={busyId === post.id} onAdd={() => handleReschedule(post)} />
+                ))
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <h3 className="font-body text-xs font-semibold uppercase tracking-wider text-muted">
+                Cross-publish from another platform
+              </h3>
+              {crossPosts.length === 0 ? (
+                <p className="font-body text-sm text-muted">
+                  No other-platform posts with a format {PLATFORM_LABELS[platform] ?? platform} supports.
+                </p>
+              ) : (
+                crossPosts.map((post) => (
+                  <PostRow
+                    key={post.id}
+                    post={post}
+                    busy={busyId === post.id}
+                    onAdd={() => handleCrossPublish(post)}
+                    crossPublish
                   />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-body text-sm text-dark">
-                    {post.caption?.slice(0, 60) || post.format}
-                  </p>
-                  <p className="font-body text-xs text-muted">
-                    {PLATFORM_LABELS[post.platform] ?? post.platform} ·{' '}
-                    <span className={`rounded px-1.5 py-0.5 ${STATE_COLORS[post.state] ?? 'bg-dark/10 text-dark'}`}>
-                      {post.state}
-                    </span>
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleAdd(post.id)}
-                  disabled={addingId === post.id}
-                  className="flex-none rounded-md bg-primary px-3 py-1.5 font-body text-xs font-semibold text-light hover:opacity-90 disabled:opacity-50"
-                >
-                  {addingId === post.id ? 'Adding…' : 'Add'}
-                </button>
-              </div>
-            ))}
-          </div>
+                ))
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>

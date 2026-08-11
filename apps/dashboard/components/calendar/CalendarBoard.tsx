@@ -65,7 +65,7 @@ export default function CalendarBoard({ initialWeekStart }: { initialWeekStart: 
   const [selected, setSelected] = useState<PostSummary | null>(null);
   const [dragOverCell, setDragOverCell] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [addTarget, setAddTarget] = useState<{ date: string; platform: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,12 +147,6 @@ export default function CalendarBoard({ initialWeekStart }: { initialWeekStart: 
           >
             Next week →
           </button>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="rounded-md bg-primary px-3 py-1.5 font-body text-sm font-semibold text-light hover:opacity-90"
-          >
-            + Add to calendar
-          </button>
         </div>
         <span className="font-body text-sm text-muted">
           Week of {formatDayLabel(data.weekStart)}
@@ -219,9 +213,18 @@ export default function CalendarBoard({ initialWeekStart }: { initialWeekStart: 
                           aria-hidden
                         />
                       </div>
-                      <p className="mb-1 font-body text-[11px] text-muted">
-                        {cell.count}/{cell.cap} {overCap && <span className="text-red-700">· over cap</span>}
-                      </p>
+                      <div className="mb-1 flex items-center justify-between gap-1">
+                        <p className="font-body text-[11px] text-muted">
+                          {cell.count}/{cell.cap} {overCap && <span className="text-red-700">· over cap</span>}
+                        </p>
+                        <button
+                          onClick={() => setAddTarget({ date: day.date, platform })}
+                          title={`Add to ${PLATFORM_LABELS[platform] ?? platform} on ${formatDayLabel(day.date)}`}
+                          className="flex-none rounded border border-dark/20 px-1.5 font-body text-xs leading-4 text-dark hover:bg-dark/5"
+                        >
+                          +
+                        </button>
+                      </div>
                       <div className="flex flex-col gap-1.5">
                         {cell.posts.map((post) => (
                           <button
@@ -280,13 +283,13 @@ export default function CalendarBoard({ initialWeekStart }: { initialWeekStart: 
         </div>
       )}
 
-      {showAddModal && (
+      {addTarget && (
         <AddToCalendarModal
-          platforms={data.platforms}
-          defaultDate={weekStart}
-          onClose={() => setShowAddModal(false)}
+          date={addTarget.date}
+          platform={addTarget.platform}
+          onClose={() => setAddTarget(null)}
           onAdded={async () => {
-            setShowAddModal(false);
+            setAddTarget(null);
             await refetchWeek();
           }}
         />

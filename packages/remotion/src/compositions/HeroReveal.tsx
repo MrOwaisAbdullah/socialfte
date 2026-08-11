@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from 'remotion';
 import { BRAND, COLORS, EASINGS } from '../brand';
 import { FONT_DISPLAY, FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP, stripEmoji, MusicBed } from '../lib/kit';
+import { BrandBadge, CLAMP, stripEmoji, MusicBed, useSquareRevealPan } from '../lib/kit';
 
 // =============================================================================
 // HeroReveal — a still room render turned into motion: slow Ken Burns zoom,
@@ -25,16 +25,15 @@ type Props = {
 const HeroReveal: React.FC<Props> = ({ imageUrl, headline, subline }) => {
   const frame = useCurrentFrame();
 
-  // Enhanced Ken Burns with subtle pan for more dynamic feel
+  // Ken Burns zoom, plus a full-width reveal pan across the whole clip so a
+  // 1:1 source photo's left and right edges — cropped away forever by a
+  // plain object-fit:cover on this 9:16 frame — both get shown over time.
   const scale = interpolate(frame, [0, ZOOM_DURATION_FRAMES], [1.0, 1.15], {
     ...CLAMP,
     easing: EASINGS.easeInOut,
   });
 
-  const panX = interpolate(frame, [0, ZOOM_DURATION_FRAMES], [-20, 20], {
-    ...CLAMP,
-    easing: EASINGS.easeInOut,
-  });
+  const pan = useSquareRevealPan(1080, 1920, compositionConfig.durationInSeconds * compositionConfig.fps);
 
   const headlineOp = interpolate(frame, [20, 40], [0, 1], { ...CLAMP, easing: EASINGS.overshoot });
   const headlineY = interpolate(frame, [20, 40], [20, 0], { ...CLAMP, easing: EASINGS.overshoot });
@@ -48,11 +47,11 @@ const HeroReveal: React.FC<Props> = ({ imageUrl, headline, subline }) => {
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.d900 }}>
       <MusicBed trackId="HeroReveal" />
-      <AbsoluteFill style={{ transform: `scale(${scale}) translateX(${panX}px)` }}>
+      <AbsoluteFill style={{ transform: `scale(${scale})`, overflow: 'hidden' }}>
         <Img
           src={imageUrl}
           maxRetries={3}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          style={{ position: 'absolute', top: 0, left: pan.left, width: pan.width, height: pan.height, objectFit: 'cover' }}
         />
       </AbsoluteFill>
 

@@ -80,6 +80,31 @@ export const useRise = () => {
   });
 };
 
+// Pans a 1:1 (square) source photo across its full rendered width inside a
+// taller-than-wide frame (vertical reels, e.g. 1080x1920) so every part of
+// it gets shown over the shot, instead of a fixed center slice being cropped
+// away forever. object-fit:cover crops at the <Img>'s own box during paint —
+// transforming an ancestor afterward (the zoom/pan every reel shot already
+// did: `scale()`/`translateX()` on a wrapper around a width:100%/height:100%
+// <Img>) only re-scales or re-shifts that already-cropped result; it can
+// never reveal what cover cropped away, since percentages resolve against
+// the pre-transform layout box regardless of any transform applied to an
+// ancestor (confirmed live: a post's photo only ever showed its dead-center
+// vertical strip no matter how the wrapper's pan/zoom values were tuned).
+// The actual fix: size the <Img> itself to how wide a square source really
+// renders once scaled to cover the frame's height (that's `frameHeight`,
+// since scaling a square image to match frame height also makes it
+// frameHeight wide), then animate that oversized box's own `left` inside an
+// overflow:hidden viewport pinned to the frame — the crop window itself
+// moves over time instead of staying fixed at the centered slice.
+export const useSquareRevealPan = (frameWidth: number, frameHeight: number, endFrame: number, startFrame = 0) => {
+  const frame = useCurrentFrame();
+  const renderedWidth = frameHeight;
+  const maxShift = renderedWidth - frameWidth;
+  const left = interpolate(frame, [startFrame, endFrame], [0, -maxShift], { ...CLAMP, easing: EASINGS.easeInOut });
+  return { left, width: renderedWidth, height: frameHeight };
+};
+
 // =============================================================================
 // Claude Code clone — realistic terminal/chat with a typed prompt (dark + coral)
 // =============================================================================

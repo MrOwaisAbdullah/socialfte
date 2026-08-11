@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, interpolate, useCurrentFrame } from 'remotion';
 import { COLORS, EASINGS } from '../brand';
 import { FONT_BODY } from '../fonts';
-import { BrandBadge, CLAMP, MusicBed } from '../lib/kit';
+import { BrandBadge, CLAMP, MusicBed, useSquareRevealPan } from '../lib/kit';
 
 // =============================================================================
 // FabricDetail — a slow pan across a close-up (fabric, stitching, hardware).
@@ -21,12 +21,10 @@ type Props = {
 const FabricDetail: React.FC<Props> = ({ imageUrl, qualityClaim }) => {
   const frame = useCurrentFrame();
 
-  // Slow pan: the image is rendered oversized and translated across the frame,
-  // rather than zoomed, for a steadier "close inspection" feel than Ken Burns.
-  const panX = interpolate(frame, [0, PAN_DURATION_FRAMES], [-4, 4], {
-    ...CLAMP,
-    easing: EASINGS.easeInOut,
-  });
+  // Slow pan across the source's full width, not zoomed — a steadier "close
+  // inspection" feel than Ken Burns, and (unlike the old ±4% wrapper pan)
+  // an actual traversal of the 1:1 source instead of a fixed center crop.
+  const pan = useSquareRevealPan(1080, 1920, PAN_DURATION_FRAMES);
 
   const textOp = interpolate(frame, [20, 36], [0, 1], { ...CLAMP, easing: EASINGS.easeOut });
   const textY = interpolate(frame, [20, 36], [12, 0], { ...CLAMP, easing: EASINGS.easeOut });
@@ -34,8 +32,12 @@ const FabricDetail: React.FC<Props> = ({ imageUrl, qualityClaim }) => {
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.d900 }}>
       <MusicBed trackId="FabricDetail" />
-      <AbsoluteFill style={{ transform: `translateX(${panX}%) scale(1.12)` }}>
-        <Img src={imageUrl} maxRetries={3} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      <AbsoluteFill style={{ overflow: 'hidden' }}>
+        <Img
+          src={imageUrl}
+          maxRetries={3}
+          style={{ position: 'absolute', top: 0, left: pan.left, width: pan.width, height: pan.height, objectFit: 'cover' }}
+        />
       </AbsoluteFill>
 
       <AbsoluteFill

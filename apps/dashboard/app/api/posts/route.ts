@@ -1,13 +1,17 @@
 // GET /api/posts — list all posts (with optional state filter).
 // GET /api/posts?weekStart=YYYY-MM-DD — Calendar week data (Week 5, US4, T039/T040).
-// GET /api/posts?schedulable=1&platform=<platform|all> — posts eligible to be
-// manually placed on the calendar (Add to Calendar picker): excludes
-// published and failed (the state the dashboard's "Reject" button writes).
+// GET /api/posts?schedulable=1&platform=<platform> — same-platform posts eligible
+// to be manually placed on the calendar (Add to Calendar picker, reschedule path):
+// excludes published and failed (the state the dashboard's "Reject" button writes).
+// GET /api/posts?schedulable=1&crossPublishTo=<platform> — other-platform posts
+// eligible to be duplicated onto <platform> (cross-publish path): same exclusions,
+// plus restricted to posts whose format the target platform actually supports.
 import { NextRequest, NextResponse } from 'next/server';
-import { and, desc, eq, gte, lt, ne, or } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lt, ne, or } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { posts, templates } from '@/lib/db/schema';
 import { getDailyCap } from '@/lib/cap-limits';
+import { PLATFORM_FORMATS } from '@/lib/platform-formats';
 
 // A post's calendar day: the day it actually went out (publishedAt) if it
 // has, otherwise the day it's scheduled for, otherwise the day it was
@@ -44,8 +48,15 @@ export async function GET(request: NextRequest) {
 
   if (schedulable) {
     const platformFilter = request.nextUrl.searchParams.get('platform');
+    const crossPublishTo = request.nextUrl.searchParams.get('crossPublishTo');
     const conditions = [ne(posts.state, 'published'), ne(posts.state, 'failed')];
-    if (platformFilter && platformFilter !== 'all') {
+    if (crossPublishTo) {
+      const compatibleFormats = PLATFORM_FORMATS[crossPublishTo] ?? [];
+      if (compatibleFormats.length === 0) {
+        return NextResponse.json([]);
+      }
+      conditions.push(ne(posts.platform, crossPublishTo), inArray(posts.format, compatibleFormats));
+    } else if (platformFilter) {
       conditions.push(eq(posts.platform, platformFilter));
     }
     const schedulablePosts = await db

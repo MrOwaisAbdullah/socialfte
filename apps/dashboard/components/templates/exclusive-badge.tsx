@@ -27,11 +27,13 @@ export type ExclusiveBadgeProps = {
 // it turns out to be for a given headline — pushes the photo down via
 // normal flow, so this can't recur regardless of headline length.
 //
-// Deliberately run as the black+bone+white+crimson variant (brand.colors.ink
-// + brand.colors.secondary) instead of the usual green+gold — gives real
-// visual variety across a batch of posts instead of every dark template
-// converging on the same green+gold look (user feedback: "why all the
-// posts are black + white + gold, where's the crimson").
+// Deliberately run as the black+bone+white+gold variant (brand.colors.ink
+// + brand.colors.accent) instead of the usual green+gold — gives real visual
+// variety across a batch of posts instead of every dark template converging
+// on the same green+gold look (user feedback: "why all the posts are
+// black + white + gold, where's the crimson"), without leaning on crimson —
+// a black+crimson version of this template read as a clearance-sale flyer,
+// not the brand (user feedback, second round).
 export default function ExclusiveBadge({
   imageUrl,
   headline,
@@ -96,7 +98,7 @@ export default function ExclusiveBadge({
             style={{
               marginTop: Math.round(width * 0.012),
               display: 'inline-block',
-              border: `2px solid ${brand.colors.secondary}`,
+              border: `2px solid ${brand.colors.accent}`,
               padding: `${Math.round(width * 0.014)}px ${Math.round(width * 0.026)}px`,
             }}
           >
@@ -107,7 +109,7 @@ export default function ExclusiveBadge({
                 fontSize: Math.round(width * 0.044),
                 letterSpacing: 1,
                 textTransform: 'uppercase',
-                color: brand.colors.secondary,
+                color: brand.colors.accent,
               }}
             >
               {stripEmoji(headline)}
@@ -144,7 +146,7 @@ export default function ExclusiveBadge({
               height: Math.round(width * 0.17),
               borderRadius: '50%',
               border: `1.5px solid ${brand.colors.light}`,
-              background: brand.colors.secondary,
+              background: brand.colors.accent,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -153,7 +155,7 @@ export default function ExclusiveBadge({
               gap: 2,
             }}
           >
-            <span style={{ fontFamily: brand.fonts.body, fontSize: Math.round(width * 0.015), color: brand.colors.light }}>
+            <span style={{ fontFamily: brand.fonts.body, fontSize: Math.round(width * 0.015), color: brand.colors.dark }}>
               {stripEmoji(badgeText)}
             </span>
             {badgeValue && (
@@ -162,7 +164,7 @@ export default function ExclusiveBadge({
                   fontFamily: brand.fonts.heading,
                   fontWeight: 800,
                   fontSize: Math.round(width * 0.034),
-                  color: brand.colors.light,
+                  color: brand.colors.dark,
                 }}
               >
                 {stripEmoji(badgeValue)}
@@ -188,15 +190,15 @@ export default function ExclusiveBadge({
             fontFamily: brand.fonts.body,
             fontWeight: 700,
             fontSize: Math.round(width * 0.026),
-            color: brand.colors.light,
-            background: brand.colors.secondary,
+            color: brand.colors.dark,
+            background: brand.colors.accent,
             padding: `${Math.round(width * 0.017)}px ${Math.round(width * 0.036)}px`,
             borderRadius: 999,
           }}
         >
           {stripEmoji(ctaLabel)}
         </span>
-        <span style={{ fontFamily: brand.fonts.body, fontSize: Math.round(width * 0.024), color: brand.colors.secondary }}>
+        <span style={{ fontFamily: brand.fonts.body, fontSize: Math.round(width * 0.024), color: brand.colors.accent }}>
           {brand.socialHandle || ''}
         </span>
       </div>
