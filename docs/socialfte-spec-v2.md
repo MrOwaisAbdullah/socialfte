@@ -45,12 +45,12 @@ DeepSeek Flash is $0.09/M input, roughly the cheapest capable model available.
 
 | Job | Model | OpenRouter ID | Input $/M |
 |---|---|---|---|
-| Caption writing, hashtags | DeepSeek V4 Flash | `deepseek/deepseek-v4-flash-latest` | 0.09 |
-| Weekly digest, planning | DeepSeek V4 Flash | `deepseek/deepseek-v4-flash-latest` | 0.09 |
-| Hero post, brand-voice audit | DeepSeek V4 Pro | `deepseek/deepseek-v4-pro` | 0.435 |
-| Asset tagging (vision) | Gemini 2.5 Flash | `google/gemini-2.5-flash` | ~0.075 |
-| Image quality gate (vision) | Gemini 2.5 Flash | `google/gemini-2.5-flash` | ~0.075 |
-| Cover-frame selection (vision) | Gemini 2.5 Flash | `google/gemini-2.5-flash` | ~0.075 |
+| Caption writing, hashtags | DeepSeek V4 Flash | `~deepseek/deepseek-v4-flash-latest` | 0.09 |
+| Weekly digest, planning | DeepSeek V4 Flash | `~deepseek/deepseek-v4-flash-latest` | 0.09 |
+| Hero post, brand-voice audit | Gemini 3.7 Flash | `google/gemini-3.7-flash` | ~0.075 |
+| Asset tagging (vision) | DeepSeek V4 Flash Vision Exp | `deepseek/deepseek-v4-flash-vision-exp` | ~0.22 |
+| Image quality gate (vision) | DeepSeek V4 Flash Vision Exp | `deepseek/deepseek-v4-flash-vision-exp` | ~0.22 |
+| Cover-frame selection (vision) | DeepSeek V4 Flash Vision Exp | `deepseek/deepseek-v4-flash-vision-exp` | ~0.22 |
 | Dev / testing | DeepSeek V4 Flash free | `deepseek/deepseek-v4-flash-latest:free` | 0 |
 | Embeddings (anti-repeat) | OpenAI small | `openai/text-embedding-3-small` | 0.02 |
 
@@ -121,8 +121,8 @@ def model(name: str) -> LitellmModel:
 
 MODEL_MAP = {
     "caption":   "deepseek/deepseek-v4-flash-latest",
-    "judgement": "deepseek/deepseek-v4-pro",
-    "vision":    "google/gemini-2.5-flash",
+    "judgement": "google/gemini-3.7-flash",
+    "vision":    "deepseek/deepseek-v4-flash-vision-exp",
     "free":      "deepseek/deepseek-v4-flash-latest:free",
 }
 

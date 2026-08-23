@@ -84,7 +84,7 @@ async def _write_digest(weekly_data: dict) -> str:
     agent = Agent(
         name="WeeklyDigestWriter",
         instructions=load_prompt("SOUL.md", "BRAND.md"),
-        model=model("judgement"),
+        model=model("caption"),
     )
     result = await Runner.run(agent, prompt)
     return result.final_output

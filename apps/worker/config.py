@@ -179,10 +179,10 @@ class Settings(BaseSettings):
     OPENROUTER_SITE_URL: str = Field(default="")
     OPENROUTER_APP_NAME: str = Field(default="SocialFTE")
 
-    MODEL_CAPTION: str = Field(default="deepseek/deepseek-v4-flash-latest")
-    MODEL_JUDGEMENT: str = Field(default="deepseek/deepseek-v4-pro")
-    MODEL_VISION: str = Field(default="google/gemini-2.5-flash")
-    MODEL_EMBED: str = Field(default="openai/text-embedding-3-small")
+    MODEL_CAPTION: str = Field(default="~deepseek/deepseek-v4-flash-latest")     # $0.09/$0.09 per M
+    MODEL_JUDGEMENT: str = Field(default="google/gemini-3.7-flash")              # $0.375/$1.875 per M (75% off — limited time)
+    MODEL_VISION: str = Field(default="deepseek/deepseek-v4-flash-vision-exp")   # $0.22/$0.66 per M
+    MODEL_EMBED: str = Field(default="openai/text-embedding-3-small")            # $0.02 per M
     # MODEL_FREE is what test_free_tier_round_trip and BOOTSTRAP's Step 6 LLM
     # check hit. Previously deepseek/deepseek-v4-flash-latest:free, which OpenRouter
     # has deprecated ("use this slug instead: deepseek/deepseek-v4-flash-latest", a
