@@ -1,11 +1,14 @@
-# SocialFTE
+# SocialFTE — Autonomous AI Social Media Employee
 
-Social media automation for Pakistani furniture brands. Drafts posts, renders visuals, waits for human approval, then publishes.
+[![Frontend: Next.js 16](https://img.shields.io/badge/Frontend-Next.js%2016-black.svg?logo=next.js)](https://nextjs.org/)
+[![Worker: Python](https://img.shields.io/badge/Worker-Python%203.12+-blue.svg?logo=python)](https://python.org)
+[![Video Engine: Remotion](https://img.shields.io/badge/Video%20Engine-Remotion%20(TSX)-blueviolet.svg)](https://remotion.dev/)
+[![Approval: Discord & WhatsApp](https://img.shields.io/badge/Approval%20Gateways-Discord%20%7C%20WhatsApp-5865F2.svg)](./docs)
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-orange.svg)](./LICENSE)
 
-**Founding client:** Yousuf Living (Karachi)  
-**Version:** 0.1.0  
-**License:** MIT  
-**Author:** Owais Abdullah
+> **Autonomous full-stack AI Employee (Digital FTE) for social media operations. Drafts brand-voice copy, renders promotional visuals and high-converting Remotion videos, enforces human-in-the-loop approvals, and auto-publishes across Facebook, Instagram, YouTube Shorts, and TikTok.**
+
+**Architecture:** Next.js 16 Dashboard (`apps/dashboard`) + Python AI Worker (`apps/worker`) + Remotion Video Pipeline (`packages/remotion`)
 
 ---
 
